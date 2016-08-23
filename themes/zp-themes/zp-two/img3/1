@@ -1,0 +1,48 @@
+#side_menu .upper_items a{
+  background: green url("/sites/all/themes/zp-one/img3/smenu_up.jpg") no-repeat; 
+  /width: 110px;
+  padding: 8px;
+  padding-right: 180px;
+}
+
+#side_menu .upper_items a:hover{
+  background: url("/sites/all/themes/zp-one/img3/smenu_up_o.jpg") no-repeat; 
+}
+
+
+
+
+
+#side_menu ul li {
+   width: 180px;
+   /height: 60px;
+  padding-top: 0px;
+   background: transparent;
+   border: none;
+}
+
+#side_menu ul li a{
+  background: transparent url("/sites/all/themes/zp-one/img3/smenu_item.jpg") no-repeat; 
+  width: 110px;
+  padding: 8px;
+  padding-right: 110px;
+}
+
+#side_menu ul li a:hover{
+  background: url("/sites/all/themes/zp-one/img3/smenu_item_o.jpg") no-repeat; 
+  
+}
+
+#side_menu ul li :hover{
+  background: url("/sites/all/themes/zp-one/img3/smenu_item_o.jpg") no-repeat; 
+}
+
+
+#side_menu ul li ul li{
+   width: 180px;
+   left: 260px;
+   /height: 60px;
+  padding-top: 0px;
+   background: transparent;
+   border: none;
+}

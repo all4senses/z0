@@ -1,0 +1,11 @@
+; $Id: views_savedsearches.info,v 1.1.2.1 2007/09/05 10:14:42 wimleers Exp $
+name = Saved searches
+description = Allows users to save their current configuration of exposed filters for later use.
+dependencies = views jquery_form
+package = Views
+
+; Information added by drupal.org packaging script on 2007-09-05
+version = "5.x-1.0"
+project = "views_savedsearches"
+datestamp = "1188987906"
+

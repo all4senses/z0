@@ -1,0 +1,830 @@
+<div class="test">product_clothes</div>
+
+<?php 
+
+//if teaser ---------------------------------------------------------------------------------
+
+//print '<PRE>';
+//print_r($node);
+//print '</PRE>';
+
+//print '<PRE>';
+//print_r($_SESSION);
+//print '</PRE>';
+	
+?>
+
+
+<?php if ($teaser == 1): 
+
+global $user;
+
+if($node->field_status[0]['view'] == 'hidden' AND $user->uid != 1)
+	return;
+
+	
+if($node->content['field_weight_ingroup']['#value'] === NULL)	
+	$node->content['field_weight_ingroup']['#value'] = 0;	
+	
+
+?>
+ <div class="product_teaser type_1 
+	<?php 
+		if ($show_price < 0) echo ' no_dost';  
+		if($node->field_status[0]['view'] == 'hidden') echo ' hidden admin';
+		?>">
+
+    <a href="<?php print $node_url ?>" title="Перейти к подробному описанию товара <?php echo $title; if($node->weight) echo ', ' . $node->weight . ' ' . $node->weight_units ?>">
+      <div class="title">
+       <?php 
+        //print check_plain($title);
+        echo $title;
+        
+        //if($node->weight)
+        	//echo ', <span class="ves">' . $node->weight . ' ' . $node->weight_units . '</span>';
+       ?>
+      </div>
+      
+      
+	  <div class="image">
+	  <table><td>
+	  
+	  <?php
+   
+	  
+	    $photo_data = explode(';', $node->field_prodtype_pic_src_n_num[0]['view']);
+   		//$photo_data[0] - type of product
+   		//$photo_data[1] - source of pics
+   		//$photo_data[2] - num of pics
+   		
+   		$photo_base_path = base_path() . 'files/p/' . $photo_data[0] . '/';
+   		
+   		switch ($photo_data[1]) //$photo_data[1] - source of pics
+   		{
+   			case '2': // 2 = источник названия картинок - штрих-код производителя
+   				$proizv_id = explode(';', $node->field_proizv[0]['view']); // считаем, что если источником картинок является поставщик, то данная переменная заполнена (т.е. для товара указан ид и название производителя)
+	     		$proizv_id = trim($proizv_id[0]);
+	     		
+  				//$photo_base_name = $photo_base_path . 'b' . $proizv_id . '-' . $node->field_zp_bar_proizv[0]['view']; //'bm = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bm0034-2298094850938-1.jpg
+  				$photo_base_name = 'b' . $proizv_id . '/b' . $proizv_id . '-' . $node->field_zp_bar_proizv[0]['view']; //'bm = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bm0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '3': // 3 = источник названия картинок - арт производителя
+   				$proizv_id = explode(';', $node->field_proizv[0]['view']); // считаем, что если источником картинок является поставщик, то данная переменная заполнена (т.е. для товара указан ид и название производителя)
+	     		$proizv_id = trim($proizv_id[0]);
+	     		
+  				//$photo_base_name = $photo_base_path . 'b' . $proizv_id . '-' . $node->field_zp_bar_proizv[0]['view']; //'bm = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bm0034-2298094850938-1.jpg
+  				$photo_base_name = 'b' . $proizv_id . '/b' . $proizv_id . '-' . $node->field_zp_art_proizv[0]['view']; //'bm = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bm0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '4': // 4 = источник названия картинок - штрих-код поставщика
+   				$postav_id = explode(';', $node->field_postav[0]['view']); // считаем, что если источником картинок является поставщик, то данная переменная заполнена (т.е. для товара указан ид и название поставщика)
+     			$postav_id = trim($postav_id[0]);
+     		
+   			 	//$photo_base_name = $photo_base_path . 'b' . $postav_id . '-' . $node->field_zp_bar_postav[0]['view']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   			 	$photo_base_name = 'b' . $postav_id . '/b' . $postav_id . '-' . $node->field_zp_bar_postav[0]['view']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '5': // 5 = источник названия картинок - арт поставщика
+   				$postav_id = explode(';', $node->field_postav[0]['view']); // считаем, что если источником картинок является поставщик, то данная переменная заполнена (т.е. для товара указан ид и название поставщика)
+     			$postav_id = trim($postav_id[0]);
+     		
+   			 	//$photo_base_name = $photo_base_path . 'b' . $postav_id . '-' . $node->field_zp_bar_postav[0]['view']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   			 	$photo_base_name = 'b' . $postav_id . '/b' . $postav_id . '-' . $node->field_zp_art_postav[0]['view']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   				break;
+   				
+			case '6': //6 = источник названия картинок - штрих-код магазина
+   				//$photo_base_name = $photo_base_path  . 'b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				$photo_base_name = 'b' . substr($node->model, 0, 8) . '/b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				break;
+   				
+   			case '7': //7 = источник названия картинок -  магазина
+   				//$photo_base_name = $photo_base_path  . 'b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				$photo_base_name = 'b' . substr($node->model, 0, 8) . '/b' . substr($node->model, 0, 8) . '-' . $node->field_zp_art_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				break;
+   				
+   			case '1': // 1 = источник названия картинок - штрих-код мировой
+   			default:
+   				//$photo_base_name = $photo_base_path . $node->field_zp_bar_world[0]['view']; 
+   				$photo_base_name = $node->field_zp_bar_world[0]['view']; 
+   				break;
+
+   		}
+   		
+   		
+   		$photo_base_name = $photo_base_path . $photo_base_name . '/' . $photo_base_name;
+   		
+   		//echo '<div class="image_big">';
+   		$photo_exist = 0; // первая (или первая существующая на сервере) картинка большая, остальные маленькие
+   		//for($i = 0; $i < $photo_data[1];) //$photo_data[1] - num of pics
+   		for($i = 0; $i < $photo_data[2];) //$photo_data[1] - num of pics
+   		{
+   			$i++;
+   			$next_photo = $photo_base_name . '-' . $i . '.jpg';
+   			//echo '<div class="photo">' . 'photo_base_name = ' . $next_photo . '</div>';
+   			//clearstatcache(); // вроде как очищает кеш, но кажется это не нужно тут
+			if(file_exists($_SERVER['DOCUMENT_ROOT'] . $next_photo))
+   				{
+   					//echo '<a href="' . $next_photo . '" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip]['. $title . ' ' . $i .']">';
+   					if($photo_data[3] == 'h')
+   						echo theme('imagecache', 'product_teas_type1-h', $next_photo, $title . ' ' . $i); // третий аргумент - alt
+   					else 
+   						echo theme('imagecache', 'product_teas_type1-v', $next_photo, $title . ' ' . $i); // третий аргумент - alt
+   					//echo '<a/>;
+   					$photo_exist = 1;	
+   					break;
+   				}
+   		}
+   		
+   		if(!$photo_exist)
+   			echo theme('imagecache', 'product_teas_type1-v', $photo_base_path . '/default.jpg');
+   		
+   		//echo '</div>'; 
+   		  
+   		// old version 	
+   		//echo theme('imagecache', 'product_img_teaser', $node->field_product_img[0]['filepath'], $node->field_product_img[0]['alt'], $node->field_product_img[0]['title']); //, $attributes); 
+   		?> 
+   		
+   	   </table></td>
+   	   </div> <?php /* end of image */ ?>
+       
+   	</a>
+   	
+
+
+   	
+   	
+    <?php 
+    
+    
+    
+       print '<div class="a_to_c_fixed"><table><td class="a_to_c_td">';
+    
+       $c_form1 = explode('edit-qty-wrapper', $node->content['add_to_cart']['#value']);
+       $c_form2 = $c_form1[1];
+       $c_form1 = $c_form1[0]; 
+
+       //$show_price = 1;
+       if($show_price < 0)
+        {
+         //print $c_form1 . 'no_sell">' . 'Доставка этого товара для Вас не доступна ' . l(t('< ? >'), 'user/'.$user->uid, array('title' => t('Почему?'))) . '</div></div></form></div>';    
+        print '<div class="no_dost_descr">' . 'Доставка этого товара для Вас не доступна ' . l(t('(?)'), 'user/'.$user->uid, array('title' => t('Почему?'))) . '</div>';
+         
+        } 
+       else 
+       { 
+		 // убираем метку
+       	 $c_form2 = ereg_replace('<label for="edit-qty">Quantity: </label>', '', $c_form2);
+       	 $c_form2 = ereg_replace('class="form-submit node-add-to-cart"', 'class="form-submit node-add-to-cart" title="Добавить этот товар в корзину в указанном количестве"', $c_form2);
+         
+       	 // добавляем единицу отгрузки (шт, кг и т.д.) для того, чтобы понимать, чем измеряется одна единица товара. Если это кг, то тогда возможно дробное значение (0.3кг колбасы), которые пользователь может указать
+       	 $c_form2 = explode('</div>', $c_form2, 2);
+       	 $c_form2 = $c_form2[0] .'</div><div class="sell_measure"' . ' title="Стоимость без надбавки за дополнения/опции (если они доступны). Стоимость доставки рассчитывается также на основе стоимость товара без надбавки за возможные дополнения."' . ' >' . $node->field_sell_measure[0]['view'] . '</div>' . $c_form2[1];
+       	 
+       	 print $c_form1 . 'sell_price"' . ' title="Стоимость без надбавки за дополнения/опции (если они доступны). Стоимость доставки рассчитывается также на основе стоимость товара без надбавки за возможные дополнения."' . ' >' . uc_currency_format($node->sell_price) . '</div><div class="dost_prise"' . ' title="' . $dost_descr .'"> +доставка ' . $show_price . '</div><div class="edit-qty-wrapper' . $c_form2;           
+
+       	 //print '<div class="sell_price">' . uc_currency_format($node->sell_price) . '</div><div class="dost_prise"' . ' title="' . $dost_descr .'"> +доставка ' . $show_price . '</div>';
+       	 //print $c_form1 . 'xxx"></div><div class="edit-qty-wrapper' . $c_form2;           
+        
+       } 
+
+       print '</td></table></div>';
+       
+       //print $node->content['add_to_cart']['#value'] 
+    
+    
+    ?>
+  
+
+
+
+ 
+ </div>
+<?php endif; // end of teaser ?>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<?php 
+
+//if body (page) ---------------------------------------------------------------------------------
+
+
+
+
+ if ($page == 1):
+
+
+ global $user;
+ if($node->field_status[0]['view'] == 'hidden') 
+ {
+ 	echo '<div class="p_hidden">К сожалению, данный товар в настоящее время не доставляется.</div>';
+ 	if($user->uid != 1)
+	 	return;
+ }
+
+ 
+// эта операция должна проделываться ниже при формировании картинок, но задаётся тут, так как тут используются данные по типу товара в качестве ключевого слова (временно)
+   		
+  $photo_data = explode(';', $node->field_prodtype_pic_src_n_num[0]['view']);
+  //$photo_data[0] - type of product
+  //$photo_data[1] - source of pics
+  //$photo_data[2] - num of pics
+ 
+ 
+// получим справочные статьи с пересекающимися с этим товаром ключевыми словами
+  
+  // получим номер словаря c ключевыми словами, имеющимися в статьях, по названию словаря
+  //$issue_vid = db_result(db_query("SELECT vid from {vocabulary} WHERE name = '%s'", 'Issues keywords'));
+  $issue_vid = 6; // зададим явно номер словаря, чтоб быстрее
+  
+  
+  // ключевые слова должны браться из поля с ключевыми словами, но пока что для ускорения считаем ключевым словом тип товара (и название директории с картинками) 
+  // раскомментировать строку ниже для использования поля с ключевыми словами (и закомментировать)
+  if($node->field_keywords[0]['value'])
+  	$keywords = explode(',', $node->field_keywords[0]['value']);
+
+  $keywords[] = $photo_data[0];
+
+  foreach ($keywords as $keyword)
+  {
+  	
+  	if(($keyword = trim($keyword)) != '')
+  		$tid = db_result(db_query("SELECT tid from {term_data} WHERE name = '%s' AND vid = %d", $keyword, $issue_vid));
+  	else 
+  		continue;
+  		
+  	$issues_nids = db_query("SELECT nid from {term_node} WHERE tid = %d", $tid);
+  	
+    while($issue = db_fetch_array($issues_nids))
+    {
+    	$issue_name = db_result(db_query("SELECT title from {node} WHERE nid = %d", $issue['nid']));
+    	$issues[$issue['nid']] = $issue_name;   
+    }
+  }
+  
+  //foreach ($issues as $nid => $title)
+  	//echo l($title, 'node/' . $nid, array('class' => 'issue')) . '<br>';
+  
+
+  
+?>  
+
+
+ <div class="product_body type_1 
+ 
+ 	<?php 
+		if ($show_price < 0) echo ' no_dost';  
+		if($node->field_status[0]['view'] == 'hidden') echo ' hidden admin';
+		?>">
+  
+   <div class="txt">
+     
+     <div class="title"><?php print $title ?></div>
+    
+     <?php 
+     
+     
+     
+     
+     
+     
+     
+     
+        
+   
+   // если есть статьи по теме этогот  товара, создаём группу вкладок (tabs), на первой из которых будет оригинальное описание
+   // а на второй ссылки на статьи
+   
+   // здесь, если есть статьи, создаём "шапку" для табов и открываем таб-контейнер для оригинального описания
+   if($issues)
+ 		{
+ 		echo '<div id="tabs">';
+
+    	
+        drupal_add_css('sites/all/modules/_Jstools/jstab/jquery.tabs.css');
+    	drupal_add_js('sites/all/modules/_Jstools/jstab/jquery.tabs.js'); 
+    	drupal_add_js('$(function(){
+    		basePath = "'. base_path() .'";
+    		$("#tabs").tabs({ initial: 0, fxShow: { height: "show", opacity: "show" }, fxSpeed: "normal",  remote: 0 });
+    		})', 'inline');
+    	  
+    	
+    	
+    		echo '<ul>';
+        		echo '<li><a href="#main_tab">Описание</a></li>';
+        		echo '<li><a href="#issues">Справочные данные, статьи</a></li>';
+    		echo '</ul>';
+    		
+    		
+    		echo '<div id="main_tab">';
+ 		}
+    
+ 		
+ 		// далее идёт оригинальное описание
+ 		
+ 		// если бы статей не было, массив с вкладками не создавался бы и шапка для табов также не создавалась бы
+ 		// и описание шло само по себе, без всяких вкладок
+ 		
+
+
+ 		
+ 		
+ 		 
+     	if($node->weight)
+     		echo '<div class="ves"><div class="label">Вес/объём: </div>' . $node->weight . ' ' . $node->weight_units . '</div>';
+         
+     	if($node->field_proizv[0]['value'])
+     	{
+     		$proizv_id = explode(';', $node->field_proizv[0]['value']);
+     		$proizv_name = trim($proizv_id[1]);
+     		$proizv_id = trim($proizv_id[0]);
+     		if($proizv_name)
+     		{
+     			if($proizv_id AND $proizv_id != '')
+     			{
+     				if($mc_nid = db_result(db_query("SELECT nid from {content_type_mc_descr} WHERE field_zp_mc_artikul_value  = '%s'", $proizv_id)))
+     					echo '<div class="proizv"><div class="label">Производитель/бренд: </div><a title="Перейти к описанию производителя" href="' . url('node/' . $mc_nid) .'">' . $proizv_name . '</a></div>';      
+     			}
+     			else 
+     				echo '<div class="proizv"><div class="label">Производитель/бренд: </div>' . $proizv_name . '</div>';      
+     		}
+     	}
+     		
+     	if($node->field_postav[0]['value'])
+     	{
+     		$postav_id = explode(';', $node->field_postav[0]['value']);
+     		$postav_name = trim($postav_id[1]);
+     		$postav_id = trim($postav_id[0]);
+     		if($postav_name)
+     		{
+     			if($postav_id AND $postav_id != '')
+     			{
+     				if($mc_nid = db_result(db_query("SELECT nid from {content_type_mc_descr} WHERE field_zp_mc_artikul_value  = '%s'", $postav_id)))
+     					echo '<div class="proizv"><div class="label">Поставщик/бренд: </div><a title="Перейти к описанию поставщика" href="' . url('node/' . $mc_nid) .'">' . $postav_name . '</a></div>';      
+     			}
+     			else 
+     				echo '<div class="proizv"><div class="label">Поставщик/бренд: </div>' . $postav_name . '</div>';      
+     		}
+     	}
+     	
+     	
+     	
+     	// покажем описание товара, причём если есть описание по международному ш-коду или ид производителя/поставщика, показываем его
+     	if(
+     		$node->field_zp_bar_world[0]['value'] 
+     		AND 
+     		$d = db_result(db_query("SELECT descr FROM {p_descr_bw} WHERE p_bw = %s", $node->field_zp_bar_world[0]['view']))
+     	   )
+     		echo '<div class="descr">' . $d . '</div>';
+     	else if(
+     			$node->field_zp_bar_proizv[0]['value']
+     			and 
+     			$d = db_result(db_query("SELECT descr FROM {p_descr_mc} WHERE p_id = %s AND seller_id = %s", $node->field_zp_bar_proizv[0]['view'], $proizv_id))
+     		   )
+     			echo '<div class="descr">' . $d . '</div>';
+     	else if(
+     			$node->field_zp_bar_postav[0]['value']
+     			and 
+     			$d = db_result(db_query("SELECT descr FROM {p_descr_mc} WHERE p_id = %s AND seller_id = %s", $node->field_zp_bar_postav[0]['view'], $postav_id))
+     		   )
+     			echo '<div class="descr"><div class="label">Описание: </div>' . $d . '</div>';	
+     			
+     	//else if($node->content['body']['#value'])
+     	if($node->content['body']['#value'])
+     		echo '<div class="descr">' . $node->content['body']['#value'] . '</div>'; // слово Описание пока уберём
+     		//echo '<div class="descr"><div class="label">Описание: </div>' . $node->content['body']['#value'] . '</div>';
+
+     		
+     		
+     
+     
+     
+     		
+     // админу показываем скрытые данные - штрих-коды, артикулы и т.д.
+     global $user;
+     if ($user->uid == 1)
+     {
+
+     	echo '<div class="art_and_bar"><div class="label">Каталог с картинками: </div>' . $photo_data[0] . '</div>';
+     	if($node->field_keywords[0]['value'])
+     		echo '<div class="art_and_bar"><div class="label">Ключевые слова: </div>' . $node->field_keywords[0]['value'] . '</div>';
+     	echo '<br>';
+     	
+     	echo '<div class="art_and_bar"><div class="label">Внутренний артикул zp SKU: </div>' . $node->model . '</div>';
+
+     	if($node->field_zp_bar_world[0]['value'])
+     		echo '<div class="art_and_bar"><div class="label">Штрих-код международный: </div>' . $node->field_zp_bar_world[0]['view'] . '</div>';
+	    if($node->field_zp_bar_proizv[0]['value'])
+    	 	echo '<div class="art_and_bar"><div class="label">Штрих-код производителя: </div>' . $node->field_zp_bar_proizv[0]['view'] . '</div>';
+	    if($node->field_zp_bar_postav[0]['value'])
+    	 	echo '<div class="art_and_bar"><div class="label">Штрих-код поставщика: </div>' . $node->field_zp_bar_postav[0]['view'] . '</div>';
+	    if($node->field_zp_bar_shop[0]['value'])
+    	 	echo '<div class="art_and_bar"><div class="label">Штрих-код магазина: </div>' . $node->field_zp_bar_shop[0]['view'] . '</div>';
+	    if($node->field_zp_art_postav[0]['value']) 
+    	 	echo '<div class="art_and_bar"><div class="label">Артикул поставщика: </div>' . $node->field_zp_art_postav[0]['view'] . '</div>';
+     	if($node->field_zp_art_proizv[0]['value'])
+     		echo '<div class="art_and_bar"><div class="label">Артикул производителя: </div>' . $node->field_zp_art_proizv[0]['view'] . '</div>';
+	    if($node->field_zp_art_shop[0]['value'])
+    	 	echo '<div class="art_and_bar"><div class="label">Артикул магазина: </div>' . $node->field_zp_art_shop[0]['view'] . '</div>';
+	    if($node->field_status[0]['value'])
+    	 {
+     		if($node->field_status[0]['value'] == 'hidden') 
+     			echo '<div class="art_and_bar"><div class="label p_hidden">Статус товара: </div>' . $node->field_status[0]['view'] . '</div>';
+	     	else
+    	 		echo '<div class="art_and_bar"><div class="label">Артикул магазина: </div>' . $node->field_status[0]['view'] . '</div>';
+     	 }
+     
+     	
+     	// if($node->field_source_of_pics[0]['view'])
+    	// 		echo '<br><div class="art_and_bar"><div class="label">Zp-артикул элемента-источника картинок: </div>' . $node->field_source_of_pics[0]['view'] . '</div><br>';
+     
+
+     } // end of if ($user->uid == 1)
+   
+   
+   
+   
+     
+      
+      
+      
+    // если есть статьи по теме этого товара, то ранее был открыт массив с вкладками, открыта вкладка с основным описанием
+    // и теперь нужно закрыть вкладку с основным описанием, вывести вкладку со статьями и закрыть массив с вкладками
+    
+    // если бы статей не было, вкладки бы не создавались и закрывать или добавлять ничего не надо было бы
+    if($issues)  
+		 { 
+     			echo '</div>'; // end of div main_tab	
+		 	
+		 		echo '<div id="issues">';
+     		
+     				foreach ($issues as $nid => $issue)
+  						echo l($issue, 'node/' . $nid, array('class' => 'issue', 'target' => '_blank')) . '<br>';
+     		
+     			echo '</div>'; // end of div issues
+  			  
+  			  
+  			  
+	    	echo '</div>'; // end if div tabs
+	    	
+		 }
+      
+      
+      
+      
+      
+      
+      
+    
+       //print '<PRE>';
+       //print_r($node->content);
+       //print_r($node);
+       //print_r($node->content['add_to_cart']);
+       //print '<PRE>';
+       
+      
+       $c_form1 = explode('edit-qty-wrapper', $node->content['add_to_cart']['#value']);
+       $c_form2 = $c_form1[1];
+       $c_form1 = $c_form1[0]; 
+
+       //$show_price = 1;
+       if($show_price < 0)
+         echo $c_form1 . 'no_sell">' . 'Доставка этого товара для Вас не доступна ' . l(t('(?)'), 'user/'.$user->uid, array('title' => t('Почему?'))) .'</div></div></form></div>';    
+         //echo '<div class="no_dost_descr">' . 'Доставка этого товара для Вас не доступна ' . l(t('(?)'), 'user/'.$user->uid, array('title' => t('Почему?'))) . '</div>';
+       else 
+       { 
+		 // убираем метку
+       	 $c_form2 = ereg_replace('<label for="edit-qty">Quantity: </label>', '', $c_form2);
+       	 //$c_form2 = ereg_replace('class="form-submit node-add-to-cart"', 'class="form-submit node-add-to-cart" title="Добавить этот товар в корзину"', $c_form2);
+       	 
+         
+       	 // добавляем единицу отгрузки (шт, кг и т.д.) для того, чтобы понимать, чем измеряется одна единица товара. Если это кг, то тогда возможно дробное значение (0.3кг колбасы), которые пользователь может указать
+       	 $c_form2 = explode('</div>', $c_form2, 2);
+       	 $c_form2 = $c_form2[0] .'</div><div class="sell_measure">' . $node->field_sell_measure[0]['view'] . '</div>' . $c_form2[1];
+       	 
+       	 //print $c_form1 . 'sell_price">' . uc_currency_format($node->sell_price) . '</div><div id="dost_prise">' . $show_price . '</div><div id="edit-qty-wrapper' . $c_form2;           
+       	 
+       	 echo $c_form1 . 'sell_price"  title="' . $dost_descr .'"><div class="label">Стоимость: </div>' . uc_currency_format($node->sell_price) . ' + доставка ' . $show_price . ' (за 1 ' . $node->field_sell_measure[0]['view'] .')</div><div class="atc" title="Добавить товар в корзину в указанном количестве"><div class="edit-qty-wrapper' . $c_form2 . '</div>';
+     	 
+         //$back_url = zp_functions_continue_shopping_link();
+         //echo l('Продолжить покупки / вернуться...', 'node/' . $back_url['nid']);
+         
+         echo l('Продолжить покупки / вернуться...', $_SERVER['HTTP_REFERER']);
+        
+       } 
+
+       
+     ?>
+
+   </div> <!-- /* end of txt ? */ -->  
+   
+   
+    
+   <div class="images">
+	
+   	<?php
+   
+		// эта операция проделывается выше, так как там используются данные по типу товара в качестве ключевого слова (временно)
+   		
+		//$photo_data = explode(';', $node->field_prodtype_pic_src_n_num[0]['view']);
+   		//$photo_data[0] - type of product
+   		//$photo_data[1] - source of pics
+   		//$photo_data[2] - num of pics
+   		
+   		$photo_base_path = base_path() . 'files/p/' . $photo_data[0] . '/';
+   		
+   		switch ($photo_data[1]) //$photo_data[1] - source of pics
+   		{
+   			case '2': // 2 = источник названия картинок - штрих-код производителя
+   				$photo_base_name = 'b' . $proizv_id . '/b' . $proizv_id . '-' . $node->field_zp_bar_proizv[0]['view']; //'bmc = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bmc0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '3': // 3 = источник названия картинок - артикул производителя
+   				$photo_base_name = 'a' . $proizv_id . '/a' . $proizv_id . '-' . $node->field_zp_art_proizv[0]['view']; //'amc = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа amc0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '4': // 4 = источник названия картинок - штрих-код поставщика
+   				$photo_base_name = 'b' . $postav_id . '/b' . $postav_id . '-' . $node->field_zp_bar_postav[0]['view']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '5': // 5 = источник названия картинок - арт поставщика
+   				$photo_base_name = 'a' . $postav_id . '/a' . $postav_id . '-' . $node->field_zp_art_postav[0]['view']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   				break;
+   				
+			case '6': //6 = источник названия картинок - штрих-код магазина
+   				//$photo_base_name = $photo_base_path  . 'b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				$photo_base_name = 'b' . substr($node->model, 0, 8) . '/b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				break;
+   				
+   			case '7': //7 = источник названия картинок - арт магазина
+   				//$photo_base_name = $photo_base_path  . 'b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				$photo_base_name = 'a' . substr($node->model, 0, 8) . '/a' . substr($node->model, 0, 8) . '-' . $node->field_zp_art_shop[0]['view']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				break;
+   				
+   			case '1': // 1 = источник названия картинок - штрих-код международный
+   			default:
+   				//$photo_base_name = $photo_base_path . $node->field_zp_bar_world[0]['view']; 
+   				$photo_base_name = $node->field_zp_bar_world[0]['view']; 
+   				break;
+   		}
+   		
+   		//echo '<PRE>';
+  		//print_r($photo_base_name);
+  		//echo '</PRE>';
+  		
+  		$photo_base_name = $photo_base_path . $photo_base_name . '/' . $photo_base_name;
+   		
+   		$big_photo_num = 1; // первая (или первая существующая на сервере) картинка большая, остальные маленькие
+   		
+   		for($i = 0; $i < $photo_data[2];) //$photo_data[2] - num of pics
+   		{
+   			$i++;
+   			$next_photo = $photo_base_name . '-' . $i . '.jpg';
+   			//clearstatcache(); // вроде как очищает кеш, но кажется это не нужно тут
+   			if($i == $big_photo_num)
+   			{
+   				if(file_exists($_SERVER['DOCUMENT_ROOT'] . $next_photo))
+   				{
+   					if($photo_data[3] == 'h')
+   						$next_photo_popup = imagecache_create_url('product_body_type1-popup-h', $next_photo);
+   					else 
+   						$next_photo_popup = imagecache_create_url('product_body_type1-popup-v', $next_photo);
+   						
+   					// раскомментировать, чтобы показывать оригинальную картинку, а не скорректированную имиджкешем
+   					//$next_photo_popup = $next_photo;
+   					
+   					//echo '<div class="image_big"><a href="' . $next_photo . '" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip]['. $title . ' ' . $i .']">'
+   					echo '<div class="image_big"><a href="' . $next_photo_popup . '" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip]['. $title . ' ' . $i .']">'
+   					. theme('imagecache', 'product_body_type1', $next_photo, $title . ' ' . $i) // третий аргумент - alt
+   					. '<a/></div>'; 
+   					$photo_exist = 1;	
+   					
+   					
+   				}
+   				else
+   					//print theme('imagecache', 'product_body_type1', $photo_base_path . '/default.jpg');
+   					$big_photo_num = $i+1;
+   			}
+   			else
+   			{
+   				if(file_exists($_SERVER['DOCUMENT_ROOT'] . $next_photo))
+   				{
+   					if($photo_data[3] == 'h')
+   						$next_photo_popup = imagecache_create_url('product_body_type1-popup-h', $next_photo);
+   					else 
+   						$next_photo_popup = imagecache_create_url('product_body_type1-popup-v', $next_photo);
+   						
+   					// раскомментировать, чтобы показывать оригинальную картинку, а не скорректированную имиджкешем
+   					//$next_photo_popup = $next_photo;
+   					
+   					//echo '<div class="image_small ' . $i . '"><a href="' . $next_photo . '" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip]['. $title . ' ' . $i .']">'
+   					echo '<div class="image_small ' . $i . '"><a href="' . $next_photo_popup . '" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip]['. $title . ' ' . $i .']">'
+   					.  theme('imagecache', 'product_body_type2', $next_photo, $title . ' ' . $i) // третий аргумент - alt
+   					. '<a/></div>'; 
+   					
+   				}
+   			}
+   		}
+   		
+   		if(!$photo_exist)
+   		{
+   			echo '<div class="image_big">'
+   					. theme('imagecache', 'product_body_type1-default', $photo_base_path . '/default.jpg') // третий аргумент - alt
+   					. '</div>'; 
+   		}
+
+   		
+   		   	
+   	?>
+   
+   
+	  
+    </div> <!-- /* end of images */ -->    
+    
+
+        
+</div>     <!-- /* end of body */ -->  
+    
+  
+
+
+  
+  
+ <?php
+ 
+ // покажем форму отзыва по данному продукту и имеющиеся по продукту отзывы
+ 
+ 
+ 
+ // сформируем необходимые данные для сохранения мнения в базе данных
+ /*
+ $opinion_info = array(
+  	'target_table' => $target_table,
+  	'p_bw' => $p_bw,
+  	'pr_id' => $pr_id,
+  	'uid' => $uid,
+  	'uname' => $uname,
+  	`shop_id` => $shop_id,
+    `shop_name` => $shop_name,
+    `seller_id` => $seller_id,
+    `seller_name` => $seller_name,
+  );
+ */
+ 
+ 
+ $opinion_info = array();
+ 
+ if($node->field_zp_bar_world[0]['view'])
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_bw';
+ 	$opinion_info['p_bw'] = $node->field_zp_bar_world[0]['view'];
+ }
+ else if($node->field_zp_bar_proizv[0]['view'])
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_mc';
+ 	$opinion_info['p_id'] = $node->field_zp_bar_proizv[0]['view'];
+ 	$opinion_info['seller_id'] = $proizv_id;
+ 	$opinion_info['seller_name'] = $proizv_name;	
+ }
+ else if($node->field_zp_bar_postav[0]['view'])
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_mc';
+ 	$opinion_info['p_id'] = $node->field_zp_bar_postav[0]['view'];
+ 	$opinion_info['seller_id'] = $postav_id;
+ 	$opinion_info['seller_name'] = $postav_name;	
+ }
+ else if($node->field_zp_bar_shop[0]['view'])
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_sh';
+ 	$opinion_info['p_id'] = $node->field_zp_bar_shop[0]['view'];
+ }
+ /*
+ else if($node->field_zp_art_shop[0]['view'])
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_sh';
+ 	$opinion_info['p_id'] = $node->field_zp_art_shop[0]['view'];
+ }
+ else if($node->field_zp_art_proizv[0]['view'])
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_mc';
+ 	$opinion_info['p_id'] = $node->field_zp_art_proizv[0]['view'];
+ 	$opinion_info['seller_id'] = '';
+ 	$opinion_info['seller_name'] = '';	
+ }
+  else if($node->field_zp_art_postav[0]['view'])
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_mc';
+ 	$opinion_info['p_id'] = $node->field_zp_art_postav[0]['view'];
+ 	$opinion_info['seller_id'] = '';
+ 	$opinion_info['seller_name'] = '';	
+ }
+ */
+ else 
+ {
+ 	$opinion_info['target_table'] = 'p_opinions_sh';
+ 	$opinion_info['p_id'] = 'ns-' . 'product_name'; // если не задано никаких id для продукта, запоминаем его под названием (в латинице) для текущего магазина
+ }
+ 
+ 
+ $opinion_info['uid'] = $user->uid;
+ $opinion_info['uname'] = $user->name;
+ $opinion_info['shop_id'] = substr($node->model, 0, 8);
+ $opinion_info['shop_name'] = $_SESSION['c_shop_tids']['shop_name'];
+ $opinion_info['shop_address'] = $_SESSION['c_shop_tids']['shop_address'];
+ 
+ 
+ 
+ //echo '<div class="add_opinion">' . drupal_get_form('zp_opinions_form') . '</div>';
+ 
+ //echo '<div class="add_opinion">' . drupal_get_form('zp_opinions_form', $opinion_info) . '</div>';
+ 
+ // если переменная 'opinion_info' передаётся в форму в виде массива, то друпал сообщает в логах 
+ // об ошибке проверки этой переменной на валидность текста этой переменной... Конечно, это не простой текст, так что было решено преобразовать массив в строку (с помощью serialize() ) при передаче переменной в форму,
+ // а потом при использовании значений этой переменной (в функции  zp_opinions_form_submit) разворачивать её обратно в массив.
+		
+ echo '<div class="add_opinion">' . drupal_get_form('zp_opinions_form', serialize($opinion_info)) . '</div>';
+ 
+ 
+ 
+	
+  
+ 
+ 
+
+ 
+
+ // Покажем все отзывы по данному продукту
+ $count = 0;
+ if($node->field_zp_bar_world[0]['view'])
+  if($opinions = db_query("SELECT opinion, shop_name, shop_address FROM {p_opinions_bw} WHERE p_bw = %s", $node->field_zp_bar_world[0]['view']))
+  {					    
+  	while($opinion = db_fetch_object($opinions))
+		{
+			if(!$count)
+				echo '<div class="opinions"><div class="title">Мнения наших покупателей об этом товаре: </div>';
+				
+			echo '<div class="opinion">' . $opinion->opinion . '</div><div class="info"> /Отзыв покупателя из магазина ' . $opinion->shop_name . ' (' . $opinion->shop_address . ')</div>';
+		  	$count++;	
+		}
+	if($count) echo '</div>'; // and of <div class="opinions">
+  }
+ else if($node->field_zp_bar_proizv[0]['view'])
+  if($opinions = db_query("SELECT opinion, shop_name, shop_address FROM {p_opinions_mc} WHERE p_id = %s AND seller_id = %s", $node->field_zp_bar_proizv[0]['view'], $proizv_id))
+  {					    
+  	while($opinion = db_fetch_object($opinions))
+		{
+			if(!$count)
+				echo '<div class="opinions"><div class="title">Мнения наших покупателей об этом товаре: </div>';
+				
+			echo '<div class="opinion">' . $opinion->opinion . '</div><div class="info"> /Отзыв покупателя из магазина ' . $opinion->shop_name . ' (' . $opinion->shop_address . ')</div>';
+		  	$count++;	
+		}
+	if($count) echo '</div>'; // and of <div class="opinions">
+  }
+ else if($node->field_zp_bar_postav[0]['view'])
+  if($opinions = db_query("SELECT opinion, shop_name, shop_address FROM {p_opinions_mc} WHERE p_id = %s AND seller_id = %s", $node->field_zp_bar_postav[0]['view'], $postav_id))
+  {					    
+  	while($opinion = db_fetch_object($opinions))
+		{
+			if(!$count)
+				echo '<div class="opinions"><div class="title">Мнения наших покупателей об этом товаре: </div>';
+				
+			echo '<div class="opinion">' . $opinion->opinion . '</div><div class="info"> /Отзыв покупателя из магазина ' . $opinion->shop_name . ' (' . $opinion->shop_address . ')</div>';
+		  	$count++;	
+		}
+	if($count) echo '</div>'; // and of <div class="opinions">
+  }
+  else if($node->field_zp_bar_shop[0]['view'])
+  if($opinions = db_query("SELECT opinion, shop_name, shop_address FROM {p_opinions_sh} WHERE p_id = %s AND shop_id = %s", $node->field_zp_bar_shop[0]['view'], $opinion_info['shop_id']))
+  {					    
+  	while($opinion = db_fetch_object($opinions))
+		{
+			if(!$count)
+				echo '<div class="opinions"><div class="title">Мнения наших покупателей об этом товаре: </div>';
+				
+			echo '<div class="opinion">' . $opinion->opinion . '</div><div class="info"> /Отзыв покупателя из магазина ' . $opinion->shop_name . ' (' . $opinion->shop_address . ')</div>';
+		  	$count++;	
+		}
+	if($count) echo '</div>'; // and of <div class="opinions">
+  }
+				
+
+  
+    
+    
+endif; // end of if body 
+
+
+?>  

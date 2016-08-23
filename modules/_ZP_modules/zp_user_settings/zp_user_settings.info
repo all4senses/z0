@@ -1,0 +1,7 @@
+; $Id $ zp_user_settings ver 1.0
+name = "ZP User Settings"
+description = "User settings on own user's page."
+package = ZP Modules
+;dependencies = 
+
+

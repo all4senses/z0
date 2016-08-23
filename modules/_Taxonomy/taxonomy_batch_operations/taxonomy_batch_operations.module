@@ -1,0 +1,367 @@
+<?php
+
+// $Id: taxonomy_batch_operations.module,v 1.1.4.3 2008/02/07 23:04:08 tbarregren Exp $
+
+function taxonomy_batch_operations_help($section) {
+  switch ($section) {
+    case 'admin/modules#description':
+      return t('Enables batch operations for working with taxonomy terms.');
+      break;
+  }
+}
+
+function taxonomy_batch_operations_menu($may_cache) {
+  $items = array();
+
+  $items[] = array('path' => 'admin/content/taxonomy/delete/term',
+    'title' => t('Delete term'),
+    'callback' => 'taxonomy_batch_operations_delete_term',
+    'access' => user_access('administer taxonomy'),
+    'type' => MENU_CALLBACK);
+
+  $items[] = array('path' => 'admin/content/taxonomy/delete/terms',
+    'title' => t('Delete terms'),
+    'callback' => 'taxonomy_batch_operations_delete_multiple_terms',
+    'access' => user_access('administer taxonomy'),
+    'type' => MENU_CALLBACK);
+
+
+  if (is_numeric(arg(3))) {
+      $items[] = array('path' => 'admin/content/taxonomy/' . arg(3),
+        'title' => t('List terms'),
+        'callback' => 'taxonomy_batch_operations_overview_terms',
+        'callback arguments' => array(arg(3)),
+        'access' => user_access('administer taxonomy'),
+        'type' => MENU_CALLBACK);
+
+    $items[] = array('path' => 'admin/content/taxonomy/' . arg(3) . '/add/terms',
+      'weight' => 5,
+      'title' => t('Add multiple terms'),
+      'callback' => 'taxonomy_add_multiple_terms',
+      'callback arguments' => array(array('vid' => arg(3))),
+      'access' => user_access('administer taxonomy'),
+      'type' => MENU_LOCAL_TASK);
+  }
+
+  return $items;
+}
+
+/**
+ * Display a tree of all the terms in a vocabulary, with options to edit
+ * each one.
+ */
+function taxonomy_batch_operations_overview_terms($vid) {
+  $form['multiedit'] = array('#tree' => TRUE);
+
+  $destination = drupal_get_destination();
+
+  $vocabulary = taxonomy_get_vocabulary($vid);
+
+  drupal_set_title(check_plain($vocabulary->name));
+  $start_from      = $_GET['page'] ? $_GET['page'] : 0;
+  $total_entries   = 0;  // total count for pager
+  $page_increment  = 25; // number of tids per page
+  $displayed_count = 0;  // number of tids shown
+  
+  $tree = taxonomy_get_tree($vocabulary->vid);
+
+  /* sort */
+  if ($_REQUEST[order] == 'Name') {
+    //$tree = array_reverse($tree, FALSE);
+    foreach ($tree as $key => $srow) {
+      $name[$key] = strtolower($srow->name);
+    }
+    if ($_REQUEST[sort] == 'asc')
+      array_multisort($name, SORT_ASC, $tree);
+    else
+    if ($_REQUEST[sort] == 'desc')
+      array_multisort($name, SORT_DESC, $tree);
+  }
+  else
+  if ($_REQUEST[order] == 'Occurances') {
+    foreach ($tree as $key => $srow) {
+      $count[$key] = taxonomy_term_count_nodes($srow->tid);
+      $name[$key] = strtolower($srow->name);
+    }
+    if ($_REQUEST[sort] == 'asc')
+      array_multisort($count, SORT_ASC, $name, SORT_ASC, $tree);
+    else
+    if ($_REQUEST[sort] == 'desc')
+      array_multisort($count, SORT_DESC, $name, SORT_ASC, $tree);
+  }
+  else
+  if ($_REQUEST[order] == 'Weight') {
+    foreach ($tree as $key => $srow) {
+      $count[$key] = $srow->weight;
+      $name[$key] = strtolower($srow->name);
+    }
+    if ($_REQUEST[sort] == 'asc')
+      array_multisort($count, SORT_ASC, $name, SORT_ASC, $tree);
+    else
+    if ($_REQUEST[sort] == 'desc')
+      array_multisort($count, SORT_DESC, $name, SORT_ASC, $tree);
+  }
+
+  foreach ($tree as $term) {
+    $total_entries++; // we're counting all-totals, not displayed
+    if (($start_from && ($start_from * $page_increment) >= $total_entries) || ($displayed_count == $page_increment)) { continue; }
+
+    $form['multiedit'][$term->tid]['name'] = array(
+      '#value' => str_repeat('--', $term->depth) . ' ' . l($term->name, "taxonomy/term/$term->tid", array('title' => $term->description)),
+    );
+    $form['multiedit'][$term->tid]['count'] = array(
+      '#value' => taxonomy_term_count_nodes($term->tid),
+    );
+    $form['multiedit'][$term->tid]['weight'] = array(
+      '#type' => 'weight',
+      '#default_value' => $term->weight,
+    );
+    $form['multiedit'][$term->tid]['operations'] = array(
+      '#value' => l(t('edit'), "admin/content/taxonomy/edit/term/$term->tid", array(), $destination) . ' | ' .
+                  l(t('delete'), "admin/content/taxonomy/delete/term/$term->tid", array(), $destination),
+    );
+    $form['multiedit'][$term->tid]['check'] = array(
+      '#type' => 'checkbox',
+      '#default_value' => 0
+    );
+
+    $displayed_count++; // we're counting tids displayed
+  }
+
+  if (count($tree) > 0) {
+    // we don't need the buttons if the vocabulary is empty
+    $form['save'] = array('#type' => 'submit', '#value' => t('Save'));
+    $form['delete'] = array('#type' => 'submit', '#value' => t('Delete Selected'));
+  }
+  else {
+    // if the vocab is empty, we stuff the 'no terms available' text into where the pager would go
+    $form['pager'] = array('#value' => t('No terms available.'));
+  }
+
+  $GLOBALS['pager_page_array'][] = $start_from;  // FIXME
+  $GLOBALS['pager_total'][] = intval($total_entries / $page_increment) + 1; // FIXME
+
+  if ($total_entries >= $page_increment) {
+    //$rows[] = array(array('data' => theme('pager', NULL, $page_increment), 'colspan' => '2'));
+    $form['pager'] = array(
+      '#type' => 'markup',
+      '#value' => theme('pager', NULL, $page_increment),
+    );
+  }
+
+  return drupal_get_form('taxonomy_batch_operations_form', $form);
+}
+
+function taxonomy_batch_operations_form($record) {
+  return($record);
+}
+
+function theme_taxonomy_batch_operations_form($form) {
+
+  $header = array(
+              array("data" => t('Name'),
+                    "sort" => '',
+                    "field" => '',
+              ),
+              array("data" => t('Occurances'),
+                    "sort" => '',
+                    "field" => '',
+              ),
+              array("data" => t('Weight'),
+                    "sort" => 'asc',
+                    "field" => '',
+              ),
+              t('Operations'),
+              t(''),
+            );
+
+  foreach(element_children($form['multiedit']) as $i) {
+    $rows[] = array(
+      drupal_render($form['multiedit'][$i]['name']),
+      drupal_render($form['multiedit'][$i]['count']),
+      drupal_render($form['multiedit'][$i]['weight']),
+      drupal_render($form['multiedit'][$i]['operations']),
+      drupal_render($form['multiedit'][$i]['check'])
+    );
+  }
+
+  $rows[] = array(array('data' => drupal_render($form['pager']), 'colspan' => 2),
+                  array('data' => drupal_render($form['save']), 'colspan' => 1),
+                  array('data' => drupal_render($form['delete']), 'colspan' => 2)
+            );
+
+  $output = theme_table($header, $rows, array('id' => 'taxonomy'));
+  $output .= drupal_render($form);
+
+  return $output;
+}
+
+function taxonomy_batch_operations_delete_term($vid) {
+  return drupal_get_form('taxonomy_term_confirm_delete', $vid);
+}
+
+function taxonomy_batch_operations_delete_multiple_terms($tids) {
+  return drupal_get_form('taxonomy_term_confirm_multiple_delete_form', $tids);
+}
+
+function taxonomy_term_confirm_multiple_delete_form($tids) {
+  $tids = explode(",", $tids);
+
+  foreach ($tids as $tid) {
+    $term = taxonomy_get_term($tid);
+
+    $form['type'][$tid] = array('#type' => 'value', '#value' => 'term');
+    $form['name'][$tid] = array('#type' => 'value', '#value' => $term->name);
+    $form['tid'][$tid] = array('#type' => 'value', '#value' => $tid);
+  }
+
+  return confirm_form($form,
+                  t('Are you sure you want to delete the selected terms?'),
+                  'admin/content/taxonomy',
+                  t('Deleting a term will delete all its children if there are any. This action cannot be undone.'),
+                  t('Delete'),
+                  t('Cancel'));
+}
+
+function taxonomy_term_confirm_multiple_delete_form_submit($form_id, $form_values) {
+  foreach ($form_values as $key => $value) {
+    if (is_numeric($key))
+      taxonomy_del_term($value);
+  }
+
+  drupal_Set_message(t('Deleted multiple terms'));
+
+  return $_GET['destination'];
+}  
+
+function batch_operations_form_validate($form_id, $form_values) {
+}
+
+function taxonomy_batch_operations_form_submit($form_id, $form_values) {
+  switch ($form_values['op']) {
+    case t('Save'):
+      foreach ($form_values[multiedit] as $key => $tid) {
+        $term = taxonomy_get_term($key);
+	$parents = taxonomy_get_parents($key);
+        unset($tid['check']);
+        $tid['tid'] = $term->tid; 
+        $tid['name'] = $term->name;
+        $tid['description'] = $term->description;
+        $tid['synonyms'] = $term->synonyms;
+        // weight is already set
+        $tid['vid'] = $term->vid;
+        $tid['parent'] = array_keys($parents);
+
+        taxonomy_save_term($tid);
+      }
+      drupal_set_message(t('Updated term weights'));
+      break;
+    case t('Delete Selected'):
+      foreach ($form_values[multiedit] as $key => $tid) {
+        if ($tid['check'] == 1)
+          $tids[] = $key;
+      }
+      return array("admin/content/taxonomy/delete/terms/" . implode($tids, ','), drupal_get_destination());
+      break;
+  }
+
+}
+
+function taxonomy_batch_operations_form_alter($form_id, &$form) {
+}
+
+function taxonomy_add_multiple_terms($edit = array()) {
+  return(drupal_get_form('taxonomy_add_multiple_terms_form', $edit));
+}
+
+function taxonomy_add_multiple_terms_form() {
+  $vocabulary_id = isset($edit['vid']) ? $edit['vid'] : arg(3);
+  $vocabulary = taxonomy_get_vocabulary($vocabulary_id);
+
+  if ($vocabulary->hierarchy) {
+    $parent = array_keys(taxonomy_get_parents($edit['tid']));
+    $children = taxonomy_get_tree($vocabulary_id, $edit['tid']);
+
+    // A term can't be the child of itself, nor of its children.
+    foreach ($children as $child) {
+      $exclude[] = $child->tid;
+    }
+    $exclude[] = $edit['tid'];
+
+    if ($vocabulary->hierarchy == 1) {
+      $form['parent'] = _taxonomy_term_select(t('Parent'), 'parent', $parent, $vocabulary_id, l(t('Parent term'), 'admin/help/taxonomy', NULL, NULL, 'parent') .'.', 0, '<'. t('root') .'>', $exclude);
+
+    }
+    elseif ($vocabulary->hierarchy == 2) {
+      $form['parent'] = _taxonomy_term_select(t('Parents'), 'parent', $parent, $vocabulary_id, l(t('Parent terms'), 'admin/help/taxonomy', NULL, NULL, 'parent') .'.', 1, '<'. t('root') .'>', $exclude);
+
+    }
+  }
+
+  $form['name'] = array('#type' => 'textarea',
+                        '#title' => t('Terms'),
+                        '#rows' => 15, '#cols' => 64,
+                        '#description' => t('The names of the terms, one term per line.'),
+                        '#required' => TRUE);
+
+  $form['strip'] = array('#type' => 'fieldset',
+                         '#collapsible' => TRUE,
+                         '#collapsed' => TRUE,
+                         '#title' => t('Strip text'),
+                         '#description' => t('Remove leading or trailing text.  Can be useful if cutting and pasting.  For example, if your terms are in the form " * item.", set prefix to " * " and suffix to "."'),
+                        );
+  
+  $form['strip']['prefix'] = array('#type' => 'textfield',
+                                   '#title' => t('Prefix'),
+                                   '#description' => t('Leading text to remove.  Must match exactly.'),
+                                   );
+
+  $form['strip']['suffix'] = array('#type' => 'textfield',
+                                   '#title' => t('Suffix'),
+                                   '#description' => t('Trailing text to remove.  Must match exactly.'),
+                                   );                      
+  
+  $form['vid'] = array('#type' => 'value', '#value' => $vocabulary->vid);
+  $form['submit'] = array('#type' => 'submit', '#value' => t('Submit'));
+  
+  return $form;
+}
+
+function taxonomy_add_multiple_terms_form_submit($form_id, $form_values) {
+  $message = "";
+  $terms = explode("\n", $form_values['name']);
+ 
+  foreach ($terms as $key => $term) {
+    // strip of prefix and suffix, if necessary
+    if (!empty($form_values['prefix']) && strpos($term, $form_values['prefix']) === 0)
+      $term = substr($term, strlen($form_values['prefix']));
+
+    if (!empty($form_values['suffix']) && strpos($term, $form_values['suffix']) == strlen($term)-strlen($form_values['suffix']))
+      $term = substr($term, 0, strlen($term)-strlen($form_values['suffix']));
+
+    // create our term array to pass to taxonomy_save_term
+    if (trim($term) != "") {
+      $values[$key]['name'] = trim($term);
+      $values[$key]['description'] = '';
+      $values[$key]['synonyms'] = '';
+      $values[$key]['weight'] = 0;
+      $values[$key]['vid'] = $form_values['vid'];
+      $values[$key]['parent'] = $form_values['parent'];
+    }
+  }
+
+  foreach ($values as $value) {
+    switch (taxonomy_save_term($value)) {
+      case SAVED_NEW:
+        $message .= (t('Created new term %name.', array('%name' => $value['name']))) . '<br>';
+        break;
+      case SAVED_UPDATED:
+        $message .= (t('The term %term has been updated.', array('%name' => $value['name']))) . '<br>';
+        break;
+    }
+  }
+  drupal_set_message($message);
+
+  return 'admin/content/taxonomy';
+}
+

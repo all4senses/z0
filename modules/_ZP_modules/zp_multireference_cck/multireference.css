@@ -1,0 +1,9 @@
+// $Id: multireference.css,v 1.1 2008/03/31 21:12:52 stevem Exp $
+
+tr.multireference div, tr.multireference select, tr.multireference input {
+  padding: 0;
+}
+
+tr.multireference td {
+  vertical-align: top;
+}

@@ -1,0 +1,157 @@
+<?php
+
+function zp_opinions_perm() {
+  return array('manage zp opinions permission');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+
+function zp_opinions_menu() {
+
+      $items[] = array(
+      'path' => 'admin/store/settings/zp_opinions',
+      'title' => t('zp_opinions'),
+      'description' => t('opinions for the product'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('zp_opinions_form'),
+      'access' => user_access('manage zp opinions permission'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+
+
+  return $items;
+}
+
+
+ 
+function zp_opinions_form($opinion_info = NULL, $user_name = NULL ) {
+
+  if(!$user_name)
+  {
+  	global $user;
+  	$user_name = $user->name;
+  }	
+  
+  // $per_item = 1; //variable_get('zp_block_toggle_per_item', 1);
+  // $charge = '';//2; // variable_get('zp_block_toggle_charge', 3.00);
+
+  /*
+  $form['per_item'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Charge per item rather than per order'),
+    '#default_value' => 0,//$per_item,
+    '#weight' => '1'
+  );
+  */
+  
+  /*
+  $opinion_info = array(
+  	'target_table' => $target_table,
+  	'p_bw' => $p_bw,
+  	'pr_id' => $pr_id,
+  	'uid' => $uid,
+  	'uname' => $uname,
+  	`shop_id` => $shop_id,
+    `shop_name` => $shop_name,
+    `seller_id` => $seller_id,
+    `seller_name` => $seller_name,
+  );
+  */
+  
+  $form['opinion_info'] = array(
+    '#type' => 'hidden',
+    //'#title' => t('Charge per item rather than per order'),
+    '#value' => $opinion_info, //0,//$per_item,
+    '#weight' => '1'
+  );
+  
+  
+  $form['opinion'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Ваше мнение о товаре'),
+    '#default_value' => '', //$opinion_info['p_bw'] . ' ' . $opinion_info['target_table'] . ' ' . $opinion_info['uid'] . ' ' . $opinion_info['uname'] . ' ' . $opinion_info['shop_id'] . ' ' . $opinion_info['shop_name'] . ' ' . $opinion_info['shop_address'],
+    '#weight' => '2'
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Добавить своё мнение'),
+    '#weight' => '3',
+    '#disabled' => $user_name == "test" ? true : false,
+    '#attributes' => $user_name == "test" ? array('title' => 'Комментарии могут оставлять только наши зарегистрированные клиенты') : null,
+  );
+  return $form;
+}
+
+
+
+/*
+function zp_opinions_form_validate($form_id, &$form_state, &$form) 
+{
+
+
+}
+*/
+
+
+function zp_opinions_form_submit($form_id, &$form_state, $form = NULL) 
+{	
+
+	if($form_state['opinion'] AND trim($form_state['opinion']) != '')
+	{
+		// если переменная 'opinion_info' передаётся в форму в виде массива, то друпал сообщает в логах 
+		// об ошибке проверки этой переменной на валидность текста этой переменной... Конечно, это не простой текст, так что было решено преобразовать массив в строку при передаче переменной в форму,
+		// а потом при использовании значений этой переменной разворачивать её обратно в массив.
+		
+		if($form_state['opinion_info'])
+			$form_state['opinion_info'] = unserialize($form_state['opinion_info']);
+		
+		//echo '<PRE>';
+		//print_r($form_state['opinion_info']);
+		//echo '</PRE>';
+		//return;
+		
+		if($form_state['opinion_info']['target_table'] == 'p_opinions_bw')
+			db_query("INSERT INTO {p_opinions_bw} (p_bw, opinion, uid, uname, shop_id, shop_name, shop_address) VALUES ('%s', '%s', %d, '%s', '%s', '%s', '%s')", 
+					$form_state['opinion_info']['p_bw'], 
+					$form_state['opinion'],
+					$form_state['opinion_info']['uid'],
+					$form_state['opinion_info']['uname'],
+					$form_state['opinion_info']['shop_id'],
+					$form_state['opinion_info']['shop_name'],
+					$form_state['opinion_info']['shop_address']
+					);
+		
+		if($form_state['opinion_info']['target_table'] == 'p_opinions_mc')
+			db_query("INSERT INTO {p_opinions_bw} (p_id, seller_id, seller_name, opinion, uid, uname, shop_id, shop_name, shop_address) VALUES ('%s', '%s', '%s', '%s', %d, '%s', '%s', '%s', '%s')", 
+					$form_state['opinion_info']['p_id'], 
+					$form_state['opinion_info']['seller_id'],
+					$form_state['opinion_info']['seller_name'],
+					$form_state['opinion'],
+					$form_state['opinion_info']['uid'],
+					$form_state['opinion_info']['uname'],
+					$form_state['opinion_info']['shop_id'],
+					$form_state['opinion_info']['shop_name'],
+					$form_state['opinion_info']['shop_address']
+					);
+					
+					
+		if($form_state['opinion_info']['target_table'] == 'p_opinions_sh')
+			db_query("INSERT INTO {p_opinions_bw} (p_id, shop_id, shop_name, shop_address, opinion, uid, uname) VALUES ('%s', '%s', '%s', '%s', '%s', %d, '%s')", 
+					$form_state['opinion_info']['p_id'], 
+					$form_state['opinion_info']['shop_id'],
+					$form_state['opinion_info']['shop_name'],
+					$form_state['opinion_info']['shop_address'],
+					$form_state['opinion'],
+					$form_state['opinion_info']['uid'],
+					$form_state['opinion_info']['uname']
+					);		
+
+          	
+          	
+	}
+
+
+
+}

@@ -1,0 +1,15 @@
+<div class="test">how it works</div>
+
+<div id="how_it_works">
+
+<a href="http://www.zapokupkami.com/help/pravila-i-osobennosti-raboty-nashego-servisa"><div class="caption"><div class="caption2">Как</div>работает сервис?</div></a>
+
+<div class="text">
+<a class="text2" href="http://www.zapokupkami.com/feedback/stat-nashim-klientom-prosto">1.Станьте нашим клиентом. </a>
+ 2. Зайдите на сайт под своим паролем. 3. Добавьте товары  в корзину из магазина, доступного Вам для покупок. 4. Сделайте заказ и оплатите доставленный Вам на дом товар.
+</div>
+
+<?php //print $node->field_side_images[0]['view'] ?>
+
+
+</div>

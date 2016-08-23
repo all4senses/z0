@@ -1,0 +1,190 @@
+<?php
+// $Id
+
+/**
+ * @file
+ * Views Google Maps style plugin.
+ */
+
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function gmaps_views_form_alter($form_id, &$form) {
+  if ($form_id == 'views_edit_view') {
+    $map_configs = gmaps_views_load_view_map_config($form['vid']['#value']);
+    $options = _gmaps_get_map_config_options();
+    $form['page-info']['page_gmaps_views_map_config'] = array('#type' => 'select',
+      '#title' => t('Map configuration'),
+      '#options' => $options,
+      '#default_value' => $map_configs['page'],
+    );
+    $form['block-info']['block_gmaps_views_map_config'] = array('#type' => 'select',
+      '#title' => t('Map configuration'),
+      '#options' => $options,
+      '#default_value' => $map_configs['block'],
+    );
+    $form['#submit']['gmaps_views_edit_view_submit'] = array();
+  }
+}
+
+/**
+ * Implementation of hook_views_style_plugins().
+ */
+function gmaps_views_views_style_plugins() {
+  return array(
+    'gmaps_views' => array(
+      'name' => t('Google Maps View'),
+      'theme' => 'gmaps_views_map_view',
+      'needs_fields' => true,
+      'validate' => 'gmaps_views_views_style_plugin_validate',
+    )
+  );
+}
+
+/**
+ * Implementation of hook_gmaps_config_reference().
+ */
+function gmaps_views_gmaps_config_reference($config_type, $config) {
+  switch($config_type) {
+    case 'map':
+      $refs = array();
+      $result = db_query('SELECT v.name FROM {gmaps_views} g INNER JOIN {view_view} v ON v.vid = g.vid WHERE g.page = %d OR g.block = %d', $config->mcid, $config->mcid);
+      while ($view = db_fetch_array($result)) {
+        $refs[] = l($view['name'], 'admin/build/views/'. $view['name'] .'/edit');
+      }
+      if (count($refs)) {
+        return array(t('GMaps Views - view references') => $refs);
+      }
+      break;
+  }
+}
+
+function gmaps_views_views_style_plugin_validate($type, $view, $form) {
+  if (empty($form["$type-info"][$type .'_gmaps_views_map_config']['#value'])) {
+    form_error($form["$type-info"][$type .'_gmaps_views_map_config'], t('Map configuration is required for Google Maps View. (%type)', array('%type' => t(ucfirst($type)))));
+  } else {
+    $has_overlay = FALSE;
+    if ($config = gmaps_load_map_config($form["$type-info"][$type .'_gmaps_views_map_config']['#value'])) {
+      $fields = _views_get_fields();
+      foreach ($form['field'] as $key => $field) {
+        if (is_numeric($key)) {
+          $field_info = &$fields[$field['id']['#value']];
+          if (isset($field_info['gmaps_views_map_type'])) {
+            if ($field_info['gmaps_views_map_type'] != $config->type) {
+              form_error($form['field'][$key]['label'], t('The map type of the overlay differs from the map type of the view. (%type)', array('%type' => t(ucfirst($type)))));
+            } else {
+              $has_overlay = TRUE;
+            }
+          }
+        }
+      }
+    }
+    if (!$has_overlay) {
+      form_error($form["$type-info"][$type .'_type'], t('Google Maps Views requires at least one overlay handler field.'));
+    }
+  }
+  return views_ui_plugin_validate_list($type, $view, $form);
+}
+
+function gmaps_views_edit_view_submit($form_id, $form_values) {
+  $result = db_query('UPDATE {gmaps_views} SET page = %d, block = %d WHERE vid = %d', $form_values['page_gmaps_views_map_config'], $form_values['block_gmaps_views_map_config'], $form_values['vid']);
+  if (!db_affected_rows()) {
+    db_query('INSERT INTO {gmaps_views} (vid, page, block) VALUES (%d, %d, %d)', $form_values['vid'], $form_values['page_gmaps_views_map_config'], $form_values['block_gmaps_views_map_config']);
+  }
+}
+
+function gmaps_views_load_view_map_config($view_id) {
+  if (!empty($view_id)) {
+    $result = db_query('SELECT page, block FROM {gmaps_views} WHERE vid = %d', $view_id);
+    if (db_num_rows($result)) {
+      return db_fetch_array($result);
+    }
+  }
+  
+  return 0;
+}
+
+function theme_gmaps_views_map_view($view, $nodes, $type) {
+  static $embeded_views = array();
+  
+  if (!in_array($type, array("page", "block"))) {
+    //the plugin called twice in case of embed view and only the second output is used.......
+    if (!$embeded_views[$view->vid]) {
+      $embeded_views[$view->vid] = 1;
+      return "";
+    }
+    $type = "page";
+  }
+
+  $view_configs = gmaps_views_load_view_map_config($view->vid);
+  $map = gmaps_get_map(views_css_safe($view->name .'-map'), $view_configs[$type]);
+    
+  if (is_object($map)) {
+
+    $fields = _views_get_fields();
+    $overlay_fields = $view_fields = $view_fields_info = array();
+
+    foreach($view->field as $field) {
+      if (!isset($fields[$field['id']]['visible']) && $fields[$field['id']]['visible'] !== FALSE) {
+        if (isset($fields[$field['id']]['gmaps_views_map_type'])) {
+          if ($fields[$field['id']]['gmaps_views_map_type'] == $map->config->type) {
+            $overlay_fields[] = $field;
+          }
+        } else {
+          $view_fields[$field['id']] = $field;
+          $view_fields_info[$field['id']] = $field[$field['id']];
+        }
+      }
+    }
+    if (empty($overlay_fields)) {
+      return;
+    }
+    
+    $overlays = array();
+    $map_config = $map->config;
+    foreach ($nodes as $data) {
+      foreach ($overlay_fields as $handler_field) {
+        $info = $fields[$handler_field['id']];
+        //drupal_set_message('handler: ' . $handler_field['id']);
+        $results = array();
+        if (!empty($info['gmaps_views_record_handler']) && is_string($info['gmaps_views_record_handler']) && function_exists($info['gmaps_views_record_handler'])) {
+          $results = $info['gmaps_views_record_handler']($view, $map_config, $info, $handler_field, $view_fields_info, $view_fields, $data);
+        } else {
+          $function = NULL;
+          if ($handler_field['handler'] && function_exists($handler_field['handler'])) {
+            $function = $handler_field['handler'];
+          } else if ($info['handler'] && is_string($info['handler']) && function_exists($info['handler'])) {
+            $function = $info['handler'];
+          }
+          
+          if (!is_null($function)) {
+            $results = $function($info, $field, $data->$field['queryname'], $data, $map_config);
+          }
+        }
+        //drupal_set_message('results: ' . serialize($results));
+        if (!empty($results) && is_array($results)) {
+          foreach($results as $type => $items) {
+            if (isset($overlays[$type])) {
+              $overlays[$type] = array_merge($overlays[$type], $items);
+            } else {
+              $overlays[$type] = $items;
+            }
+          }
+        }
+      }
+    }
+
+    if (!empty($overlays)) {
+      if (!$map->config->methods['infowindow']) {
+        $map->config->display_help = TRUE;
+        $map->help[] = '<div class="error">' . t('One or more markers have content, but the info window is disabled. Please notify the administrator.') . '</div>';
+      }
+      $map->overlays = $overlays;
+      gmaps_add_map($map);
+      return theme('gmaps_container', $map);
+    }
+  } else {
+    return theme('placeholder', $map);
+  }
+}

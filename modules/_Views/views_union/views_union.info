@@ -1,0 +1,18 @@
+; $Id: views_union.info,v 1.2 2007/12/11 16:47:43 linuxbox Exp $
+name = Views Union
+description = Create a new view that is the union of other views.
+version = "$Name: DRUPAL-5--1-1 $"
+dependencies = views
+package = Views
+
+; Information added by drupal.org packaging script on 2007-08-22
+version = "5.x-1.x-dev"
+project = "views_union"
+datestamp = "1187741339"
+
+
+; Information added by drupal.org packaging script on 2007-12-19
+version = "5.x-1.1"
+project = "views_union"
+datestamp = "1198108510"
+

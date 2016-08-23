@@ -1,0 +1,66 @@
+<?php
+// $Id: panel_style.module,v 1.1.2.1 2008/07/02 01:25:25 gordon Exp $
+
+/**
+ * Implementation of hook_view_style_plugins()
+ */
+function panel_style_views_style_plugins() {
+  $styles = array();
+  panels_load_include('plugins');
+  panels_load_include('node', 'contexts/');
+  $contexts = array(panels_context_create_node(TRUE));
+  $types = panels_mini_content_types();
+
+  foreach ($types as $name => $type) {
+    $required_matches = TRUE;
+    if (!empty($type['required context'])) {
+      foreach ($type['required context'] as $required_context) {
+        $matching_context = $required_context->filter($contexts);
+        if (empty($matching_context)) {
+          $required_matches = FALSE;
+          break;
+        }
+      }
+    }
+
+    if ($required_matches) {
+      $styles['panel_'. $name] = array(
+        'name' => $type['title'],
+        'theme' => 'panel_style',
+      );
+    }
+  }
+
+  return $styles;
+}
+
+function theme_panel_style($view, $nodes, $type) {
+  $name = substr($view->{$type .'_type'}, 6);
+  $output = '';
+
+  $mini = panels_mini_load($name);
+  if (empty($mini) || !empty($mini->disabled)) {
+    return;
+  }
+
+  panels_load_include('plugins');
+  panels_load_include('node', 'contexts/');
+
+  foreach ($nodes as $node) {
+    $node = node_load($node->nid);
+    $contexts = array(panels_context_create_node(FALSE, $node));
+
+    // Load up any contexts we might be using.
+  $context = panels_context_match_required_contexts($mini->requiredcontexts, $contexts);
+    $mini->context = $mini->display->context = panels_context_load_contexts($mini, FALSE, $context);
+
+    $mini->display->css_id = panels_mini_get_id($name);
+    $mini->display->owner = $mini;
+    // unique ID of this mini.
+    $mini->display->owner->id = $mini->name;
+
+    $output.= panels_render_display($mini->display);
+  }
+
+  return $output;
+}

@@ -1,0 +1,10 @@
+; $Id: nodewords_nodetype.info,v 1.1 2008/05/27 02:35:57 hanoii Exp $
+name = Meta tags node type
+description = Default Meta Tags on a per content type basis. Tokens are allowed.
+dependencies = nodewords token
+
+; Information added by drupal.org packaging script on 2009-06-04
+version = "5.x-1.4"
+project = "nodewords_nodetype"
+datestamp = "1244129802"
+

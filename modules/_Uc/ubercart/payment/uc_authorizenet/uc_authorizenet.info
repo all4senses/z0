@@ -1,0 +1,12 @@
+; $Id: uc_authorizenet.info,v 1.3.2.2 2008/09/17 21:38:37 rszrama Exp $
+name = Authorize.net
+description = Process payments using Authorize.net. Supports AIM and ARB.
+dependencies = uc_payment uc_credit
+package = Ubercart - payment
+
+
+; Information added by drupal.org packaging script on 2009-01-16
+version = "5.x-1.7"
+project = "ubercart"
+datestamp = "1232145342"
+

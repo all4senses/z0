@@ -1,0 +1,239 @@
+<?php
+// $Id: uc_zp_plain_delivery.module 27 2007-11-01 06:57:25Z root $
+/* Written by Greg MacLellan <greg@mtechsolutions.ca> 
+*/
+
+/**
+ * @file
+ * Shipping quote module that provides an "ZP Plain Delivery" option
+ */
+
+/******************************************************************************
+ * Drupal Hooks                                                               *
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_menu().
+ */
+function uc_zp_plain_delivery_menu($may_cache){
+  $items = array();
+  
+  if ($may_cache){
+    $items[] = array('path' => 'admin/store/settings/quotes/methods/zp_plain_delivery',
+      'access' => user_access('configure quotes'),
+      'title' => t('ZP Plain Delivery'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => 'uc_zp_plain_delivery_admin_settings',
+      'type' => MENU_LOCAL_TASK,
+    );
+  }
+  
+  return $items;
+}
+
+
+/******************************************************************************
+ * Übercart Hooks                                                             *
+ ******************************************************************************/
+
+/**
+ * Implementation of Übercart's hook_shipping_method().
+ */
+function uc_zp_plain_delivery_shipping_method(){
+  $methods = array();
+  
+  $enabled = variable_get('uc_quote_enabled', array('zp_plain_delivery' => true));
+  $weight = variable_get('uc_quote_method_weight', array('zp_plain_delivery' => 0));
+  $methods['zp_plain_delivery'] = array(
+    'id' => 'zp_plain_delivery',
+    'module' => 'uc_zp_plain_delivery',
+    'title' => t('ZP Plain Delivery'),
+    'enabled' => $enabled['zp_plain_delivery'],
+    'quote' => array(
+      'type' => 'small_package',
+      'callback' => 'uc_zp_plain_delivery_quote',
+      'accessorials' => array( 'zp_plain_delivery'=>t('ZP Plain Delivery'), ),
+    ),
+    'ship' => array(
+      'type' => 'customer_pickup',
+      'callback' => '',
+    ),
+    'weight' => $weight['customer_pickup'],
+  );
+  
+  return $methods;
+}
+
+/**
+ * Implementation of Übercart's hook_shipping_type().
+ */
+function uc_zp_plain_delivery_shipping_type(){
+  $weight = variable_get('uc_quote_type_weight', array('customer_pickup' => 0));
+
+  $types = array();
+  $types['customer_pickup'] = array(
+    'id' => 'customer_pickup',
+    'title' => t('Customer Pickup'),
+    'weight' => $weight['customer_pickup'],
+  );
+  
+  return $types;
+}
+
+/******************************************************************************
+* Workflow-ng Hooks                                                          *
+******************************************************************************/
+
+/**
+* Implementation of hook_configuration().
+*
+* Connect the quote action with the quote event.
+*/
+function uc_zp_plain_delivery_configuration(){
+  $enabled = variable_get('uc_quote_enabled', array('zp_plain_delivery' => true));
+  $configurations = array(
+    'uc_zp_plain_delivery_get_quote' => array(
+      '#label' => t('Shipping quote for store pickup'),
+      '#event' => 'get_quote_from_zp_plain_delivery',
+      '#module' => 'uc_zp_plain_delivery',
+      '#active' => $enabled['zp_plain_delivery'],
+    ),
+  );
+  $action = workflow_ng_use_action('uc_quote_action_get_quote', array(
+    '#label' => t('Fetch a shipping quote'),
+  ));
+  $configurations['uc_zp_plain_delivery_get_quote'] = workflow_ng_configure($configurations['uc_zp_plain_delivery_get_quote'], $action);
+ 
+  return $configurations;
+}
+
+/******************************************************************************
+ * Menu Callbacks                                                             *
+ ******************************************************************************/
+
+/** Basic configuration settings
+ */
+function uc_zp_plain_delivery_admin_settings(){
+  $form = array();
+ 
+  $form['uc_zp_plain_delivery_fee'] = array('#type' => 'textfield',
+    '#title' => t('ZP Plain Delivery handling fee'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_fee', '$0.00'),
+    '#description' => t('Handling fee to charge for ZP Plain Delivery, set by dollar amount or percentage.'),
+  );
+  $form['uc_zp_plain_delivery_turnaround'] = array('#type' => 'textfield',
+    '#title' => t('Turn-around time'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_turnaround', '24'),
+    '#description' => t('Number of hours for turn-around time before pickup is ready.'),
+  );
+  $form['uc_zp_plain_delivery_postalcodes'] = array('#type' => 'textarea',
+    '#title' => t('Restrict postal codes'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_postalcodes', ''),
+    '#description' => t('Optionally, postal/ZIP codes to restrict this option to. Enter one per line, using * as a wildcard. Note that any spaces in the user\'s postal code are removed prior to comparison, so do not include spaces. You may also enter a regular expression, so long as a forward-slash (/) is used as the first character, eg: <strong>/^K[1-3].{4}$/i</strong>. See the PHP manual on <a href="http://php.net/preg_match">preg_match()</a> for help with regex format.'),
+  );
+  /*
+  $form['uc_zp_plain_delivery_map'] = array('#type' => 'select',
+    '#title' => t('Driving directions'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_map', ''),
+    '#description' => t('Provide a link that opens a page giving driving directions/maps.'),
+    '#options' => array(''=>'No map','google'=>'Google maps'),
+  );
+  */
+  return system_settings_form($form);
+}
+
+
+
+
+/**
+ * Callback for retrieving a shipping quote.
+ *
+ * @param $products
+ *   Array of cart contents.
+ * @param $details
+ *   Order details other than product information.
+ * @return
+ *   JSON object containing rate, error, and debugging information.
+ */
+function uc_zp_plain_delivery_quote($products, $details) {
+  $postcodes = variable_get('uc_zp_plain_delivery_postalcodes', 'xxx');
+  
+  if ($postcodes) {
+    // remove any spaces 
+    $clean_postal_code = str_replace(' ','',$details['postal_code']);
+    $found = false;
+    foreach (explode("\n",$postcodes) as $test_postcode) {
+      $test_postcode = trim($test_postcode);
+      if (strlen($test_postcode) > 0) {
+        if ($postcode[0] != '/') {
+          // convert to a regular expression 
+          $test_postcode = '/^'.str_replace(array('*','/'), array('.*','\/'), $test_postcode).'$/i';
+        }
+        // regex match it, suppress errors in case of invalid regex 
+        if (preg_match($test_postcode, $clean_postal_code)) {
+          $found = true;
+          break;
+        } 
+      }
+    }
+    
+    if (!$found) {
+      return array();
+    }
+  }
+  
+  $weight = 0;
+  $price = 0;
+  foreach ($products as $product){
+    $product->weight *= $product->qty;
+    // convert to kg
+    switch ($product->units){
+      case 'oz':
+        $product->weight = $product->weight * 0.0283495231;
+      break;
+      case 'lb':
+        $product->weight = $product->weight * 0.45359237;
+      break;
+      case 'g':
+        $product->weight = $product->weight / 1000;
+      break;
+      //case 'kg':
+    }
+    $weight += $product->weight;
+    $price += $product->price * $product->qty;
+  }
+  $quantity = count($products);
+  
+  $fee = _uc_zp_plain_delivery_calculate_fee($price);
+  $turnaround = variable_get('uc_zp_plain_delivery_turnaround', '24');
+  
+  $label = //'<img class="canadapost_logo" src="'.base_path().drupal_get_path('module', 'uc_zp_plain_delivery').'/car.png" /> '.
+           t("ZP Plain Delivery");
+  switch (variable_get('uc_zp_plain_delivery_map', '')) {
+  }
+  $notes = "";
+  if ($turnaround) {
+    $notes .= ' ('.t('Please allow !time', array('!time'=>$turnaround.' '.($turnaround==1?t('hour'):t('hours')))).')';
+  }
+  
+  return array(
+    'zp_plain_delivery'=>array(
+      'rate'=>$fee, 
+      'format'=>uc_currency_format($fee), 
+      'option_label'=> $label,
+      'notes'=>$notes,
+    ),
+  );
+}
+
+/**
+ * Calculates the fee to charge for pickup
+ */
+function _uc_zp_plain_delivery_calculate_fee($subtotal){
+  $fee = variable_get('uc_zp_plain_delivery_fee', 0);
+  if (strpos($fee, '%') !== false){
+    return $subtotal * floatval(rtrim($fee, '%')) / 100;
+  } else {
+    return floatval(ltrim($fee,'$'));
+  }
+}

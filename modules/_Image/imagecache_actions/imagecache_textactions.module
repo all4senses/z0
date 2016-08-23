@@ -1,0 +1,56 @@
+<?php
+// $Id: imagecache_textactions.module,v 1.3.2.3 2008/10/28 22:27:15 dman Exp $
+/**
+ * @file Provide text manipulation process for imagecache.
+ * 
+ * Ported by dman 
+ * from http://drupal.org/node/264862#comment-865490 by patrickharris
+ * 
+ */
+
+require_once('utility.inc'); // For simple color routines
+
+/**
+* Implementation of hook_imagecache_actions().
+*/ 
+function imagecache_textactions_imagecache_actions() {
+  $actions = array(
+    'textactions_text2canvas' => array(
+      'name' => t('Text'),
+      'description' => t('Add static or dynamic (coded) text to an image.'),
+      'file' => 'textactions.inc',
+    ),
+  );
+
+  return $actions;
+}
+
+/**
+ * Experimental diagnostic page to assist locating valid fonts on the system.
+ * Only tuned for Ubuntu so far. I've been unable do find ubiquitous tools that
+ * provide useful font listings.'
+ */
+function imagecache_textactions_help($path, $arg='') {
+  switch ($path) {
+    case 'admin/help/imagecache_textactions':
+    case 'admin/help#imagecache_textactions':
+      $output = `find /usr/share/fonts -name \*.ttf`;
+      return "Fonts Found : <pre>" . $output . "</pre>";
+  }
+}
+
+/**
+ * Need to register the theme functions we expect to use
+ */
+function imagecache_textactions_theme() {
+  return array(
+    'canvasactions_rgb_form' => array(
+      'file'      => 'utility.inc',
+      'arguments' => array('form' => NULL),
+    ),
+    'canvasactions_rgb' => array(
+      'file'      => 'utility.inc',
+      'arguments' => array('rgb' => NULL),
+    ),
+  );
+}

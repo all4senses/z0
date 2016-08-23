@@ -1,0 +1,27 @@
+<?php
+// $Id: uc_stock_notify.install,v 1.1 2008/12/13 15:23:25 longwave Exp $
+
+function uc_stock_notify_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysqli':
+    case 'mysql':
+      db_query("CREATE TABLE {uc_stock_notify} (
+        snid int(10) NOT NULL AUTO_INCREMENT,
+        sku varchar(255) NOT NULL,
+        uid int(10) NOT NULL DEFAULT 0,
+        mail varchar(64) NOT NULL DEFAULT '',
+        created int(11) NOT NULL,
+        PRIMARY KEY (snid)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+      break;
+  }
+}
+
+function uc_stock_notify_uninstall() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysqli':
+    case 'mysql':
+      db_query("DROP TABLE IF EXISTS {uc_stock_notify}");
+      break;
+  }
+}

@@ -1,0 +1,11 @@
+; $Id: uc_usps.info,v 1.3.2.1 2008/07/29 22:22:41 rszrama Exp $
+name = U.S. Postal Service
+description = Integration of USPS Rate Calculator and Mail Service Standards Web Tools with Ubercart.
+dependencies = uc_quote
+package = Ubercart - fulfillment
+
+; Information added by drupal.org packaging script on 2009-01-16
+version = "5.x-1.7"
+project = "ubercart"
+datestamp = "1232145342"
+

@@ -1,0 +1,587 @@
+<?php
+// ; $Id$
+// Module by Michael Huebl. http://www.michaelhuebl.com
+
+/*******************************************************************************
+* Drupal Hooks
+******************************************************************************/
+
+/**
+ * Implementation of hook_menu().
+ */
+function uc_legalaspects_menu($may_cache) {
+	if ($may_cache) {
+		$items[] = array(
+		'path' => 'admin/store/settings/checkout/edit/legal',		
+		'title' => t('Legal aspects pane'),
+		'description' => t('Global terms and conditions, revocation rights settings.'),
+		'callback' => 'show_admin_settings',
+		'access' => user_access('administer store'),
+		'weight' => 2,
+		'type' => MENU_LOCAL_TASK,
+		);
+		$items[] = array(
+		'path' => 'gtct',
+		'title' => t('General terms and conditions'),
+		'description' => t('View global terms and conditions.'),
+		'callback' => 'gtct_view',
+		'access' => user_access('access content'),
+		);
+		$items[] = array(
+		'path' => 'gtct/blank',
+		'title' => t('Print view'),
+		'description' => t('View global terms and conditions.'),
+		'callback' => 'gtct_view_blank',
+		'access' => user_access('access content'),
+		);		
+		$items[] = array(
+		'path' => 'revocation',
+		'title' => t('Revocation rights'),
+		'description' => t('View revocation rights.'),
+		'callback' => 'grp_view',
+		'access' => user_access('access content'),
+		);		
+		$items[] = array(
+		'path' => 'revocation/blank',
+		'title' => t('Print view'),
+		'description' => t('View revocation rights.'),
+		'callback' => 'grp_view_blank',
+		'access' => user_access('access content'),
+		);				
+	}
+
+
+	return $items;
+}
+
+
+/*******************************************************************************
+* Ubercart Hooks
+******************************************************************************/
+
+
+/**
+ * Implementation of hook_checkout_pane().
+ */
+function uc_legalaspects_checkout_pane() {
+	$panes[] = array(
+	'id' => 'legal_aspects',
+	'callback' => 'uc_checkout_pane_gtct',
+	'title' => t('Legal aspects'),
+	'desc' => t("Please confirm if you agree with the legal aspects that aply on all our deliveries."),
+	'weight' => 8,
+	'collapsible' => TRUE,
+	);
+	return $panes;
+}
+
+/**
+ * Display the GTCT Pane
+ */
+function uc_checkout_pane_gtct($op) {
+	switch ($op) {
+		case 'view':
+			drupal_add_css(drupal_get_path('module', 'uc_legalaspects').'/css/uc_legalaspects.css');
+			drupal_add_js( drupal_get_path('module', 'uc_legalaspects').'/js/uc_legalaspects.js');
+			
+			if ( (variable_get('uc_gtct_term_show_iframe', 0) > 0) && (variable_get('uc_grp_term_show_iframe', 0) > 0)) {
+			//Show tabs if GTCT and GRP is displayed
+				$contents['legal_aspects']['tabs1'] = array(
+					'#value' => '<div class="tabs">
+	  			  						<ul class="tabNavigation">
+	    										<li><a href="#gtct_pane">'.t('General terms and conditions').'</a></li>
+	    										<li><a href="#grp_pane">'.t('Revocation rights').'</a></li>
+												</ul>',
+					'#weight' => -7,				
+				);
+			}
+
+			
+			//Show GTCT in pane?
+			if (variable_get('uc_gtct_term_show_iframe', 0) > 0) {
+				$contents['legal_aspects']['gtct_text'] = array(
+				'#prefix' => '<div id="gtct_pane">',
+				'#value' => check_markup(variable_get('uc_gtct_term_conditions_text', 'not set'),variable_get('uc_gtct_term_conditions_format', 1), false),
+				'#suffix' => '</div>',
+				'#weight' => -5,
+				
+				);
+			}
+			
+			if (variable_get('uc_grp_term_show_iframe', 0) > 0) {
+				$contents['legal_aspects']['grp_text'] = array(
+				'#prefix' => '<div id="grp_pane">',
+				'#value' => check_markup(variable_get('uc_grp_term_conditions_text', 'not set'),variable_get('uc_grp_term_conditions_format', 1), false),
+				'#suffix' => '</div>',
+				'#weight' => -4,
+				
+				);
+			}			
+
+			if ( (variable_get('uc_gtct_term_show_iframe', 0) > 0) && (variable_get('uc_grp_term_show_iframe', 0) > 0)) {
+			//Show tabs if GTCT and GRP is displayed			
+				$contents['legal_aspects']['tabs2'] = array(
+					'#value' => '</div>',
+					'#weight' => -2,				
+					);			
+			}
+			
+			if (variable_get('uc_gtct_show_checkbox', 1) > 0) {
+				//Show GTCT-Popup?
+				if (variable_get('uc_gtct_term_show_popup', 0) > 0) {
+
+					
+					
+					
+					
+					
+					
+					
+// my changes					
+					//$gtctlink = ' <a onclick="window.open(\''.url('gtct/blank').'\', \'gtct_popup\', \'top=100,left=100,width=600,height=500,status=yes,resizable=yes,scrollbars=yes\'); return false;" href="/cart/checkout/gtct" target="_BLANK">'.t('general terms and conditions').'</a>';
+					$gtctlink = ' <a href="http://www.zapokupkami.com/help/o-nashem-servise" target="_blank">'.t('general terms and conditions').'</a>';
+					
+				}
+				else {
+					$gtctlink = t('general terms and conditions');
+				}
+				//Show GTCT-Checkbox
+				$contents['legal_aspects']['gtct_agree'] = array(
+				'#type' => 'checkboxes',
+				'#title' => t('General Terms and Conditions'),
+				//'#title' => '',//t('General Terms and Conditions'),
+				'#options' => array('gtct' => t('I agree with the !gtc', array('!gtc' => $gtctlink))),
+				//'#options' => array('gtct' => t('I agree with the'),
+				'#default_value' => $contents['legal_aspects']['gtct_agree'],
+				'#weight' => 1,
+				'#required' => true, 
+				);
+			}
+			
+			//GTCT-File uploaded?
+			if (variable_get('uc_gtct_term_conditions_upload', '') != '') {
+				$link_download = theme('display_file', variable_get('uc_gtct_term_conditions_upload', ''), t('Download the GTCT here'));
+				$contents['legal_aspects']['gtct_options_download'] = array(
+				'#prefix' => '<div id="gtct_options_download">',
+				'#value' => '<span>'.$link_download.'</span>' ,
+				'#suffix' => '</div>',
+				'#weight' => 2,
+				);
+			}			
+			//Show GTCT-print-link
+			if (variable_get('uc_gtct_term_show_print', 0) > 0) {
+				$link_print = theme('display_print', 'gtct/blank', t('Print view of GTCT'));
+				$contents['legal_aspects']['gtct_options_print'] = array(
+				'#prefix' => '<div id="gtct_options_print">',
+				'#value' => '<span>'.$link_print.'</span>' ,
+				'#suffix' => '</div>',
+				'#weight' => 3,
+				);
+			}
+			
+			if (variable_get('uc_grp_show_checkbox', 1) > 0) {
+				//Show GRP-Popup?
+				if (variable_get('uc_grp_term_show_popup', 0) > 0) {
+					$grplink = ' <a onclick="window.open(\''.url('revocation/blank').'\', \'grp_popup\', \'top=100,left=100,width=600,height=500,status=yes,resizable=yes,scrollbars=yes\'); return false;" href="/cart/checkout/gtct" target="_BLANK">'.t('revocation rights').'</a>';
+				}
+				else {
+					$grplink = t('revocation rights');
+				}		
+				//Show GRP-Checkbox		
+				$contents['legal_aspects']['grp_agree'] = array(
+				'#type' => 'checkboxes',
+				'#title' => t('Revocation rights'),
+				'#options' => array('gtct' => t('I agree with the !grp', array('!grp' => $grplink))),
+				'#default_value' => $contents['legal_aspects']['grp_agree'],
+				'#weight' => 4,
+				'#required' => true, 
+				);		
+			}	
+			//GRP-File uploaded?
+			if (variable_get('uc_grp_term_conditions_upload', '') != '') {
+				$link_download = theme('display_file', variable_get('uc_grp_term_conditions_upload', ''), t('Download the revocation rights here'));
+				$contents['legal_aspects']['grp_options_download'] = array(
+				'#prefix' => '<div id="grp_options_download">',
+				'#value' => '<span>'.$link_download.'</span>' ,
+				'#suffix' => '</div>',
+				'#weight' => 5,
+				);
+			}			
+			//Show GRP-print-link
+			if (variable_get('uc_grp_term_show_print', 0) > 0) {
+				$link_print = theme('display_print', 'revocation/blank', t('Print view of revocation rights'));
+				$contents['legal_aspects']['grp_options_print'] = array(
+				'#prefix' => '<div id="grp_options_print">',
+				'#value' => '<span>'.$link_print.'</span>' ,
+				'#suffix' => '</div>',
+				'#weight' => 6,
+				);
+			}			
+			
+
+			
+			return array('contents' => $contents, 'next-button' => FALSE);
+	}
+}
+
+
+/******************************************************************************
+* ADMIN FUNCTIONS
+******************************************************************************/
+
+/**
+ * Shows the settings form
+ */
+function show_admin_settings() {
+	$output = drupal_get_form('uc_legalaspects_form');
+	return  $output;
+}
+
+/**
+ * Defines the settings form
+ * 
+ * @see show_admin_setting()
+ * @return form-array
+ */
+function uc_legalaspects_form(){
+	///General Terms and Conditions
+	$form['gtct'] = array(
+	'#type' => 'fieldset',
+	'#title' => t('General terms and conditions'),
+	'#collapsible' => true,
+	'#collapsed' => true,
+	);
+
+	if (is_file(variable_get('uc_gtct_term_conditions_upload', ''))) { //There's already a file
+		$status = t("You've uploaded the file: !filename You can delete or override it.", array("!filename"=>variable_get('uc_gtct_term_conditions_upload', '')));
+		$status .= l('<img src="'.base_path() . drupal_get_path('module', 'uc_legalaspects').'/images/script_save.png" width="16" height="16" />', variable_get('uc_gtct_term_conditions_upload', ''), array(), null, null, false, true); //show the downloa-image
+	}
+	else {
+		$status = t("There's no file");
+	}
+	$form['gtct']['gtct_file_status'] = array(
+	'#type' => 'item',
+	'#title' => t('GTCT-File Status'),
+	'#description' => $status,
+	);
+
+	if (is_file(variable_get('uc_gtct_term_conditions_upload', ''))) { //Show delete field if file exists
+		$form['gtct']['gtct_delete_file'] = array(
+		'#type' => 'checkbox',
+		'#title' => t('Delete GTCT-File'),
+		'#description' => t('Check this if you want to delete your GTCT-File.'),
+		);
+	}
+
+	$form['gtct']['term_conditions_upload'] = array(
+	'#type' => 'file',
+	'#title' => t('Upload GTCT-File'),
+	'#size' => 50,
+	'#description' => t('A file (e.g. a PDF) with the gtct. Overrides existing file if available'),
+	);
+
+	$form['gtct']['terms_conditions'] = array(
+	'#type' => 'textarea',
+	'#title' => t('Terms and conditions'),
+	'#default_value' => variable_get('uc_gtct_term_conditions_text', 'not set'),
+	'#description' => t('Enter the global terms and conditions that aply to your store.'),
+	'#rows' => 10,
+	);
+
+	$form['gtct']['gtct_input_format'] = filter_form(variable_get('uc_gtct_term_conditions_format', 1), NULL, array('gtct_input_format'));
+
+
+	//revocation rights
+	$form['grp'] = array(
+	'#type' => 'fieldset',
+	'#title' => t('Revocation rights'),
+	'#collapsible' => true,
+	'#collapsed' => true,
+	);
+
+	if (is_file(variable_get('uc_grp_term_conditions_upload', ''))) { //There's already a file
+		$status = t("You've uploaded the file: ".variable_get('uc_grp_term_conditions_upload', ''). ". You can delete or override it. ");
+		$status .= l('<img src="'.base_path() . drupal_get_path('module', 'uc_legalaspects').'/images/script_save.png" width="16" height="16" />', variable_get('uc_grp_term_conditions_upload', ''), array(), null, null, false, true); //show the downloa-image
+	}
+	else {
+		$status = t("There's no file");
+	}
+	$form['grp']['grp_file_status'] = array(
+	'#type' => 'item',
+	'#title' => t('GRP-File Status'),
+	'#description' => $status,
+	);
+
+	if (is_file(variable_get('uc_grp_term_conditions_upload', ''))) { //Show delete field if file exists
+		$form['grp']['grp_delete_file'] = array(
+		'#type' => 'checkbox',
+		'#title' => t('Delete GRP-File'),
+		'#description' => t('Check this if you want to delete your GRP-File.'),
+		);
+	}
+
+	$form['grp']['returns_policy_upload'] = array(
+	'#type' => 'file',
+	'#title' => t('Upload GRP-File'),
+	'#size' => 50,
+	'#description' => t('A file (e.g. a PDF) with the grp. Overrides existing file if available'),
+	);
+
+	$form['grp']['returns_policy'] = array(
+	'#type' => 'textarea',
+	'#title' => t('Revocation rights'),
+	'#default_value' => variable_get('uc_grp_term_conditions_text', 'not set'),
+	'#description' => t('Enter the revocation rights that aply to your store.'),
+	'#rows' => 10,
+	);
+
+	$form['grp']['grp_input_format'] = filter_form(variable_get('uc_grp_term_conditions_format', 1), NULL, array('grp_input_format'));
+
+
+	//Display Options
+	$form['pane_options'] = array(
+	'#type' => 'fieldset',
+	'#title' => t('Pane display options'),
+	'#collapsible' => true,
+	'#collapsed' => true,
+	);
+
+	$form['pane_options']['gtct'] = array(
+	'#type' => 'fieldset',
+	'#title' => t('General terms and conditions display options'),
+	'#collapsible' => true,
+	'#collapsed' => false,
+	);
+
+	$form['pane_options']['gtct']['gtct_show_popup'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show Popuplink'),
+	'#description' => t('Check this if you want the GTCT displayed in a popup.'),
+	'#default_value' => variable_get('uc_gtct_term_show_popup', 0),
+	);
+
+	$form['pane_options']['gtct']['gtct_show_print'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show Printlink'),
+	'#description' => t('Check this if you want a print-link available'),
+	'#default_value' => variable_get('uc_gtct_term_show_print', 0),
+	);
+
+	$form['pane_options']['gtct']['gtct_show_iframe'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show GTCT in Pane'),
+	'#description' => t('Check this if you want the GTCT-Text displayed directly in the checkout pane.'),
+	'#default_value' => variable_get('uc_gtct_term_show_iframe', 0),
+	);
+	
+	$form['pane_options']['gtct']['gtct_show_checkbox'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show required Checkbox'),
+	'#description' => t('Check this if you want the Customer to aply the GTCT at checkout.'),
+	'#default_value' => variable_get('uc_gtct_show_checkbox', 1),
+	);		
+
+	$form['pane_options']['grp'] = array(
+	'#type' => 'fieldset',
+	'#title' => t('Revocation rights display options'),
+	'#collapsible' => true,
+	'#collapsed' => false,
+	);
+
+	$form['pane_options']['grp']['grp_show_popup'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show Popuplink'),
+	'#description' => t('Check this if you want the revocation rights displayed in a popup.'),
+	'#default_value' => variable_get('uc_grp_term_show_popup', 0),
+	);
+
+	$form['pane_options']['grp']['grp_show_print'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show Printlink'),
+	'#description' => t('Check this if you want a print-link available'),
+	'#default_value' => variable_get('uc_grp_term_show_print', 0),
+	);
+
+	$form['pane_options']['grp']['grp_show_iframe'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show revocation rights in pane'),
+	'#description' => t('Check this if you want the revocation rights text displayed directly in the checkout pane.'),
+	'#default_value' => variable_get('uc_grp_term_show_iframe', 0), 
+	);
+	
+	$form['pane_options']['grp']['grp_show_checkbox'] = array(
+	'#type' => 'checkbox',
+	'#title' => t('Show required Checkbox'),
+	'#description' => t('Check this if you want the Customer to aply the revocation rights at checkout.'),
+	'#default_value' => variable_get('uc_grp_show_checkbox', 1),
+	);	
+
+	$form['submit'] = array(
+	'#type' => 'submit',
+	'#value' => t('Submit'),
+	);
+
+	$form['#attributes']['enctype'] = 'multipart/form-data';
+	return $form;
+}
+
+/**
+ * Validation function for uc_legalaspects_form()
+ *
+ * @param unknown_type $form
+ * @param unknown_type $form_values
+ */
+function uc_legalaspects_form_validate($form, &$form_values) {
+	//Validate GTCT
+	if ($form_values['gtct_delete_file'] == true) { //if user wants to delete the file
+		if (is_file(variable_get('uc_gtct_term_conditions_upload', ''))) { //and the file exists
+			file_delete(variable_get('uc_gtct_term_conditions_upload', '')); //we delete it
+			drupal_set_message('File successfully deleted ('.variable_get('uc_gtct_term_conditions_upload', ')'));
+			variable_del('uc_gtct_term_conditions_upload');
+		}
+	}
+	
+	if ($file = file_check_upload('term_conditions_upload')) { //The user would upload a file
+		$file_data = file_save_upload($file,"files",FILE_EXISTS_RENAME); //we save the file
+		if ($file_data == 0) { //but upload fails
+			form_set_error('term_conditions_upload', 'Upload fails. Error produced of function file_save_upload');
+		}
+		else { //Upload successfully
+			if (is_file(variable_get('uc_gtct_term_conditions_upload', ''))) { //There's already a file
+				file_delete(variable_get('uc_gtct_term_conditions_upload', '')); //So we delete it
+				drupal_set_message(t('File successfully deleted (!file)', array('!file'=> variable_get('uc_gtct_term_conditions_upload', ''))));
+				variable_del('uc_gtct_term_conditions_upload'); //And delete the session
+			}
+			drupal_set_message(t('File successfully uploaded to @path', array('@path'=>$file_data->filepath)));
+			variable_set('uc_gtct_term_conditions_upload', $file_data->filepath);
+		}
+	}
+	
+	//Validate GRP
+	if ($form_values['grp_delete_file'] == true) { //if user wants to delete the file
+		if (is_file(variable_get('uc_grp_term_conditions_upload', ''))) { //and the file exists
+			file_delete(variable_get('uc_grp_term_conditions_upload', '')); //we delete it
+			drupal_set_message(t('File successfully deleted (!file)', array('!file'=> variable_get('uc_grp_term_conditions_upload', ''))));
+			variable_del('uc_grp_term_conditions_upload');
+		}
+	}
+	
+	if ($file = file_check_upload('returns_policy_upload')) { //The user would upload a file
+		$file_data = file_save_upload($file,"files",FILE_EXISTS_RENAME); //we save the file
+		if ($file_data == 0) { //but upload fails
+			form_set_error('returns_policy_upload', 'Upload fails. Error produced of function file_save_upload');
+		}
+		else { //Upload successfully
+			if (is_file(variable_get('uc_grp_term_conditions_upload', ''))) { //There's already a file
+				file_delete(variable_get('uc_grp_term_conditions_upload', '')); //So we delete it
+				drupal_set_message('File successfully deleted ('.variable_get('uc_grp_term_conditions_upload', ')'));
+				variable_del('uc_grp_term_conditions_upload'); //And delete the session
+			}
+			drupal_set_message(t('File successfully uploaded to @path', array('@path'=>$file_data->filepath)));
+			variable_set('uc_grp_term_conditions_upload', $file_data->filepath);
+		}
+	}	
+}
+
+function uc_legalaspects_form_submit($form, $form_values) {
+	//GTCT
+	if ($form_values['terms_conditions']) {
+		variable_set('uc_gtct_term_conditions_text', $form_values['terms_conditions']);
+	}
+	if ($form_values['gtct_input_format']) {
+		variable_set('uc_gtct_term_conditions_format', $form_values['gtct_input_format']);
+	}
+	
+	variable_set('uc_gtct_term_show_popup', $form_values['gtct_show_popup']);
+	variable_set('uc_gtct_term_show_print', $form_values['gtct_show_print']);
+	variable_set('uc_gtct_term_show_iframe', $form_values['gtct_show_iframe']);
+	variable_set('uc_gtct_show_checkbox', $form_values['gtct_show_checkbox']);
+	
+	//GRP
+	if ($form_values['returns_policy']) {
+		variable_set('uc_grp_term_conditions_text', $form_values['returns_policy']);
+	}
+	if ($form_values['grp_input_format']) {
+		variable_set('uc_grp_term_conditions_format', $form_values['grp_input_format']);
+	}
+	
+	variable_set('uc_grp_term_show_popup', $form_values['grp_show_popup']);
+	variable_set('uc_grp_term_show_print', $form_values['grp_show_print']);
+	variable_set('uc_grp_term_show_iframe', $form_values['grp_show_iframe']);
+	variable_set('uc_grp_show_checkbox', $form_values['grp_show_checkbox']);
+	
+	drupal_set_message("Changes saved successfully");	
+}
+
+/******************************************************************************
+* VIEW
+******************************************************************************/
+
+/*Page View*/
+function gtct_view() {
+	$output = theme('display_gtct_page_view', variable_get('uc_gtct_term_conditions_text', 'not set'));
+	return $output;
+}
+
+function grp_view() {
+	$output = theme('display_grp_page_view', variable_get('uc_grp_term_conditions_text', 'not set'));
+	return $output;
+}
+
+/*Blank Page View*/
+function gtct_view_blank() {
+	$output = theme('display_gtct_print_view', variable_get('uc_gtct_term_conditions_text', 'not set'));
+	print $output;
+}
+
+function grp_view_blank() {
+	$output = theme('display_grp_print_view', variable_get('uc_grp_term_conditions_text', 'not set'));
+	print $output;
+}
+
+
+
+/******************************************************************************
+* THEME FUNCTIONS
+******************************************************************************/
+
+function theme_display_file($path_to_file, $text = '') {
+	$output = l('<img src="'.base_path().drupal_get_path('module', 'uc_legalaspects').'/images/script_save.png" /> '.$text, $path_to_file, array(), null, null, false, true);
+	return $output;
+}
+
+function theme_display_print($path_to_file, $text = '') {
+	$output = l('<img src="'.base_path().drupal_get_path('module', 'uc_legalaspects').'/images/printer.png" /> '.$text, $path_to_file, array(), null, null, false, true);
+	return $output;
+}
+
+function theme_display_gtct_print_view($gtct) {
+	$output = '<html><head><title>'.t('General terms and conditions').'</title></head><body><div style="color: #000; font: normal 12px arial">';
+	$output .= check_markup($gtct,variable_get('uc_gtct_term_conditions_format', 1), false);
+	$output .= '</div></body>';
+	return $output;
+}
+
+function theme_display_grp_print_view($grp) {
+	$output = '<html><head><title>'.t('Revocation rights').'</title></head><body><div style="color: #000; font: normal 12px arial">';
+	$output .= check_markup($grp,variable_get('uc_gtct_term_conditions_format', 1), false);
+	$output .= '</div></body>';
+	return $output;
+}
+
+function theme_display_gtct_page_view($gtct) {
+	drupal_set_title(t('General Terms and Conditions'));
+	$output = check_markup($gtct,variable_get('uc_gtct_term_conditions_format', 1), false);
+	if (variable_get('uc_gtct_term_conditions_upload', '') != '')
+		$output .= theme('display_file', variable_get('uc_gtct_term_conditions_upload', ''), t('You can download the GTCT here'));
+	return $output;
+}
+
+function theme_display_grp_page_view($grp) {
+	drupal_set_title(t('Revocation rights'));
+	$output = check_markup($grp,variable_get('uc_grp_term_conditions_format', 1), false);
+	if (variable_get('uc_grp_term_conditions_upload', '') != '')
+		$output .= theme('display_file', variable_get('uc_grp_term_conditions_upload', ''), t('You can download the revocation rights here'));
+	return $output;
+}
+

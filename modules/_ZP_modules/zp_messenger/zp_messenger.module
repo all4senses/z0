@@ -1,0 +1,1287 @@
+<?php
+
+function zp_messenger_perm() {
+  return array('manage ZP Messenger options');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+/*
+function zp_messenger_menu($may_cache) {
+  if ($may_cache) {
+      $items[] = array(
+      'path' => 'admin/store/settings/checkout/zp_messenger',
+      'title' => t('ZP Messenger settings'),
+      'description' => t('Manage ZP Messenger options'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('zp_messenger_settings_form'),
+      'access' => user_access('manage ZP Messenger options'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+
+  return $items;
+}
+
+
+
+
+function zp_messenger_settings_form() {
+  $per_item = variable_get('zp_messenger_per_item', 1);
+  $charge = variable_get('zp_messenger_charge', 3.00);
+  $form['per_item'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Charge per item rather than per order'),
+    '#default_value' => $per_item,
+    '#weight' => '1'
+  );
+  $form['charge'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Price per ZP Messenger'),
+    '#default_value' => $charge,
+    '#weight' => '2'
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#weight' => '3'
+  );
+  return $form;
+}
+
+*/
+
+
+
+/*
+function zp_messenger_settings_form_submit($form, $form_values) {
+  //variable_set('zp_messenger_per_item', $form_values['per_item']);
+  //variable_set('zp_messenger_charge', $form_values['charge']);
+}
+*/
+
+
+
+
+/**
+ * Implementation of hook_configuration().
+ *
+ * Connect the weightquote action and event.
+ */
+
+/*
+function zp_messenger_configuration() {
+  //$enabled = variable_get('uc_quote_enabled', array());
+  $configurations = array(
+    'zp_messenger_workflow' => array(
+      '#label' => t('Отправлено сообщение через webform'),
+      '#event' => 'zp_messenger_webform_sent_event',
+      '#module' => 'zp_messenger',
+      '#active' => 0, //$enabled['weightquote'],
+    ),
+  );
+
+  $action = workflow_ng_use_action('zp_messenger_send_sms_action', array(
+    '#label' => t('Send SMS to admin(s)'),
+  ));
+  $configurations['zp_messenger_workflow'] = workflow_ng_configure($configurations['zp_messenger_workflow'], $action);
+
+  return $configurations;
+}
+*/  
+
+
+/*
+
+
+
+function uc_usps_configuration() {
+  //$enabled = variable_get('uc_quote_enabled', array());
+  $configurations = array(
+    'zp_messenger_workflow' => array(
+      '#label' => t('Shipping quote from USPS'),
+      '#event' => 'get_quote_from_usps',
+      '#module' => 'uc_usps',
+      '#active' => $enabled['usps'],
+    ),
+    'uc_usps_get_intl_quote' => array(
+      '#label' => t('Shipping quote from USPS Intl.'),
+      '#event' => 'get_quote_from_usps_intl',
+      '#module' => 'uc_usps',
+      '#active' => $enabled['usps_intl'],
+    ),
+  );
+  // Domestic areas include U.S., American Samoa, Guam, Puerto Rico, and the Virgin Islands
+  $countries = array(16, 316, 630, 840, 850);
+  $us_area_condition = workflow_ng_use_condition('uc_order_condition_delivery_country', array(
+    '#label' => t('Is in domestic US areas (US, AS, GU, PR, VI)'),
+    '#settings' => array(
+      'countries' => $countries,
+    ),
+  ));
+  $not_us_area_condition = workflow_ng_use_condition('uc_order_condition_delivery_country', array(
+    '#label' => t('Is not in domestic US areas (US, AS, GU, PR, VI)'),
+    '#negate' => true,
+    '#settings' => array(
+      'countries' => $countries,
+    ),
+  ));
+
+  $action = workflow_ng_use_action('uc_quote_action_get_quote', array(
+    '#label' => t('Fetch a shipping quote'),
+  ));
+  $configurations['uc_usps_get_quote'] = workflow_ng_configure($configurations['uc_usps_get_quote'], $action, $us_area_condition);
+  $configurations['uc_usps_get_intl_quote'] = workflow_ng_configure($configurations['uc_usps_get_intl_quote'], $action, $not_us_area_condition);
+
+  return $configurations;
+} 
+
+*/
+ 
+
+
+
+
+/*
+* Implementation of hook_event_info()
+*/
+function zp_messenger_event_info() {
+  return array(
+    'zp_webform_message_sent' => array(
+      '#label' => 'The message has been sent via webform',
+      '#module' => 'zp_messenger',
+      '#arguments' => array(
+        'arg A' => array('#entity' => 'user', '#label' => t('User arg A, which adds userB.')),
+        'arg B' => array('#entity' => 'user', '#label' => t('User arg B, which is added to UserA\'s list.')),
+      ),
+      '#redirect' => TRUE,
+    ),
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+// сообщения админу о событиях на сайте 
+
+  				
+function zp_messenger_inform_admin($event, $args){
+	
+	
+	//echo 'event = ' . $event . '<br>';
+	
+	$full_prefix = '';
+	$min_prefix = '';
+	
+	if($event == 'Updated New order')
+	{
+		// если заказ обновился (после согласования с клиентом)
+		// всё равно он считается новым, для него выполняются все те же действия, что и для нового
+		$event = 'New order';
+		
+		// но в сообщениях добавляются специальные пометки...
+		$full_prefix = 'Обновлённый ';
+		$min_prefix = 'U';
+	}
+	else if($event == 'Approved New order')
+	{
+		// если заказ был подтверждён (после согласования с клиентом), при этом он мог и измениться!!!
+		// всё равно он считается новым, для него выполняются все те же действия, что и для нового
+		$event = 'New order';
+		
+		// но в сообщениях добавляются специальные пометки...
+		$full_prefix = 'Подтверждённый ';
+		$min_prefix = 'A'; // Approved
+	}
+
+	switch($event)
+	{
+            
+                case 'New price':
+                                // отправляем дмину сообщение по смс о новом предложении перевода
+									
+				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				$to = 'all4senses@gmail.com'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				//$to = '380965038323@2sms.kyivstar.net'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				
+                                // формируем текст для смс и отсылаем смс
+  				$message = 'Report to a file:' . $args['report_to_file'] . ',
+Full counts report: ' . $args['full_counts'];
+
+  				//$message = zp_messenger_make_sms($message);
+  				//$subject = 'sms.ZPm.'; 
+                                $subject = 'New price: ' . $args['report_to_file']; 
+  				
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+                    
+                    break;
+                
+		
+		case 'New translation suggested':
+                                // отправляем дмину сообщение по смс о новом предложении перевода
+									
+				// формируем текст для смс и отсылаем смс
+  				$message = 'tr:' . $args['node_nid'] . ':' . $args['translation'];
+  							
+  				$message = zp_messenger_make_sms($message);
+  				
+  				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				
+  				$to = 'all4senses@gmail.com'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				//$to = '380965038323@2sms.kyivstar.net'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				
+  				$subject = 'sms.ZPm.'; 
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+                    
+                    break;
+                
+    
+                  
+                  
+     case 'New click on Google Search Images':
+                               
+				// формируем текст для смс и отсылаем смс
+  				$message = 'im:' . $args['nid'] . ':' . $args['title'];
+  							
+  				$message = zp_messenger_make_sms($message);
+  				
+  				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				
+  				$to = 'all4senses@gmail.com'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				//$to = '380965038323@2sms.kyivstar.net'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				
+  				$subject = 'sms.ZPm.'; 
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+                    
+          
+          
+          // normal email
+            $message = 'New click on Google Search Images: 
+Title: ' . $args['title'] . ',
+Nid: ' . $args['nid'] . ',
+Clicks: ' . $args['clicks'] . ',
+Results: ' . ($args['empty_results'] ? 'empty' : 'present');
+
+  				
+          $subject = 'New click on Google Search Images'; 
+  				
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+          
+          
+                    break;
+    
+                  
+     
+    case 'New hide on Google Search Images':
+                               
+				// формируем текст для смс и отсылаем смс
+  				$message = 'h-im:' . $args['nid'] . ':' . $args['title'];
+  							
+  				$message = zp_messenger_make_sms($message);
+  				
+  				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				
+  				$to = 'all4senses@gmail.com'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				//$to = '380965038323@2sms.kyivstar.net'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				
+  				$subject = 'sms.ZPm.'; 
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+                    
+          
+          
+          // normal email
+            $message = 'New hide on Google Search Images: 
+Title: ' . $args['title'] . ',
+Nid: ' . $args['nid'] . ',
+Clicks: ' . $args['clicks'] . ',
+Results title: ' . $args['results_title'];
+
+  				
+          $subject = 'New HIDE on Google Search Images'; 
+  				
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+          
+          
+                    break;
+    
+                  
+                  
+		
+		case 'user_login': // перехватываем момент авторизации и сообщаем об этом админу
+			
+				// $args в данном случае - ник юзера (или имя, смотря что передаётся сюда из функции zp_workflowng_intercept_event)
+				
+				//zp_functions_show($args);
+				
+				
+				
+				// отправляем дмину сообщение по смс об авторизации юзера
+									
+				// формируем текст для смс и отсылаем смс
+  				$message = 'l: ' . $args['fio'] . ', ' . $args['nick'];
+  							
+  				$message = zp_messenger_make_sms($message);
+  				
+  				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				
+  				$to = 'all4senses@gmail.com'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				//$to = '380965038323@2sms.kyivstar.net'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				
+  				$subject = 'sms.ZPm.'; 
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+									
+				
+			break;
+		
+		
+			
+			
+			
+			
+			
+			
+		
+		case 'New order': // новый, обновлённый или подтверждённый заказ
+			
+			
+  				
+  				// получим карту места расположения пользователя для отправки админу, а также карту меньшего размера для показа на wap-странице заказа
+  				
+  				//zp_functions_get_location_map($target_type = 'user', $target_id, $location = false, $map_type = 'mail', $map_num = 1);
+  				$map_file = zp_functions_get_location_map('user', $args->uid, false, 'mail', 1);
+  				$map_file_wap = zp_functions_get_location_map('user', $args->uid, false, 'wap', 1);
+    				
+    			// сформируем массив для прикрепления картинки к письму с заказом, если карта была получена	
+     			if($map_file)
+     			{
+    				$attachments[]=array(         
+  							//'filepath' => 'http://www.zapokupkami.com/zpmaps/shops/z1010101_map_1.gif', //$map_file, //'/path/to/file.name',
+  							//'filepath' => 'zpmaps/shops/z1010101_map_1.gif', //$map_file, //'/path/to/file.name',
+  							'filepath' => $map_file, //'/path/to/file.name',
+  							'filemime' => 'image/gif', //  'mime/type',
+						);
+     			}		
+     				
+     			// определим расстояние по прямой от магазина до клиента
+     			// чтобы показать его админу в письме и на wap-странице	
+     			$s_location = zp_functions_get_location('shop', substr($args->products[0]->model, 0, 8));
+     			$u_location = zp_functions_get_location('user', $args->uid);
+     			
+     			$distance = zp_functions_mapdistance($s_location['latitude'], $s_location['longitude'], $u_location['latitude'], $u_location['longitude']);
+
+		
+				//----------------------------------------------------------------------------------------------
+									
+
+				// сохраняем вап-страницу на сайте с содержимым заказа
+				// возвращает две ссылки на файл со списком и с самим заказом, на который также есть выход из списка
+				// эти ссылки покажем в письме админу
+  				$wap_files = zp_messenger_neworder_wappage($args, $map_file_wap, $distance, $min_prefix);
+  				//$wap_files['index_file']
+				//$wap_files['new_order_file']
+	
+
+				
+				
+  				//---------------------------------------------------------------------------------------------------------
+			
+  				
+  				
+  				
+			
+ 				//сообщим админу по почте и через смс
+  				
+  				// формируем текст для письма и отсылаем письмо
+  				
+  				foreach ($args->line_items as $item)
+					$order_price_parts .= 'В т.ч. ' . $item['title'] . ': ' . uc_currency_format($item['amount']) . '<br>
+';
+  				
+				$count = 0;
+				foreach ($args->products as $product)
+				{
+					
+					//echo '<PRE>';
+					//print_r($product);
+					//echo '</PRE>';
+					
+					$count++;
+					$products .= '<br><br>
+
+' . $count . ') ' . $product->title . ', цена: ' . uc_currency_format($product->price) . ', кол-во: ' . $product->qty . $product->data['sell_measure'] . ', всего: ' . uc_currency_format($product->price * $product->qty);
+						
+					// найдём выбранные атрибуты
+					$attributes = null;
+					foreach($product->data['attributes'] as $key => $value)
+						{
+							if($key == 'Ваши пожелания к товару (укажите)' AND $value == 'Нет')
+								continue;
+							
+							if($key == 'Ваши пожелания к товару (укажите)')
+								$attributes .= 'Пожелания клиента к товару: ' . $value . '; ';
+							else
+								$attributes .= $key . ': ' . $value . '; ';
+						}
+						
+					if($attributes)	
+					$products .= '<br>
+(' 
+					. $attributes . ')'; 
+						
+				}
+					
+				
+					
+  				$message = $full_prefix . 'Новый заказ № ' . $args->order_id  . '<br> 
+на сумму ' . uc_currency_format($args->order_total)
+  				. '<br>
+для магазина ' . $args->data['shop_name'] . ' (адрес: ' . $args->data['shop_address'] . ')'
+  				. '<br>
+мин. сумма заказа ' . uc_currency_format($args->data['c_min_sum'])
+  				. ',<br><br>  
+от клиента ' . $args->delivery_last_name . ' ' . $args->delivery_first_name . ' ( uid = ' . $args->uid . ')'
+  				. ',<br> 
+проживающего по адресу: ' . $args->delivery_city . ', ' . $args->delivery_street1
+  				. '<br>
+Расстояние от магазина до клиента: ' . $distance['distance'] . 'км, азимут ' . $distance['bearing'] . 'грд'
+  				. '<br>
+E-mail клиента: ' . $args->primary_email 
+  				. '<br>
+Телефон: ' . $args->delivery_phone
+  				. '<br><br><br> 
+  				
+  				
+'
+  				. 'Содержание заказа:<br> 
+Кол-во товаров: ' . $args->data['qty_total'] 
+  				. '<br>
+  				
+Общая сумма заказа: ' . uc_currency_format($args->order_total)
+  				. '<br>
+' 
+  				. $order_price_parts
+  				. '<br>
+Время доставки: ' . $args->data['delivery_time']
+  				. '<br><br><br>
+  		
+  						
+Товары (без стоимости доставки): ' 
+  				. $products
+  				
+  				. '<br><br><br>
+
+
+Ссылки на wap-файлы с заказом:<br>
+
+<a href="' . $wap_files['index_file'] . '">Список заказов,</a><br>
+
+<a href="' . $wap_files['new_order_file'] .'">Данный заказ</a>';
+  				
+
+				
+
+  							
+				//----------------------------------------------------------------------------------------------							
+				
+				
+				// отправляем подробное письмо с описанием заказа админу
+				
+
+  				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				$to = 'zp.orders@gmail.com, zapokupkami@gmail.com'; // ящик для размещения/сохранения заказов
+  				
+  				$subject = $full_prefix . 'Новый заказ № ' . $args->order_id . ' в магазине ' . $args->data['shop_name'] . ' (адрес: ' . $args->data['shop_address'] . ')'; 
+  				
+  				zp_messenger_send_mail($event,
+									$from,
+									$to, 
+									$subject,  
+									$message,
+									array(), // headers
+									$attachments // отправляем карту по почте вместе с данными по заказу
+									);
+									
+
+												
+				//----------------------------------------------------------------------------------------------
+
+				// отправляем дмину сообщение по смс о новом заказе
+									
+				// формируем текст для смс и отсылаем смс
+  				$message = $min_prefix . 'Norder ' . $args->order_id . ': ' . uc_currency_format($args->order_total)
+  							. ',' . $args->data['shop_name'] . ',' . $args->data['shop_address'] . ','
+  							. 'User ' . $args->delivery_last_name . ' ' . $args->delivery_first_name . ',id' . $args->uid . ','
+  							. 'adr:' /*. $args->delivery_city . ','*/ . $args->delivery_street1;
+  							
+  				$message = zp_messenger_make_sms($message);
+  				
+  				
+  				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				
+  				//$to = 'zp.phone@gmail.com'; // сигнал на телефон по SMS, с этого ящика все письма отправляются на телефон
+
+  				$to = 'all4senses@gmail.com'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				//$to = '380965038323@2sms.kyivstar.net'; // сигнал на телефон по SMS, с этого ящика письма с темой sms.ZP. отправляются на телефон
+  				
+
+  				
+
+  				
+  				$subject = 'sms.ZPo.'; //$min_prefix . 'Norder ' . $args->order_id;  // ведь в смске и так сразу видна и тема, и сам текст, так что тема только дублирует текст сообщения
+  				
+  				zp_messenger_send_mail( $event,
+									$from ,
+									$to, 
+									$subject,  
+									$message);
+									
+									
+
+				break;
+				
+
+				
+				
+				
+				
+
+					
+		//----------------------------------------------------------------------------------------------																
+		//----------------------------------------------------------------------------------------------		
+		//----------------------------------------------------------------------------------------------
+				
+		
+
+		
+			
+		case 'User message from site':		
+				
+			// внимание, $args[0] в случае 'zp_webform_message_sent' - массив
+		
+  			// само сообщение в полном виде отправляется автоматом с сайта на почту, указанную в настройках соответствующей веб-формы на сайте
+			
+			// отправим sms, предварительно транслитерируем и урезаем длину (чтобы в мобильник поместилось)
+			//$message = zp_messenger_make_sms($args['form_values']['submitted_tree']['message']);
+			
+			switch($args['page_title'])
+			{
+				case 'Стать нашим клиентом просто!':
+          // Send Notification to a client
+          $message = 'Уважаемый(ая) ' . $args['form_values']['submitted_tree']['name'] . '.
+            
+В связи с реорганизацией, в настоящее время наш сервис не принимает и не обслуживает новых клиентов. Приносим извинения за неудобства.
+
+Мы дополнительно сообщим Вам по электронной почте об изменениях в порядке нашей работы.
+
+С уважением,
+администрация службы доставки 
+"За Покупками!"
+';
+          $subject = 'Ответ от службы "За Покупками!"'; // письма с этой темой отправляются на телефон
+  				
+          $from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+          $to = $args['form_values']['submitted_tree']['email'] . ', info@zapokupkami.com';
+      
+          zp_messenger_send_mail( $event, // $event_name,
+                                  $from,
+                                  $to, 
+                                  $subject,  // $subject, 
+                                  $message // $message
+                                ); 
+      
+					$message = 'N.kli ' . zp_messenger_make_sms($args['form_values']['submitted_tree']['name']);
+          
+					break;
+				
+				case 'Свяжитесь с нами':
+					$message = 'ZPm ot ' . zp_messenger_make_sms($args['form_values']['submitted_tree']['name'] . ': ' . $args['form_values']['submitted_tree']['message']);
+					break;
+					
+				
+				case 'Добавить новый магазин':
+					$message = 'N.shop ' . zp_messenger_make_sms($args['form_values']['submitted_tree']['message']);
+					break;
+					
+				 	//$args['form_values']['details']['email_from_address']
+
+			}
+			
+			
+			$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  			
+			//$to = 'zp.phone@gmail.com'; // сигнал на телефон по SMS, с этого ящика все письма отправляются на телефон
+  			
+			$to = 'all4senses@gmail.com'; // сигнал на телефон по SMS
+			//$to = '380965038323@2sms.kyivstar.net'; // сигнал на телефон по SMS
+  			
+  			
+
+  			//$subject = 'ZPUMfrom ' . $args['form_values']['details']['email_from_address']; // ZPUPfrom = ZP User Message from... ящик, указанный отправителем сообщения в форме на сайте при отправке сообщения
+  			$subject = 'sms.ZPm.'; // письма с этой темой отправляются на телефон
+  					
+			zp_messenger_send_mail( $event, // $event_name,
+									$from,
+									$to, 
+									$subject,  // $subject, 
+									$message // $message
+								  ); 
+								  
+  			break;
+	
+
+	} // end of switch()
+
+
+
+} // end of function
+
+
+
+
+
+
+
+
+
+
+
+
+
+// сообщения пользователю о событиях на сайте 
+
+			
+function zp_messenger_inform_user($event, $args){
+	
+	
+	//echo 'event = ' . $event . '<br>';
+	
+	$full_prefix = '';
+	$min_prefix = '';
+	
+	if($event == 'Updated New order')
+	{
+		// если заказ обновился (после согласования с клиентом)
+		// всё равно он считается новым, для него выполняются все те же действия, что и для нового
+		$event = 'New order';
+		
+		// но в сообщениях добавляются специальные пометки...
+		$full_prefix = 'Обновлённый ';
+		$min_prefix = 'U';
+	}
+	else if($event == 'Approved New order')
+	{
+		// если заказ был подтверждён (после согласования с клиентом), при этом он мог и измениться!!!
+		// всё равно он считается новым, для него выполняются все те же действия, что и для нового
+		$event = 'New order';
+		
+		// но в сообщениях добавляются специальные пометки...
+		$full_prefix = 'Подтверждённый ';
+		$min_prefix = 'A'; // Approved
+	}
+
+	switch($event)
+	{
+		
+		
+		case 'New order': // новый, обновлённый или подтверждённый заказ
+			
+			
+  				
+  				
+  				
+  				
+			
+ 				//сообщим клиенту о полученном заказе
+  				
+  				// формируем текст для письма и отсылаем письмо
+  				
+  				foreach ($args->line_items as $item)
+					$order_price_parts .= 'В т.ч. ' . $item['title'] . ': ' . uc_currency_format($item['amount']) . '
+';
+  				
+				$count = 0;
+				foreach ($args->products as $product)
+				{
+					$count++;
+					$products .= '
+
+' . $count . ') ' . $product->title . ', цена: ' . uc_currency_format($product->price) . ', кол-во: ' . $product->qty . ', всего: ' . uc_currency_format($product->price * $product->qty);
+						
+					// найдём выбранные атрибуты
+					$attributes = null;
+					foreach($product->data['attributes'] as $key => $value)
+						{
+							if($key == 'Ваши пожелания к товару (укажите)' AND $value == 'Нет')
+								continue;
+								
+							if($key == 'Ваши пожелания к товару (укажите)')
+								$attributes .= 'Ваши пожелания к товару: ' . $value . '; ';
+							else
+								$attributes .= $key . ': ' . $value . '; ';
+						}
+						
+					if($attributes)	
+					$products .= '
+(' 
+					. $attributes . ')'; 
+						
+				}
+					
+				
+					
+				 
+				$message = 'Уважаемый клиент ' . $args->delivery_first_name . ' ' . $args->delivery_last_name . '!
+				
+';
+				
+				if($min_prefix == 'U')
+				$message .= 'Содержимое Вашего заказа № ' . $args->order_id . ' было обновлено после уточнения доступности всех указанных товаров.
+
+Пожалуйста, ознакомьтесь с обновлёнными данными по Вашему заказу: 
+
+  				
+';
+
+				
+				else if($min_prefix == 'A')
+				$message .= 'Ваш заказа № ' . $args->order_id . ' был поддверждён и согласован с Вами после уточнения доступности всех указанных товаров.
+
+Ожидайте доставку товаров в условленное время.
+
+Просим Вас находиться в данное время по адресу доставки или заблаговременно (хотя бы за два часа) предупредить нас об изменении своих планов.
+
+Пожалуйста, ознакомьтесь с содержанием Вашего заказа: 
+
+  				
+';
+				
+				else
+				$message .= 'Служба доставки zaPokupkami.com получила Ваш заказ на доставку выбранных Вами товаров из указанного Вами магазина.
+
+В ближайшее время наш менеджер свяжется с Вами для уточнения и подтверждения данного заказа.
+
+А пока, пожалуйста, ещё раз ознакомьтесь с данными по Вашему заказу: 
+
+  				
+';
+				
+				
+				$message .= $full_prefix . 'Заказ № ' . $args->order_id  . '
+на доставку товаров из магазина ' . $args->data['shop_name'] . ' (адрес: ' . $args->data['shop_address'] . ')'
+  				. ' 
+  				
+  				
+'
+  				. 'Содержание Вашего заказа:
+
+Кол-во товаров: ' . $args->data['qty_total'] 
+  				. '
+  				
+Общая сумма заказа: ' . uc_currency_format($args->order_total)
+  				. '
+' 
+  				. $order_price_parts
+  				. '
+Желаемое время доставки: ' . $args->data['delivery_time']
+  				. '
+  		
+  						
+Выбранные Вами товары (без стоимости доставки): ' 
+  				. $products
+  				. '
+
+
+  				
+--------------------------------------------------------
+  				
+Благодарим Вас за пользование услугами службы доставки "За Покупками!".
+  				
+  				
+Отвечать на это письмо не нужно.';
+  				
+  				
+
+				
+
+  							
+				//----------------------------------------------------------------------------------------------							
+				
+				
+				// отправляем подробное письмо с описанием заказа пользователю
+				
+
+  				$from = 'info@zapokupkami.com'; // стандартная почта по умолчанию сайта
+  				$to = $args->primary_email; // основной почтовый ящик клиента
+  				
+  				$subject = $full_prefix . 'Заказ № ' . $args->order_id . ' в магазине ' . $args->data['shop_name'] . ' (адрес: ' . $args->data['shop_address'] . ')'; 
+  				
+  				zp_messenger_send_mail($event,
+									$from,
+									$to, 
+									$subject,  
+									$message,
+									array(), // headers
+									null //$attachments // отправляем карту по почте вместе с данными по заказу
+									);
+
+									
+
+				break;
+				
+
+								  
+
+
+	} // end of switch()
+
+
+
+} // end of function
+
+
+
+
+
+
+
+/*
+
+
+function zp_messenger_send_alert($event_name, $args, $action)
+{
+	switch($action)
+	{
+		case 'sms':
+			
+			zp_messenger_send_sms($args, $subject);
+			break;
+		
+			
+		case 'email':
+			
+			//zp_messenger_send_email($event_name, $args);
+			break;
+			
+			
+		case 'all':
+			
+			zp_messenger_send_sms($event_name, $args);
+			zp_messenger_send_email($event_name, $args);
+			break;
+		
+	}
+	
+	return;
+}
+
+
+*/
+
+
+
+
+
+
+
+function zp_messenger_send_mail($event_name,
+								$from,
+								$to, 
+								$subject,  
+								$body,
+								$headers = array(), $attachments = false)
+{
+  		
+	
+	// сформируем хидер для письма
+	
+	$defaults = array(
+   	'MIME-Version' => '1.0',
+   	'Content-Type' => 'text/plain; charset=UTF-8; format=flowed',
+   	'Content-Transfer-Encoding' => '8Bit',
+   	//'X-Mailer' => 'The Batt! (v3.99.3) Professional',
+   	//'X-Priority' => '3 (Normal)'
+   	'X-Priority' => '2 (high)'
+   	//'X-PHP-Script' => 'tst script'
+  	);
+
+  	
+  	$body = "\n". $body;
+   	$defaults['Sender'] = $defaults['Return-Path'] = $defaults['Errors-To'] = $from;
+  	$headers = array_merge($defaults, $headers);
+   	$mimeheaders = array();
+  	//$defaults['From'] = $from;
+   	//$mimeheaders['To'] = $to; // если эта строчка будет использоваться при выполнении прямо на сервере all4senses.com, то будет дублирование "to"
+  	//$mimeheaders['Subject']= mime_header_encode($subject);;
+  	foreach ($headers as $name => $value)
+   		$mimeheaders[$name] = mime_header_encode($value);
+   		//$mimeheaders[] = $name .': '. mime_header_encode($value);
+ 	
+
+   	//print '<PRE>';
+  	//print_r($headers);
+  	//print_r($mimeheaders);
+  	//print '</PRE>';
+   		
+	//drupal_mail($mailkey, $to, $subject, $body, $from = NULL, $headers = array());
+	
+	if(!$attachments)
+	{
+		drupal_mail($event_name, 
+				$to, 
+				$subject,  
+				$body, 
+				$from, 
+				$mimeheaders);
+	}
+	else 
+	{
+		// если есть аттач, заменяем стандартную функцию отправки сообщения на функцию с возможностью отправлять аттач
+		mimemail($from, 
+				$to, 
+				$subject,
+				$body, 
+				true,// $plaintext = NULL,
+				$mimeheaders, //array(), //$mimeheaders, // $headers=array(),
+				NULL, //$text = NULL,
+				$attachments, // $attachments = array(),
+				$event_name //$mailkey = ''
+				);	
+				
+	}
+  	
+	return;
+}
+
+
+
+
+
+
+
+function zp_messenger_make_sms($message, $format = 1)
+{
+
+ 	// транслитерируем и сокращаем размер сообщения (так как всё сообщение не влезет) сообщения и высылаем его на телефон в виде sms
+
+ 	$message = zp_messenger_translit($message, 1);
+	$count = strlen($message) - 87;
+	$message = substr($message, 0, 87);
+	$message = $message . '+' . $count;
+  	
+	return $message;
+}
+
+
+
+function zp_messenger_translit($message, $format = 1)
+{
+
+	// таблица для транслита
+ 	$iso1 = array(
+   	"Р„"=>"Ye","Р†"=>"I","Рѓ"=>"G","С–"=>"i","в„–"=>"#","С”"=>"ye","С“"=>"g",
+   	"Рђ"=>"A","Р‘"=>"B","Р’"=>"V","Р“"=>"G","Р”"=>"D",
+   	"Р•"=>"E","РЃ"=>"Yo","Р–"=>"Zh",
+   	"Р—"=>"Z","Р"=>"I","Р™"=>"J","Рљ"=>"K","Р›"=>"L",
+   	"Рњ"=>"M","Рќ"=>"N","Рћ"=>"O","Рџ"=>"P","Р "=>"R",
+   	"РЎ"=>"S","Рў"=>"T","РЈ"=>"U","Р¤"=>"F","РҐ"=>"Kh",
+   	"Р¦"=>"Ts","Р§"=>"Ch","РЁ"=>"Sh","Р©"=>"Sch","РЄ"=>"'",
+   	"Р«"=>"Y","Р¬"=>"","Р­"=>"E","Р®"=>"Yu","РЇ"=>"Ya",
+   	"Р°"=>"a","Р±"=>"b","РІ"=>"v","Рі"=>"g","Рґ"=>"d",
+   	"Рµ"=>"e","С‘"=>"yo","Р¶"=>"zh",
+   	"Р·"=>"z","Рё"=>"i","Р№"=>"j","Рє"=>"k","Р»"=>"l",
+   	"Рј"=>"m","РЅ"=>"n","Рѕ"=>"o","Рї"=>"p","СЂ"=>"r",
+   	"СЃ"=>"s","С‚"=>"t","Сѓ"=>"u","С„"=>"f","С…"=>"kh",
+   	"С†"=>"ts","С‡"=>"ch","С€"=>"sh","С‰"=>"shh","СЉ"=>"",
+   	"С‹"=>"y","СЊ"=>"","СЌ"=>"e","СЋ"=>"yu","СЏ"=>"ya","В«"=>"","В»"=>"","вЂ”"=>"-","С—"=>"i","Р‡"=>"I" 
+  	);
+	
+  	// добавляем не вошедшие в таблицу символы
+	$iso1[cp1251_to_utf8_recursive('И')] = "I";
+	$iso1[cp1251_to_utf8_recursive('П')] = "P";
+	$iso1[cp1251_to_utf8_recursive('Р')] = "R";
+	$iso1[cp1251_to_utf8_recursive('Э')] = "E";
+
+
+	if ($format == 1)
+		$message = strtr(cp1251_to_utf8_recursive($message), $iso1);
+	else
+		$message = strtr($message, $iso1);
+  	
+	return strtr($message, $iso1);
+}
+
+
+/*
+function zp_messenger_form_alter(&$form, &$form_state, $form_id) {
+	
+
+  if ($form_id == 'comment_form') {
+  	echo $form_id;
+  	print '<PRE>';	
+	print_r($form_srate);
+	print '</PRE>';	
+
+    //$form['#submit'] += array('players_nameform_submit' => array(&$form, &$form_state, $form_id)); // players_nameform_submit будет заниматься вставкой в отдельную таблицу БД значений из моего куска формы
+    //$form['#validate'] += array('players_nameform_validate' => array()); // players_nameform_validate проверит правильность введённых значения из моего куска формы
+    //$form['#theme'] += array('players_nameform' => array()); // theme_players_nameform темизирует мой кусок формы нужным образом.
+    //$form['#size'] = 3;  
+    //for ($i = 0; $i < $form['#size']; $i++) {
+      // Рисуем строки полей
+    //}
+  }
+}
+
+*/
+
+
+
+
+function zp_messenger_neworder_wappage($order, $map_file_wap = false, $distance = 0, $min_prefix = '') {
+	
+	//echo 'new order ' . $order->order_id;
+	
+	//print '<PRE>';	
+	//print_r($order);
+	//print '</PRE>';	
+	
+	if($min_prefix == '')
+		$min_prefix = 'N';
+	
+	// каталог на сервере с исходными и выходными файлами с данными
+	//$zp_server_directory = 'http://www.zapokupkami.com/zp_import_data/';
+	
+	//$zp_server_directory = 'D:\\WebServers\\home\\zapokupkami.com\\www\\orders_wrk\\';
+	
+	$zp_server_directory = 'zpwrk/orders/';
+	
+	
+	
+	$order_index_file = 'orders.wml';
+	$new_order_file = $order->order_id . '_' . date("MjS_H-i") . '.wml';
+	
+	// сохраняем для передачи этих данных в письме админу вместе с описанием заказа
+	$wap_files['index_file'] = $zp_server_directory . $order_index_file;
+	$wap_files['new_order_file'] = $zp_server_directory . $new_order_file;
+	
+	
+  	if (!$fp = fopen($_SERVER['DOCUMENT_ROOT'] . base_path() . $zp_server_directory . $order_index_file, 'r')) {
+		return 'Ошибка открытия файла ' . $order_index_file;
+  	}
+
+ 	
+  	while(($buffer = trim(fgets($fp))) != '<wml>')
+  	{
+  		//echo 'buffer =  ' .  $buffer .'<br>';	
+  	}
+  	
+  	$new_order_index[] = '<?xml version="1.0"?>
+
+<!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN" 
+
+"http://www.wapforum.org/DTD/wml_1.1.xml">
+
+<wml>';
+  	
+  	while(($buffer = trim(fgets($fp))) != '<card id="ordersMenu" title="Orders"><p align="center">')
+  	{
+  		$new_order_index[] = $buffer;
+  	}
+  
+  	$new_order_index[] = $buffer;
+  	// добавляем ссылку на новый файл с заказом
+  	$new_order_index[] = '<a href="' . $new_order_file . '">' . $new_order_file . '</a><br/>';
+  
+  	while(!feof($fp)) 
+  	{
+  		$buffer = trim(fgets($fp));
+  		$new_order_index[] = $buffer;
+  	}	
+
+  	fclose($fp);
+  
+  	// обновляем файл со списком заказов (перезаписываем), добавляя в него ссылку на новый заказ
+	if (!$fp = fopen($_SERVER['DOCUMENT_ROOT'] . base_path() . $zp_server_directory . $order_index_file, 'w')) {
+		return 'Ошибка открытия файла ' . $order_index_file;
+  	}
+  
+  	foreach ($new_order_index as $string)
+  		fwrite($fp, $string . '
+');
+	
+  	fclose($fp);	
+  	
+  	
+  	
+  	
+  	
+  	
+  	
+  	// записываем собственно сам файл с заказом
+  	
+  	if (!$fp = fopen($_SERVER['DOCUMENT_ROOT'] . base_path() . $zp_server_directory . $new_order_file, 'w')) {
+		return 'Ошибка открытия файла ' . $new_order_file;
+  	}
+  	
+  	$string = '<?xml version="1.0"?>
+<!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN"
+      "http://www.wapforum.org/DTD/wml_1.1.xml">
+
+
+
+<wml>
+<card id="orderMenu" title="' . $min_prefix . '-Order №' . $order->order_id . ' Menu">
+<p align="center">
+<a href="#orderShop">Order Shop</a><br/>
+<a href="#orderUser">Order User</a><br/>
+<a href="#orderProducts">Order Products</a><br/>';
+
+if($map_file_wap)
+	$string .= '<a href="#orderUMap">Карта клиента ' . $order->uid . '</a><br/>';
+  	
+$string .= '</p>
+<do type="prev" label="x"><noop/></do>
+</card>'; 
+  	
+  	
+//------------------------ Shop  	
+  	$string .= '<card id="orderShop" title="' . $min_prefix . '-Order №' . $order->order_id . ' Shop">';
+	$string .= '<p>Магазин: ' . $order->data['shop_name'] . '</p>';
+	$string .= '<p>Адрес магазина: ' . $order->data['shop_address'] . '</p>';
+	$string .= '<p>Мин.сумма покупки: ' . uc_currency_format($order->data['c_min_sum']) . '</p>';
+
+	$string .= '<do type="accept" label="next"><go href="#orderUser"/></do>
+<do type="prev" label="menu"><prev/></do>
+</card>';
+	
+	
+// ----------------------- User	
+	$string .= '<card id="orderUser" title="' . $min_prefix . '-Order №' . $order->order_id . ' User">';
+	
+	$string .= '<p>User id: ' . $order->uid . '</p>';
+	if($order->delivery_company)
+		$string .= '<p>Company: ' . $order->delivery_company . '</p>';
+	$string .= '<p>User name: ' . $order->delivery_first_name . ' ' . $order->delivery_last_name . '</p>';
+	$string .= '<p>User email: ' . $order->primary_email . '</p>';
+	$string .= '<p>Address: ' . $order->delivery_postal_code . ', ' . $order->delivery_city . ', ' . $order->delivery_street1 . '</p>';
+	$string .= '<p>Расстояние от клиента до магазина: ' . $distance['distance'] . 'км, азимут ' . $distance['bearing'] . 'грд' . '</p>';
+	//$string .= '<p>Телефон: ' . $order->delivery_phone . '</p>';
+	$string .= '<a href="wtai://wp/mc;' . $order->delivery_phone . '">Телефон: ' . $order->delivery_phone . '</a><br/>';
+
+	$string .= '<do type="accept" label="next"><go href="#orderProducts"/></do>
+<do type="prev" label="prev"><prev/></do>
+</card>';
+	
+	
+
+	
+//-----------------------Products	
+	$string .= '<card id="orderProducts" title="' . $min_prefix . '-Order №' . $order->order_id . ' Products">';
+
+	$string .= '<p>Кол-во товаров: ' . $order->data['qty_total'] . '</p>';
+	$string .= '<p>Общая сумма заказа: ' . uc_currency_format($order->order_total) . '</p>';
+	foreach ($order->line_items as $item)
+		$string .= '<p>В т.ч. ' . $item['title'] . ': ' . uc_currency_format($item['amount']) . '</p>';
+	
+	$string .= '<br/><p>Время доставки: ' . $order->data['delivery_time'] . '</p><br/>';
+
+	$string .= '<p>Товары: </p>';
+
+	$count = 0;
+	foreach ($order->products as $product)
+	{
+		$count++;
+		$string .= '<p>' . $count . ') ' . $product->title . ', цена: ' . uc_currency_format($product->price) . ', кол-во: ' . $product->qty .  $product->data['sell_measure']  . ', всего: ' . uc_currency_format($product->price * $product->qty) . '</p>';
+		
+		$attributes = null;
+		// найдём атрибуты
+		foreach($product->data['attributes'] as $key => $value)
+			{
+				if($key == 'Ваши пожелания к товару (укажите)' AND $value == 'Нет')
+					continue;
+				$attributes .= $key . ': ' . $value . '; ';
+			}
+		
+		if($attributes)		
+			$string .= '<p>(' . $attributes . ')</p>'; 
+	}
+	
+	
+	if(!$map_file_wap) // если не задана карта местарасположения клиента, то эта страница является последней и следующий переход - на страницу вап-меню
+	{
+		$string .= '<do type="accept" label="menu"><go href="#orderMenu"/></do>
+<do type="prev" label="prev"><prev/></do>
+</card>';	
+	}
+	else // иначе следующая страница - карта местарасположения клиента
+	{
+		// закрываем предыдущую страницу, указывая следующей страницей карту местарасположения клиента
+		$string .= '<do type="accept" label="next"><go href="#orderUMap"/></do>
+<do type="prev" label="prev"><prev/></do>
+</card>';
+		
+		
+		// формируем вап-страницу с картой
+		
+		$string .= '<card id="orderUMap" title="Карта клиента ' . $order->uid . '">';
+		
+		$string .= '<img src="http://' . $_SERVER['HTTP_HOST'] . '/' . $map_file_wap . '" height="70" width="70" /><br/>';	
+		
+		$string .= '<do type="accept" label="menu"><go href="#orderMenu"/></do>
+<do type="prev" label="prev"><prev/></do>
+</card>';	
+		
+	}
+
+  	
+	$string .= '</wml>';
+	
+  	//$string .= $order->order_id . ' какая-то строка ' . date("MjS_H-i");
+  	fwrite($fp, $string);
+  	fclose($fp);
+  	
+  	return $wap_files;
+	
+}

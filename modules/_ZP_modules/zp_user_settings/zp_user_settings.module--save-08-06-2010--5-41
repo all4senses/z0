@@ -1,0 +1,442 @@
+<?php
+
+
+// my changes ---------------------------------------------------------------------
+
+// my test forms api functions
+
+
+
+function zp_user_settings_form($form_state = NULL, $user) {
+
+  
+	
+  //print '<PRE>';
+  //print_r($user);
+  //print '</PRE>';	
+	
+  // Access log settings:
+  $options = array('1' => t('Enabled'), '0' => t('Disabled'));
+  
+  
+  $form['access'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Access settings'), 
+    //'#tree' => TRUE,
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+  );
+  
+  
+  $form['access']['username'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Your username'), 
+    '#default_value' =>  $user->name, 
+    //'#options' => $options, 
+    '#disabled' => TRUE,
+    '#description' => t("Your preferred username; punctuation is not allowed except for periods, hyphens, and underscores."),
+  );
+  
+  $form['access']['email'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Your e-mail'), 
+    '#default_value' =>  $user->mail, 
+    //'#options' => $options, 
+    //'#disabled' => TRUE,
+    '#description' => t("A valid e-mail address. All e-mails from the system will be sent to this address. The e-mail address is not made public and will only be used if you wish to receive a new password or wish to receive certain news or notifications by e-mail."),
+  );
+  
+  
+  $form['access']['pass1'] = array(
+    '#type' => 'password', 
+    '#title' => t('New password'), 
+    //'#default_value' =>  '', 
+    //'#options' => $options, 
+    //'#description' => t('Password.'),
+  );
+
+  $form['access']['pass2'] = array(
+    '#type' => 'password', 
+    '#title' => t('Confirm new password'), 
+    //'#default_value' =>  '', 
+    //'#options' => $options, 
+    '#description' => t('To change the current user password, enter the new password in both fields.'),
+  ); 
+  
+  
+  
+  /*
+  $form['access']['log'] = array(
+    '#type' => 'radios', 
+    '#title' => t('Log'), 
+    '#default_value' =>  variable_get('log', 0), 
+    '#options' => $options, 
+    '#description' => t('The log.'),
+  );
+
+  
+  
+  $period = drupal_map_assoc(array(3600, 10800, 21600, 32400, 43200, 86400, 172800, 259200, 604800, 1209600, 2419200, 4838400, 9676800), 'format_interval');
+  $form['access']['timer'] = array(
+    '#type' => 'select', 
+    '#title' => t('Discard logs older than'), 
+    '#default_value' => variable_get('timer', 259200), 
+    '#options' => $period, 
+    '#description' => t('The timer.'),
+  );
+  
+  */
+  
+ 
+  // Description
+  $form['comment_settings'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('comment_settings'), 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+  );
+  $form['comment_settings']['signature'] = array(
+    '#type' => 'textarea', 
+    '#title' => t('Signature'), 
+    '#default_value' =>  $user->signature, 
+    '#cols' => 60, 
+    '#rows' => 5, 
+    '#description' => t('Your signature will be publicly displayed at the end of your comments.'),
+  );
+ 
+  
+  if(user_access('select different theme')) 
+  {
+  	$themes = system_theme_select_form(t('Selecting a different theme will change the look and feel of the site.'), $user->theme, 2);
+  	
+  	// добавляем название ключа (= название темы) к теме, у которой почему-то название ключа не установлено
+  	foreach($themes['themes'] as $key => $theme)
+  	{
+		if($key)
+		{ 
+			if($key != 'theme')
+				$themes_new['themes'][$key] = $theme;
+			else 
+			{
+				foreach($theme as $key2 => $theme2)
+				{
+					if($key2 != '#options')
+						$theme_new[$key2]  = $theme2;
+					else 
+					{
+						foreach($theme2 as $key3 => $value3)
+						{
+							if($key3)
+								$theme_new[$key2][$key3] = $value3;
+							else
+								$theme_new[$key2][$saved_title] = $value3;
+						}
+					}
+				}
+				
+				$themes_new['themes'][$key] = $theme_new;
+
+			}
+  			
+		}	
+  		else
+  		{ 
+  			$themes_new['themes'][$theme['description']['#title']] = $theme;
+  			$saved_title = $theme['description']['#title'];
+  		}
+  	}
+  	
+  	$form['theme_select'] = $themes_new;
+	//$form['theme_select']['#collapsible'] = TRUE;
+    $form['theme_select']['themes']['#collapsed'] = TRUE;
+	$form['theme_select']['#weight'] = 5;
+  }
+   
+  	
+    if (variable_get('configurable_timezones', 1)) {
+      $zones = _system_zonelist();
+      $form['timezone'] = array(
+        '#type'=>'fieldset',
+        '#title' => t('Locale settings'),
+        //'#weight' => 6,
+        '#collapsible' => TRUE,
+      );
+      $form['timezone']['timezone'] = array(
+        '#type' => 'select',
+        '#title' => t('Time zone'),
+        '#default_value' => strlen($user->timezone) ? $user->timezone : variable_get('date_default_timezone', 0),
+        '#options' => $zones,
+        '#description' => t('Select your current local time. Dates and times throughout this site will be displayed using this time zone.'),
+      );
+    }
+  
+
+  //$form['hidden'] = array('#type' => 'value', '#value' => 'is_it_here');
+  
+  
+  $form['submit'] = array(
+  '#type' => 'submit', 
+  '#value' => t('Save'),
+  '#weight' => 8,
+  );
+  
+  
+  /*
+  $form['clear'] = array(
+    '#type' => 'submit',
+    '#value' => t('Reset form'),
+    '#validate' => array('test_form_clear'),
+  );
+  */
+  
+  
+  //print '<PRE>';
+  //print_r($form);
+  //print_r($themes);
+  //print '</PRE>';	
+  
+  return $form;
+}
+
+
+
+
+
+
+function zp_user_settings_form_validate($form_id, &$form_state, &$form) {
+
+	//$x = $form_state['values']['name'];
+	//$x = $form['name'];
+	
+  
+    //print '<PRE>';
+    //print_r($form_state);
+    //print '</PRE>';
+	
+    //print '<PRE>';
+    //print_r($form);
+    //print '</PRE>';
+	
+    /*
+    
+	$old_email = $form['access']['email']['#default_value'];
+	$old_signature = $form['comment_settings']['signature']['#default_value'];
+	$old_timezone = $form['timezone']['timezone']['#default_value'];
+	  
+    $new_email = $form_state['email'];
+	$new_signature = $form_state['signature'];
+	$new_timezone = $form_state['timezone'];
+	$new_theme = $form_state['theme'];
+	$new_pass1 = $form_state['pass1'];
+	$new_pass2 = $form_state['pass2'];
+	
+	drupal_set_message("old_email = $old_email, old_signature = $old_signature, old_timezone = $old_timezone");
+	drupal_set_message("new_email = $new_email, new_signature = $new_signature, new_timezone = $new_timezone");
+	drupal_set_message("new_theme = $new_theme");
+	drupal_set_message("new_pass1 = $new_pass1, new_pass2 = $new_pass2");
+	*/
+	
+	
+	
+	if($form_state['pass1'] != '' AND $form_state['pass2'] != '')
+	  if($form_state['pass1'] != $form_state['pass2'])
+	  {
+	    form_set_error('pass2', t('Entered passwords are not equal.'));
+	    form_set_error('pass1', t(' ')); 
+	  }  
+
+	
+	if(!isValidEmail($form_state['email']))
+	 {
+	   form_set_error('email', t('Invalid email.'));
+	   return; 
+	 } 
+	else
+	 {  // если адрес не изменился, задаём значение NULL для нового адреса, чтобы не обновлять его затем в базе
+	 	if($form_state['email'] == $form['access']['email']['#default_value'])
+	 	 form_set_value($form['access']['email'], NULL);
+	 }  
+	
+  
+	 // если подпись не изменилась, задаём значение NULL для новой подписи, чтобы не обновлять её затем в базе 
+	 if($form_state['signature'] == $form['comment_settings']['signature']['#default_value'])
+	 {
+	   form_set_value($form['comment_settings']['signature'], NULL);
+	   drupal_set_message("new");
+	  
+	 } 
+	 
+	 // если временная зона не изменилась, задаём значение NULL для новой подписи, чтобы не обновлять её затем в базе   
+	 if($form_state['timezone'] == $form['timezone']['timezone']['#default_value'])  
+	  form_set_value($form['timezone']['timezone'], NULL); 
+	 
+	 //print '<PRE>';
+  	//print_r($form_state);
+  	//print '</PRE>';
+	 
+	//if ($form_state['name'] == 'aaa')
+      //form_set_value($form['name'], 'bbb');
+}
+
+
+// проверка на правильность введенного имейла
+function isValidEmail($email){
+	return eregi("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$", $email);
+}
+
+
+
+
+//function zp_user_settings_form_submit($form_id, &$form_state, $form = NULL) {
+function zp_user_settings_form_submit($form_id, &$form_state, $form = NULL) {	
+
+ 
+ 
+  //print '<PRE>';
+  //print_r($form_state);
+  //print '</PRE>';
+	
+/*
+	$old_email = $form['access']['email']['#default_value'];
+	$old_signature = $form['comment_settings']['signature']['#default_value'];
+	$old_timezone = $form['timezone']['timezone']['#default_value'];
+	  
+    $new_email = $form_state['email'];
+	$new_signature = $form_state['signature'];
+	$new_timezone = $form_state['timezone'];
+	$new_theme = $form_state['theme'];
+	$new_pass1 = $form_state['pass1'];
+	$new_pass2 = $form_state['pass2'];
+	
+	//echo $new_theme;
+	
+	drupal_set_message("old_email = $old_email, old_signature = $old_signature, old_timezone = $old_timezone");
+	drupal_set_message("new_email = $new_email, new_signature = $new_signature, new_timezone = $new_timezone");
+	drupal_set_message("new_theme = $new_theme");
+	drupal_set_message("new_pass1 = $new_pass1, new_pass2 = $new_pass2");
+  */
+ 
+  
+  
+  global $user;  
+  
+  // если введён пароль (в оба поля одинаковый, эту проверку мы сделали в проверочной функции), записываем его в базу 
+  if($form_state['pass1'] != '')
+  {
+    //drupal_set_message("Write new pass " . $form_state['pass1']); 
+
+    $query[] = "pass = '%s'";
+    $v[] = md5($form_state['pass1']);
+  } 
+    
+  
+  
+  // если введен новый емейл, то записываем его в базу
+  if($form_state['email'] !== NULL)
+  {
+    //drupal_set_message("Write new email " . $form_state['email']); 
+
+    $query[] = "mail = '%s'";
+    $v[] = $form_state['email'];
+  }  
+  
+
+  // если выбрана новая тема, записываем её в базу
+   if($form_state['theme'] != '')
+   {
+     //drupal_set_message("Write new theme " . $form_state['theme']); 
+     
+     $query[] = "theme = '%s'";
+     $v[] = $form_state['theme'];
+   }  
+  
+  // если введена новая подпись, записываем её в базу
+  if($form_state['signature'] !== NULL)
+  {
+    //drupal_set_message("Write new signature " . $form_state['signature']);  
+
+    $query[] = "signature = '%s'";
+    $v[] = $form_state['signature'];
+  } 
+  
+  
+  
+  // если выбрана новая временная зона, записываем её в базу
+  if($form_state['timezone'] !== NULL)
+  {
+    //drupal_set_message("Write new timezone " . $form_state['timezone']); 
+   
+    $query[] = "timezone = '%s'";
+    $v[] = $form_state['timezone'];
+  }   
+
+ 
+  //--------------------------------------------------------------------------------------
+  
+  
+  // обновляем юзера в системе, если произведены какие-то изменения
+  if(!empty($query))
+  //if($form_state['pass1'] != '')
+   {
+     //drupal_set_message("--query = $query"); 
+     //foreach($v as $value)
+      //drupal_set_message("--v = $value"); 
+   	
+     $query = implode(', ', $query);
+     db_query("UPDATE {users} SET $query WHERE uid = %d", array_merge($v, array($user->uid)));
+
+     sess_destroy_uid($user->uid);
+     sess_regenerate(); 
+     
+     // Refresh user object
+     $user = user_load(array('uid' => $user->uid));
+     //user_module_invoke('after_update', $array, $user, $category);
+   }  
+
+   
+   
+   
+}
+
+ 
+function zp_user_settings_page() {
+  
+  global $user; 	
+  
+  if($user->uid == 0)
+    return "You are not autorised to view this page";	
+  else
+    return drupal_get_form('zp_user_settings_form', NULL, $user);
+}
+
+
+
+
+function zp_user_settings_form_clear($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ----------------------------------------------------
+
+
+
+ 

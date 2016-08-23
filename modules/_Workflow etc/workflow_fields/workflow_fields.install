@@ -1,0 +1,80 @@
+<?php
+// $Id: workflow_fields.install,v 1.1.4.1 2007/07/20 10:09:30 kratib Exp $
+
+function workflow_fields_install() {
+  $result = array();
+
+  switch ($GLOBALS['db_type']) {
+  case 'mysqli':
+  case 'mysql':
+    $result[] = db_query(
+/*
+<<<QUERY
+CREATE TABLE {workflow_fields} (
+  `sid` int(10) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `type` varchar(100) NOT NULL,
+  `visible` tinyint(4) NOT NULL,
+  `editable` tinyint(4) NOT NULL,
+  PRIMARY KEY  (`sid`,`name`,`type`)
+);
+QUERY
+*/
+<<<QUERY
+CREATE TABLE {workflow_fields} (
+  `sid` int(10) NOT NULL,
+  `rid` int(10) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `type` varchar(100) NOT NULL,
+  `visible` tinyint(4) NOT NULL,
+  `editable` tinyint(4) NOT NULL,
+  KEY `sid` (`sid`),
+  KEY `rid` (`rid`)
+) /*!40100 DEFAULT CHARACTER SET utf8 */;
+QUERY
+    );
+    break;
+  case 'pgsql':
+    drupal_set_message(t('PGSQL is currently not supported by workflow_fields.'), 'error');
+    break;
+  }
+    
+  if (count($result) == count(array_filter($result))) {
+    drupal_set_message(t('The workflow_fields module has successfully added tables to the database.'));
+  }
+  else {
+    drupal_set_message(t('Drupal was unable to install the database tables for the workflow_fields module.'), 'error');
+  }
+}
+
+function workflow_fields_update_1() {
+  $items = array();
+  switch ($GLOBALS['db_type']) {
+  case 'mysql':
+  case 'mysqli':
+    $items[] = update_sql("ALTER TABLE {workflow_fields} ADD COLUMN rid int(10) NOT NULL DEFAULT '-1' AFTER sid");
+    $items[] = update_sql("ALTER TABLE {workflow_fields} DROP PRIMARY KEY");
+    $items[] = update_sql("ALTER TABLE {workflow_fields} ADD KEY (sid), ADD KEY (rid)");
+    break;
+  case 'pgsql':
+    drupal_set_message(t('PGSQL is currently not supported by workflow_fields.'), 'error');
+    break;
+  }
+  return $items;
+}
+
+function workflow_fields_uninstall() {
+  switch ($GLOBALS['db_type']) {
+  case 'mysql':
+  case 'mysqli':
+    db_query('DROP TABLE {workflow_fields}');
+    break;
+  case 'pgsql':
+    drupal_set_message(t('PGSQL is currently not supported by workflow_fields.'), 'error');
+    break;
+  }
+ 
+  // Note: Variables (if any) should removed here via variable_del().
+}
+
+?>

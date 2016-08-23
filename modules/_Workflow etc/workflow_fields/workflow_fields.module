@@ -1,0 +1,380 @@
+<?php // -*-php-*-
+// $Id: workflow_fields.module,v 1.5.2.8 2008/01/18 22:51:39 kratib Exp $
+
+/**
+ * @file
+ * This module adds to workflow.module the ability to specify, for each state, which node fields should be visible and/or editable.
+ * It is a useful feature when workflows demand that certain information be hidden or read-only to certain roles.
+ *
+ */
+ 
+/**
+ * Implementation of hook_help().
+ */
+function workflow_fields_help($section) {
+  switch ($section) {
+    case 'admin/modules#description':
+      return t('Add per-state CCK field settings to workflows. <em>Note: Requires both workflow.module and content.module</em>.');
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ * Hook on both any CCK node form and on the workflow state form.
+ *
+ * @param object &$node
+ * @return array
+ */
+function workflow_fields_form_alter($form_id, &$form) {
+  if (isset($form['type']) && $form['type']['#value'] .'_node_form' == $form_id) {
+    workflow_fields_node_form_alter($form_id, $form);
+  } elseif ('workflow_state_add_form' == $form_id) {
+    workflow_fields_state_form_alter($form_id, $form);
+  }
+}
+
+/**
+ * Alter the workflow state form.
+ * Add a table listing the fields for workflow's content type.
+ */
+function workflow_fields_state_form_alter($form_id, &$form) {
+  $wid = $form['wid']['#value'];
+  $sid = $form['sid']['#value'];
+
+  // Get all types that are mapped to this workflow.
+  $types = db_query("SELECT type FROM {workflow_type_map} WHERE wid=%d", $wid);
+  if (empty($types)) return;
+
+  // Don't show state name and weight if creation.
+  if (WORKFLOW_CREATION == db_result(db_query("SELECT sysid FROM {workflow_states} WHERE sid = %d", $sid))) {
+    $form['state']['#access'] = false;
+    $form['weight']['#access'] = false;
+  }
+
+  $form['submit_chain'] = array('#type' => 'value', '#value' => $form['#submit']);
+  $form['#submit'] = array('workflow_fields_state_form_submit' => array());
+  $form['fields']['#theme'] = 'workflow_fields_state';
+  $form['fields']['#tree'] = TRUE;
+  $form['fields']['types'] = array('#type' => 'value', '#value' => array());
+
+  // Gather role ids.
+  $rids = array('-1' => t('author'));
+  $result = db_query("SELECT r.rid, r.name FROM {role} r ORDER BY r.name");
+  while ($obj = db_fetch_object($result)) {
+    $rids[$obj->rid] = $obj->name;
+  }
+
+  // For each type, find out all the fields.
+  while ($values = db_fetch_array($types)) {
+    $type = $values['type'];
+    if ($content = content_types($type)) {
+      array_push($form['fields']['types']['#value'], $type);
+
+      // For each field, add checkboxes for visible and editable for all roles.
+      $fields = $content['fields'];
+      foreach($fields as $field) {
+        $visible = array_keys($rids);
+        $editable = array_keys($rids);
+        $result = db_query("SELECT rid, visible, editable FROM {workflow_fields} WHERE sid = %d AND name = '%s'", intval($sid), $field['field_name']);
+        while ($access = db_fetch_array($result)) {
+          if (!$access['visible']) {
+            unset($visible[array_search($access['rid'], $visible)]);
+          }
+          if (!$access['editable']) {
+            unset($editable[array_search($access['rid'], $editable)]);
+          }
+        }
+       
+        $form['fields'][$type][$field['field_name']]['visible'] = array(
+          '#type' => 'checkboxes', 
+          '#options' => $rids,
+          '#default_value' => $visible,
+        );
+        $form['fields'][$type][$field['field_name']]['editable'] = array(
+          '#type' => 'checkboxes',
+          '#options' => $rids,
+          '#default_value' => $editable,
+        );      
+      }
+    } else {
+      watchdog('workflow fields', t('The content type "%type" does not provide metadata information.', array('%type' => $type)));
+    }
+  }
+  $form['submit']['#weight'] = 99;
+}
+
+function theme_workflow_fields_state($form) {
+  $header = array(t('Content type'), t('Field name'), t('Visible'), t('Editable'));
+  $rows = array();
+  foreach ($form['types']['#value'] as $type) {
+    $content = content_types($type);
+    $fields = $content['fields'];
+    foreach($fields as $field) {
+      $rows[] = array(
+        $type, 
+        $field['widget']['label'].' ('.$field['field_name'].')', 
+        drupal_render($form[$type][$field['field_name']]['visible']), 
+        drupal_render($form[$type][$field['field_name']]['editable'])
+      );
+    }
+  }
+  $output = theme('table', $header, $rows).'<p />';
+  return $output;
+}
+
+function workflow_fields_state_form_submit($form_id, $form_values) {
+  if (isset($form_values['fields'])) {
+    db_query("DELETE FROM {workflow_fields} WHERE sid = %d", intval($form_values['sid']));
+    foreach ($form_values['fields'] as $type => $fields) {
+      if ($type == 'types') continue;
+      foreach ($fields as $key => $field) {
+        foreach ($field['visible'] as $rid => $checked) {
+          db_query("INSERT INTO {workflow_fields} (sid, rid, name, type, visible, editable) VALUES (%d, %d, '%s', '%s', %d, %d)", 
+            $form_values['sid'], $rid, $key, $type, (bool) $checked, (bool) $field['editable'][$rid]
+          );
+        }
+      }
+    }
+  }
+  $sysid = db_result(db_query("SELECT sysid FROM {workflow_states} WHERE sid = %d", intval($form_values['sid'])));
+  if ($sysid == WORKFLOW_CREATION) {
+    // Make sure creation state values are correct.
+    $form_values['sysid'] = WORKFLOW_CREATION;
+    $form_values['weight'] = WORKFLOW_CREATION_DEFAULT_WEIGHT;
+    $form_values['state'] = t('(creation)'); 
+  }
+  return _workflow_submit_form($form_id, $form_values);
+}
+
+/**
+ * Alter the node form by hiding/disabling fields depending on the workflow state.
+ * To hide a field, just unset it from the form.
+ * To disable a field, replace its form element by a view-only version (by calling the 'view' CCK function).
+ */ 
+function workflow_fields_node_form_alter($form_id, &$form) {
+  $node = $form['#node'];
+  $sid = workflow_node_current_state($node);
+  if (!is_numeric($sid)) {
+    $wid = db_result(db_query("SELECT wid FROM {workflow_type_map} WHERE type = '%s'", $form['type']['#value']));
+    $sid = db_result(db_query("SELECT sid FROM {workflow_states} WHERE sysid = %d AND wid = %d", WORKFLOW_CREATION, $wid));
+  }
+  
+  // Check for visible/editable flags.
+  if (module_exists('content') && ($content = content_types($node->type))) {
+    $form['sid'] = array('#type' => 'value', '#value' => $sid);
+    $form['submit_chain'] = array('#type' => 'value', '#value' => $form['#submit']);
+    $form['#submit'] = array('workflow_fields_node_form_submit' => array());
+    $result = db_query("SELECT * FROM {workflow_fields} WHERE sid = %d AND type = '%s' AND rid IN (%s)", 
+      $sid, $node->type, implode(_workflow_fields_compute_groups($node), ',')
+    );
+    // Compute the OR of permissions among all groups that this user belongs to.
+    while ($row = db_fetch_array($result)) {
+      $visibles[$row['name']] |= $row['visible'];
+      $editables[$row['name']] |= $row['editable'];
+    }
+    if (!isset($visibles)) return;
+    foreach ($visibles as $key => $visible) {
+      $editable = $editables[$key];
+      if (!isset($form[$key])) {
+        watchdog('workflow fields', t('Could not find field "%name" while altering the form. Proceeding to delete it from database.', array('%name' => $key)));
+        db_query("DELETE FROM {workflow_fields} WHERE type = '%s' AND name = '%s'", $node->type, $key);
+        continue;
+      }
+      $field = $content['fields'][$key];
+      if (!$visible) {
+        $form[$key] = array_merge($form[$key], array('#access' => FALSE));
+        $form[$key.'_default_value'] = array(
+          '#type' => 'value',
+          '#value' => $form[$key][0]['value']['#default_value'],
+        );
+      } elseif (!$editable) {
+        $weight = $form[$key]['#weight'];
+        $form[$key.'_default_value'] = array(
+          '#type' => 'value',
+          '#value' => $form[$key][0]['value']['#default_value'],
+        );
+        $node_field = isset($node->$key) ? $node->$key : array();
+        $form[$key] = array(
+          '#type' => 'markup',
+          '#value' => _workflow_fields_node_view($node, $field, $node_field),
+          '#weight' => $weight,
+        );
+      }
+    }
+  }    
+}
+
+/**
+ * Return an array of rids for the current user, given a node. 
+ * Return -1 if the current user is the node author.
+ */ 
+function _workflow_fields_compute_groups($node) {
+  global $user;
+  $groups = array_keys($user->roles); 
+  if ($user->uid == $node->uid) array_push($groups,-1); # add 'author' group.
+  return $groups;
+}
+
+/**
+ * Process CCK node submission.
+ * First load the original node before saving, then invoke the chain of hooks, then overwrite the hidden/disabled fields with their original values.
+ */ 
+function workflow_fields_node_form_submit($form_id, $form_values) {
+  $nid = $form_values['nid'];
+  $sid = $form_values['sid'];
+  $sysid = db_result(db_query("SELECT sysid FROM {workflow_states} WHERE sid = %d", $sid));
+  if ($sysid == WORKFLOW_CREATION) { // (creation) state
+    return _workflow_fields_node_form_submit_creation($form_id, $form_values);
+  }
+  if ($nid) {
+    $original_node = node_load($nid);
+  }
+  
+  // Let the node be saved before we restore the original values.
+  $goto = _workflow_submit_form($form_id, $form_values);
+  
+  // Restore the field values that were hidden or read-only.
+  if ($nid && $sysid != WORKFLOW_CREATION) {
+    $node = node_load(array('nid' => $nid)); // Force node.module to load the node from database instead of cache
+    $result = db_query("SELECT * FROM {workflow_fields} WHERE sid = %d AND type = '%s' AND rid IN (%s)", 
+      $form_values['sid'], $form_values['type'], implode(_workflow_fields_compute_groups($original_node), ',')
+    );
+    while ($row = db_fetch_array($result)) {
+      $visibles[$row['name']] |= $row['visible'];
+      $editables[$row['name']] |= $row['editable'];
+    }
+    if (!isset($visibles)) return $goto;
+    
+    foreach ($visibles as $key => $visible) {
+      $editable = $editables[$key];
+      if (!$visible || !$editable) {
+        $node->$key = $original_node->$key;
+      }
+    }
+
+    // Fix bug #200063 whereby taxonomy term doesn't get updated because of static declarations in taxonomy_node_get_terms().
+    if (isset($form_values['taxonomy'])) {
+      $node->taxonomy = $form_values['taxonomy'];
+    }
+
+    node_save($node);
+  }
+  
+  return $goto;
+}
+
+function _workflow_fields_node_form_submit_creation($form_id, $form_values) {
+  $result = db_query("SELECT * FROM {workflow_fields} WHERE sid = %d AND type = '%s' AND rid = -1",
+    $form_values['sid'], $form_values['type']
+  );
+  while ($row = db_fetch_array($result)) {
+    $visibles[$row['name']] |= $row['visible'];
+    $editables[$row['name']] |= $row['editable'];
+  }
+  if (!isset($visibles)) return _workflow_submit_form($form_id, $form_values);
+  
+  foreach ($visibles as $key => $visible) {
+    $editable = $editables[$key];
+    if (!$visible || !$editable) {
+      // For some reason, the value cannot be empty or the node attribute will not get created.
+      $form_values[$key][0]['value'] = empty($form_values[$key.'_default_value']) ? 0 : $form_values[$key.'_default_value'];
+    }
+  }
+
+  return _workflow_submit_form($form_id, $form_values);
+}
+
+/**
+ * Workflow hook to allow other modules to add workflow operations.
+ */
+function workflow_fields_workflow_operations($mode, $wid, $sid=0) {
+  switch ($mode) {
+  case 'workflow':
+    break;
+  case 'state':
+    if (WORKFLOW_CREATION == db_result(db_query("SELECT sysid FROM {workflow_states} WHERE wid = %d AND sid = %d", $wid, $sid))) { // (creation) state
+      return array(
+        'workflow_creation_edit' => array(
+          'title' => t('Edit'),
+          'href' => "admin/build/workflow/state/$wid/$sid",
+        ),
+      );
+    }
+    break;
+  }
+}
+
+/**
+ * Render a single field.
+ * This function is a copy of cck/content.module:_content_field_view.
+ */ 
+function _workflow_fields_node_view($node, $field, $node_field) {
+  $field_types = _content_field_types();
+  $teaser = FALSE;
+  $page = FALSE;
+  $context = 'full';
+  $formatter = isset($field['display_settings'][$context]['format']) ? $field['display_settings'][$context]['format'] : 'default';
+  $value = '';
+
+  if ($formatter != 'hidden') {
+    if (content_handle('field', 'view', $field) == CONTENT_CALLBACK_CUSTOM) {
+      $module = $field_types[$field['type']]['module'];
+      $function = $module .'_field';
+      if (function_exists($function)) {
+        $value = $function('view', $node, $field, $node_field, $teaser, $page);
+      }
+    }
+    else {
+      foreach ($node_field as $delta => $item) {
+        $node_field[$delta]['view'] = content_format($field, $item, $formatter, $node);
+      }
+      $value = theme('field', $node, $field, $node_field, $teaser, $page);
+    }
+  }
+
+  return $value;  
+}
+
+function _workflow_submit_form($form_id, $form_values) {
+  // Taken from /includes/form.inc:drupal_submit_form() except with different params.
+  $default_args = array($form_id, &$form_values);
+  if (isset($form_values['submit_chain'])) {
+    foreach ($form_values['submit_chain'] as $function => $args) {
+      if (function_exists($function)) {
+        $args = array_merge($default_args, (array) $args);
+        // Since we can only redirect to one page, only the last redirect will work
+        $redirect = call_user_func_array($function, $args);
+        if (isset($redirect)) {
+          $goto = $redirect;
+        }
+      }
+    }
+  }
+  return $goto;
+}
+
+function workflow_fields_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($op != 'view') return;
+  $sid = workflow_node_current_state($node);
+  $result = db_query("SELECT * FROM {workflow_fields} WHERE sid = %d AND type = '%s' AND rid IN (%s)", 
+    $sid, $node->type, implode(_workflow_fields_compute_groups($node), ',')
+  );
+  // Compute the OR of permissions among all groups that this user belongs to.
+  while ($row = db_fetch_array($result)) {
+    $visibles[$row['name']] |= $row['visible'];
+    $editables[$row['name']] |= $row['editable'];
+  }
+  if (!isset($visibles)) return;
+  foreach ($visibles as $key => $visible) {
+    if (!isset($node->content[$key])) {
+      watchdog('workflow fields', t('Could not find field "%name" while altering the view. Proceeding to delete it from database.', array('%name' => $key)));
+      db_query("DELETE FROM {workflow_fields} WHERE type = '%s' AND name = '%s'", $node->type, $key);
+      continue;
+    }
+    if (!$visible) {
+      $node->content[$key]['#access'] = FALSE;
+    }
+  }
+}
+
+?>

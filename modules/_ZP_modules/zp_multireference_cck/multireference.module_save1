@@ -1,0 +1,1149 @@
+<?php
+// $Id: multireference.module,v 1.2 2008/03/31 21:34:44 stevem Exp $
+
+/**
+ * @file
+ * multireference module
+ *
+ * This CCK module allows you to create a field containing a list
+ * of items comprising 1) a description field, 2) a user or node
+ * reference, and 3) an optional 2nd description field
+ *
+ */
+
+/*---- Drupal core API ---- */
+
+/**
+ * Implementation of hook_help
+ */
+function multireference_help($section = '') {
+  $output = '';
+  switch ($section) {
+    case "admin/help#multireference":
+      $output = '<p>'. t("Allows creation of multiple node or user reference fields with descriptions."). '</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ *  Implementation of hook_menu
+ */
+function multireference_menu($may_cache) {
+  // register our autocomplete callback
+  $items = array();
+  $items[] = array(
+    'path' => 'multireference/autocomplete_nodereference',
+    'title' => '',
+    'callback' => 'multireference_autocomplete_node',
+    'type' => MENU_CALLBACK,
+    'access' => user_access('access content'),
+  );
+  $items[] = array(
+    'path' => 'multireference/autocomplete_userreference',
+    'title' => '',
+    'callback' => 'multireference_autocomplete_user',
+    'type' => MENU_CALLBACK,
+    'access' => user_access('access content'),
+  );
+  return $items;
+}
+
+/**
+ *   Implementation of hook_nodeapi
+ */
+function multireference_nodeapi(&$node, $op, $teaser = NULL, $page = NULL) {
+  switch ($op) {
+    case 'update' :
+      $sql = "UPDATE {node_field_multireference_data} SET r_text='%s' WHERE r_id=%d AND reference='nodereference';";
+      db_query($sql, $node->title, $node->nid);
+      break;
+
+    case 'delete' :
+      $sql = "UPDATE {node_field_multireference_data} SET r_id=0 WHERE r_id=%d AND reference='nodereference';";
+      db_query($sql, $node->nid);
+      break;
+  }
+}
+
+
+/**
+ *   Implementation of hook_user
+ */
+function multireference_user($op, &$edit, &$account, $category = NULL) {
+  switch ($op) {
+    case 'after_update' :
+      $sql = "UPDATE {node_field_multireference_data} SET r_text='%s' WHERE r_id=%d AND reference='userreference';";
+      db_query($sql, $account->name, $account->uid);
+      break;
+
+    case 'delete' :
+      $sql = "UPDATE {node_field_multireference_data} SET r_id=0 WHERE r_id=%d AND reference='userreference';";
+      db_query($sql, $account->uid);
+      break;
+  }
+}
+
+
+/*------ CCK field API ------*/
+
+
+/**
+ * Implementation of hook_field_info().
+ */
+function multireference_field_info() {
+  return array(
+    'multireference' => array('label' => 'Multi-Reference Field'),
+  );
+}
+
+/**
+ * Implementation of hook_field_settings().
+ */
+function multireference_field_settings($op, $field) {
+
+  $reference = _multireference_filter_reference_type($field['r_type']);
+
+  switch ($op) {
+    case 'form':
+      $form = array();
+
+      // type of reference
+      $options = array(
+        'nodereference' => 'Node',
+        'userreference' => 'User',
+      );
+      $form['r_type']  = array(
+        '#type'          => 'radios',
+        '#title'         => t('Type of reference'),
+        '#description'   => t('This field can hold either node or user references. Please choose one, and configure the appropriate settings below.'),
+        '#options'       => $options,
+        '#default_value' => isset($field['r_type']) ? $field['r_type'] : '',
+        '#required'      => TRUE,
+        );
+
+      // max number of line items
+      $form['r_num'] = array(
+        '#type'          => 'textfield',
+        '#size'          => 4,
+        '#title'         => t('What is the maximum number of lines that this field should provide?'),
+        '#default_value' => isset($field['r_num']) ? $field['r_num'] : 20,
+      );
+
+      // autocomplete or select list?
+      $options = array(
+        'select' => 'Select list',
+        'autocomplete' => 'Auto-complete field',
+      );
+      $form['r_field_type']  = array(
+        '#type'          => 'radios',
+        '#title'         => t('Type of form element'),
+        '#options'       => $options,
+        '#default_value' => isset($field['r_field_type']) ? $field['r_field_type'] : 'select',
+        '#required'      => TRUE,
+        );
+
+      // alternates to select list/autocomplete?
+      $options = array(
+        'nothing' => 'Nothing',
+        'text'    => 'Text input box',
+        //'addnode' => 'AddNode form (node references only)',
+      );
+      $form['r_action']  = array(
+        '#type'          => 'radios',
+        '#title'         => t('Reference options'),
+        '#description'   => t('What option do you want available in addition to choosing a reference?'),
+        '#options'       => $options,
+        '#default_value' => isset($field['r_action']) ? $field['r_action'] : 'nothing',
+        '#required'      => TRUE,
+        );
+
+      // field titles
+      $form['field_titles'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Field titles'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+      $form['field_titles']['t_desc'] = array(
+        '#type'          => 'textfield',
+        '#title'         => t('Description'),
+        '#default_value' => isset($field['t_desc']) ? $field['t_desc'] : '',
+      );
+      $form['field_titles']['t_ref'] = array(
+        '#type'          => 'textfield',
+        '#title'         => t('Reference'),
+        '#default_value' => isset($field['t_ref']) ? $field['t_ref'] : '',
+      );
+      $form['field_titles']['t_desc2'] = array(
+        '#type'          => 'textfield',
+        '#title'         => t('Additional description'),
+        '#default_value' => isset($field['t_desc2']) ? $field['t_desc2'] : '',
+      );
+
+      // description
+      $form['description'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Description settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+      $form['description']['desc_values'] = array(
+        '#type'          => 'textarea',
+        '#title'         => t('Allowed values for description (leave blank for free-form text entry)'),
+        '#default_value' => isset($field['desc_values']) ? $field['desc_values'] : '',
+      );
+      $options = array(
+        'false' => 'Optional',
+        'true'  => 'Required',
+      );
+      $form['description']['desc_required']  = array(
+        '#type'          => 'radios',
+        '#title'         => t('Description required?'),
+        '#description'   => t('Do you want the description to be mandatory?'),
+        '#options'       => $options,
+        '#default_value' => isset($field['desc_required']) ? $field['desc_required'] : 'false',
+        '#required'      => TRUE,
+        );
+
+      // additional description field?
+      $form['description2'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Additional description settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+      $form['description2']['desc2_provide'] = array(
+        '#type'          => 'checkbox',
+        '#title'         => t('Provide a second description field'),
+        '#default_value' => isset($field['desc2_provide']) ? $field['desc2_provide'] : 0,
+      );
+      $form['description2']['desc2_values'] = array(
+        '#type'          => 'textarea',
+        '#title'         => t('Allowed values for the additional description (leave blank for free-form text entry)'),
+        '#default_value' => isset($field['desc2_values']) ? $field['des2c_values'] : '',
+      );
+      $options = array(
+        'false' => 'Optional',
+        'true'  => 'Required',
+      );
+      $form['description2']['desc2_required']  = array(
+        '#type'          => 'radios',
+        '#title'         => t('Additional description required?'),
+        '#description'   => t('Do you want the additional description to be mandatory?'),
+        '#options'       => $options,
+        '#default_value' => isset($field['desc2_required']) ? $field['desc2_required'] : 'false',
+        '#required'      => TRUE,
+        );
+
+      // node reference settings
+      $form['node_ref'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Node reference settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+      $subform = nodereference_field_settings($op, $field);
+      foreach ($subform as $key => $array) {
+        $form['node_ref'][$key] = $array;
+      }
+
+      // user reference settings
+      $form['user_ref'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('User reference settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+      );
+      $subform = userreference_field_settings($op, $field);
+      foreach ($subform as $key => $array) {
+        $form['user_ref'][$key] = $array;
+      }
+
+      return $form;
+
+    case 'validate' :
+      // select the correct config field to test
+      switch ($field['r_type']) {
+        case 'nodereference' :
+          $required_config = 'referenceable_types';
+          break;
+        case 'userreference' :
+          $required_config = 'referenceable_roles';
+          break;
+        default : // this shouldn't happen ...
+          form_set_error('r_type', t('Please select a reference type.'));
+          return;
+      }
+
+       // make sure the config field has a value
+      $has_values = FALSE;
+      foreach ($field[$required_config] as $key => $val) {
+        if (!empty($val)) {
+          $has_values = TRUE;
+          continue;
+        }
+      }
+      if (!$has_values) {
+        $err_name = substr($field['r_type'], 0, 4);
+        form_set_error('', t("The '$err_name reference settings' section of the form must be filled out."));
+      }
+
+      // no ridiculous r_num values
+      if (!is_numeric($field['r_num']) || $field['r_num'] < 1 || $field['r_num'] > 50) {
+        form_set_error('r_num', t("Invalid entry for maximum # of items (the range is 1 to 50)."));
+      }
+
+      /*
+      // cannot use addnode for userreference
+      if ( $field['r_type'] == 'userreference' && $field['r_action'] == 'addnode' ) {
+        form_set_error( 'r_type', t("You cannot provide addnode functionality for a user reference field.") );
+      }
+      */
+
+      break;
+
+    case 'save':
+      global $form_values;
+      if (!$reference) {
+        // _content_admin_field_submit() doesn't call this op with any of
+        // the form values included in the $field object (on initial creation)
+        $reference = _multireference_filter_reference_type($form_values['r_type']);
+        if (!$reference) {
+          die('Bad reference.');
+        }
+      }
+      $my_columns  = array(
+        'r_type',
+        'r_num',
+        'r_action',
+        'r_field_type',
+        'desc_values',
+        'desc_required',
+        'desc2_provide',
+        'desc2_values',
+        'desc2_required',
+        't_desc',
+        't_ref',
+        't_desc2',
+        );
+      eval('$ref_columns = '. $reference .'_field_settings(\'save\', $field);');
+      $all_columns = array_merge($my_columns, $ref_columns);
+      return $all_columns;
+
+    /* Views support */
+    case 'tables':
+      $tables = _multireference_views_field_table($field);
+      return $tables;
+  }
+}
+
+/**
+ * Implementation of hook_field().
+ */
+function multireference_field($op, &$node, $field, &$items, $teaser, $page) {
+  switch ($op) {
+    case 'load':
+      $values = _multireference_load_values($node->nid, $field['field_name']);
+      return array($field['field_name'] => $values);
+
+    case 'update':
+      db_query("DELETE FROM {node_field_multireference_data} WHERE vid = %d and field_name= '%s'", $node->vid, $field['field_name']);
+      // fall through to insert updated values
+
+    case 'insert':
+      $weight = 0;
+      foreach ($items as $delta => $data) {
+        $desc  = empty($data['desc']) ? '' : $data['desc'];
+        $desc2 = empty($data['desc2']) ? '' : $data['desc2'];
+        $ref   = _multireference_get_reference_info($field, $data['r_data']);
+        if (!empty($data['r_text'])) {   // new input from text entry field
+          $ref['id'] = 0;
+          $ref['text'] = $data['r_text'];
+        }
+        if (!empty($ref['text'])) {
+          db_query("INSERT INTO {node_field_multireference_data}
+                  SET nid = %d, vid = %d, field_name = '%s', reference = '%s', r_id = %s, r_text = '%s', description = '%s', description2 = '%s', weight = %d",
+                  $node->nid, $node->vid, $field['field_name'], $field['r_type'], $ref['id'], $ref['text'], $desc, $desc2, $weight++);
+        }
+      }
+      break;
+
+    case 'delete':
+      db_query("DELETE FROM {node_field_multireference_data} WHERE vid = %d and field_name= '%s'", $node->vid, $field['field_name']);
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_field_formatter_info().
+ */
+function multireference_field_formatter_info() {
+  return array(
+    'default' => array(
+      'label' => 'list',
+      'field types' => array('multireference'),
+    ),
+    'table' => array(
+      'label' => 'table',
+      'field types' => array('multireference'),
+    ),
+  );
+}
+
+/**
+ * Implemenation of hook_field_formatter
+ */
+function multireference_field_formatter($field, $item, $formatter, $node) {
+  static $run_only_once = array();
+  if (!isset($run_only_once[$field['field_name']])) {
+    $run_only_once[$field['field_name']] = TRUE;
+    switch ($formatter) {   // being careful for eval()
+      case 'table' :
+        break;
+      default :
+        $formatter = 'default';
+        break;
+    }
+    eval('$output = multireference_display_'. $formatter .'( $node->$field[\'field_name\'], $field );');
+    return $output;
+  }
+}
+
+
+/*------ CCK widget API ------*/
+
+
+/**
+ * Implementation of hook_widget_info
+ */
+function multireference_widget_info() {
+  return array(
+    'multireference' => array(
+      'label' => 'Multi-reference List',
+      'field types' => array('multireference'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_widget
+ */
+function multireference_widget($op, &$node, $field, &$items) {
+  $fieldname = $field['field_name'];
+  $reference = _multireference_filter_reference_type($field['r_type']);
+
+  /*
+   * determine how many items to prepare form elements for
+   */
+  static $num_lines = array();
+  // defaults
+  if (!isset($num_lines[$fieldname])) {
+    $num_lines[$fieldname] = count($items) ? count($items) : 3;
+  }
+  // use the number returned from the form, if extant
+  // (handles creating new elements with javascript)
+  if (isset($_POST[$fieldname])) {
+    $num_lines[$fieldname] = count($_POST[$fieldname]);
+  }
+
+  switch ($op) {
+    case 'form':
+      // cap # of lines at desired maximum
+      if ($num_lines[$fieldname] > $field['r_num']) {
+        $num_lines[$fieldname] = $field['r_num'];
+      }
+
+      $path = drupal_get_path('module', 'multireference');
+      drupal_add_js($path .'/multireference.js');
+      drupal_add_css($path .'/multireference.css');
+
+      // select / text entry for descriptions
+      $desc_options  = _multireference_get_desc_options($field['desc_values']);
+      $desc_type     = (empty($desc_options)) ? 'textfield' : 'select';
+      $desc2_options = _multireference_get_desc_options($field['desc2_values']);
+      $desc2_type    = (empty($desc2_options)) ? 'textfield' : 'select';
+
+      $form = array();
+      $form[$fieldname] = array(
+        '#tree'   => true,
+        '#prefix' => '<table><tr><td><a name="multireference_anchor_'. $fieldname .'">'. t($field['widget']['label']) .'</a></td><td></td></tr>',
+        '#suffix' => '</table>',
+      );
+
+      // the 'form' op has to return something (for 'default value') when the
+      // field is being created (and, thus, before r_type is defined).
+      if (!$reference) {
+        $reference = 'nodereference';
+      }
+
+      /*
+       * get reference options
+       */
+      
+
+
+
+
+
+
+
+
+
+
+
+
+      
+//my --------------------------------------
+
+  $tree = taxonomy_get_tree(1);
+  //$options2 = array();
+
+    $options[''] = '';
+    if ($tree) {
+    foreach ($tree as $term) {
+       //if (!in_array($term->tid, $exclude)) {
+          //$choice = new stdClass();
+          //$choice->option = array($term->tid => str_repeat('-', $term->depth) . $term->name);
+          // $options[] = $choice;
+          //$options[] = array($term->tid => str_repeat('-', $term->depth) . $term->name);
+      
+          $node_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $term->tid));   
+
+//print '<pre>';
+//print_r($node_nids);
+//print '</pre>';
+
+       //$options[$term->tid] =  str_repeat('-', $term->depth) . $term->name;
+       $options[$node_nid] =  str_repeat('-', $term->depth) . $term->name;
+
+      //}
+    }
+  }
+
+
+
+// end of my -------------------------------
+
+/*
+      $options = _multireference_get_options($field);
+
+      if ($reference == 'nodereference') {
+        foreach ($options as $key => $value) {
+          $options[$key] = _nodereference_item($field, $value) ;
+        }
+      }
+
+      $options[0] = '';
+      asort($options);
+
+*/
+
+
+            
+      // add description fields
+      $header = '<td>'. $field['t_desc'] .'</td><td>'. $field['t_ref'] .'<td></td>';
+      if ($field['desc2_provide']) {
+        $header .= '<td>'. $field['t_desc2'] .'</td>';
+      }
+      $form[$fieldname]['header'] = array(
+          '#prefix' => '<tr>',
+          '#suffix' => '</tr>',
+          '#value'  => $header,
+        );
+
+      for ($tbl_i = 0; $tbl_i < $num_lines[$fieldname]; $tbl_i++) {
+        $form[$fieldname]["item_$tbl_i"] = array(
+          '#tree' => true,
+          '#prefix' => '<tr class="multireference" id="'. $fieldname .'_'. $tbl_i .'">',
+          '#suffix' => '</tr>',
+        );
+
+        /*
+         * description
+         */
+        $form[$fieldname]["item_$tbl_i"]['desc'] = array(
+          '#type'          => $desc_type,
+          '#title'         => '',
+          '#prefix'        => '<td>',
+          '#suffix'        => '</td>',
+        );
+        // select
+        if ($desc_type == 'select') {
+          $form[$fieldname]["item_$tbl_i"]['desc']['#options'] = $desc_options;
+          $form[$fieldname]["item_$tbl_i"]['desc']['#default_value'] = isset($items[$tbl_i]['desc']) ? $items[$tbl_i]['desc'] : '';
+        // textfield
+        }
+        else {
+          $form[$fieldname]["item_$tbl_i"]['desc']['#size'] = 10;
+          $form[$fieldname]["item_$tbl_i"]['desc']['#default_value'] = isset($items[$tbl_i]['desc']) ? $items[$tbl_i]['desc'] : '';
+        }
+
+        /*
+         * reference
+         */
+        $default_value['id']    = isset($items[$tbl_i]['r_id']) ? $items[$tbl_i]['r_id'] : 0;
+        $default_value['text'] = isset($items[$tbl_i]['r_text']) ? $items[$tbl_i]['r_text'] : '';
+
+        $form[$fieldname]["item_$tbl_i"]['r_data'] = array(
+          '#title'         => '',
+          '#prefix'        => '<td>',
+          '#suffix'        => '</td>',
+        );
+
+        // select
+        if ($field['r_field_type'] == 'select') {
+          $form[$fieldname]["item_$tbl_i"]['r_data']['#type'] = 'select';
+          $form[$fieldname]["item_$tbl_i"]['r_data']['#options'] = $options;
+          $form[$fieldname]["item_$tbl_i"]['r_data']['#default_value'] = $default_value['id'];
+
+          // alternates to select
+          // TODO: creating a target via addnode or something similar
+          if ($field['r_action'] == 'text') {
+            $form[$fieldname]["item_$tbl_i"]['r_data']['#suffix'] = '';
+            $form[$fieldname]["item_$tbl_i"]['r_data']['#description'] = t('Choose from this list or enter some text below.');
+            $form[$fieldname]["item_$tbl_i"]['r_text'] = array(
+              '#type'          => 'textfield',
+              '#size'          => 10,
+              '#title'         => '',
+              '#suffix'        => '</td>',
+              '#default_value' => $default_value['id'] ? '' : $default_value['text'],
+            );
+          }
+
+        // autocomplete
+        }
+        else {
+          $form[$fieldname]["item_$tbl_i"]['r_data']['#type'] = 'textfield';
+          $form[$fieldname]["item_$tbl_i"]['r_data']['#autocomplete_path'] = '/multireference/autocomplete_'. $field['r_type'] .'/'. $fieldname;
+          $form[$fieldname]["item_$tbl_i"]['r_data']['#default_value'] = $default_value['text'];
+        }
+
+        /*
+         * additional description
+         */
+        if ($field['desc2_provide']) {
+          $form[$fieldname]["item_$tbl_i"]['desc2'] = array(
+            '#type'          => $desc2_type,
+            '#title'         => '',
+            '#prefix'        => '<td>',
+            '#suffix'        => '</td>',
+          );
+          // select
+          if ($desc2_type == 'select') {
+            $form[$fieldname]["item_$tbl_i"]['desc2']['#options'] = $desc2_options;
+            $form[$fieldname]["item_$tbl_i"]['desc2']['#default_value'] = isset($items[$tbl_i]['desc2']) ? $items[$tbl_i]['desc2'] : '';
+          // textfield
+          }
+          else {
+            $form[$fieldname]["item_$tbl_i"]['desc2']['#size'] = 10;
+            $form[$fieldname]["item_$tbl_i"]['desc2']['#default_value'] = isset($items[$tbl_i]['desc2']) ? $items[$tbl_i]['desc2'] : '';
+          }
+        }
+      }
+
+      // JS UI element
+      // TODO: client-side validation of max no. of items
+      $form[$fieldname]['item_add'] = array(
+        '#value' => '<tr><td><a href="#multireference_anchor_'. $fieldname .'" class="multireference_add_fields" next_item="'. $tbl_i .'" field_name="'. $fieldname .'">[+] add another field</a></td></tr>',
+      );
+
+      return $form;
+
+    case 'validate' :
+      // test # of lines
+      $num = $num_lines[$field['field_name']];
+      if ($num > $field['r_num']) {
+        form_set_error('', t('The '. t($field['widget']['label']) .' field can hold a maximum of '. $field['r_num'] .' items.'));
+      }
+
+      $label = $field['widget']['label'];
+      foreach ($items as $key => $data) {
+        // are the description fields required?
+        if ($field['desc_required'] == 'true' && !empty($data['r_data']) && empty($data['desc'])) {
+          form_set_error('', t("The first description is required for items in the $label field"));
+          break;
+        }
+        if ($field['desc2_required'] == 'true' && !empty($data['r_data']) && empty($data['desc2'])) {
+          form_set_error('', t("The second description is required for items in the $label field."));
+          break;
+        }
+
+        // no all-numeric text fields
+        if (isset($data['r_text']) && is_numeric($data['r_text'])) {
+          form_set_error('', t("All-numeric values are not allowed in the $label text entry fields."));
+        }
+        if ($field['r_field_type'] == 'autocomplete' && is_numeric($data['r_data'])) {
+          form_set_error('', t("All-numeric values are not allowed in the $label reference field."));
+        }
+      }
+      break;
+  }
+}
+
+
+/*---- Theming functions ----*/
+
+/**
+ *  Theme function: prepares data and calls defaut line formatter
+ */
+function multireference_display_default(&$node_field, &$field) {
+  $item_i    = 0;
+  $output    = '';
+  foreach ($node_field as $item) {
+    $desc  = check_plain($item['desc']);
+    $desc  = !empty($desc) ? $desc. ': ' : '';
+    $value = _multireference_get_link($field, $item['r_id'], $item['r_text'].'-xxx');
+    $desc2 = '';
+    if ($field['desc2_provide'] && $item['desc2']) {
+      $desc2 = check_plain($item['desc2']);
+      $desc2 = !empty($desc2) ? $desc2 : '';
+    }
+    if (!empty($value)) {
+      $output .= theme('multireference_default_item', $desc, $value, $desc2);
+    }
+  }
+  return $output;
+}
+
+
+/**
+ *  Theme function: renders each line in a <div>
+ */
+function theme_multireference_default_item($desc, $value, $desc2) {
+  return "<div>$desc $value $desc2</div>\n";
+}
+
+
+/**
+ *  Theme function: prepares data and calls table row formatter
+ */
+function multireference_display_table(&$node_field, &$field) {
+  // header
+  $header[] = $field['t_desc'];
+  $header[] = $field['t_ref'];
+  if ($field['desc2_provide']) {
+    $header[] = $field['t_desc2'];
+  }
+
+  // items
+  $reference = _multireference_filter_reference_type($field['r_type']);
+  foreach ($node_field as $item) {
+    $row   = array();
+    $desc  = check_plain($item['desc']);
+    $value = _multireference_get_link($field, $item['r_id'], $item['r_text']);
+    $desc2 = ($field['desc2_provide']) ? check_plain($item['desc2']) : ' ';
+    if ($value) {
+      $row = array($desc, $value);
+      if ($field['desc2_provide']) {
+        $row[] = $desc2;
+      }
+      $data[] = $row;
+    }
+  }
+
+  return theme_multireference_theme_table($header, $data);
+}
+
+/**
+ *  Theme function: returns tabular display of field
+ */
+function theme_multireference_theme_table($header, $data) {
+  return theme_table($header, $data);
+}
+
+
+/*---- Views functions ----*/
+
+
+/**
+ *  Returns views field information for hook_field_settings
+ */
+function _multireference_views_field_table($field) {
+  $fieldname  = $field['field_name'];
+  $fieldtype  = $field['type'];
+  $reference  = _multireference_filter_reference_type($field['r_type']);
+
+  $options = array(
+    '#type'     => 'select',
+    '#options'  => array(
+      'default' => t('Default display'),
+      'table'   => t('Table display'),
+      ),
+  );
+
+  $filters = array(
+    'description' => array(
+      'name'     => "Multireference: description ($fieldname)",
+      'help'     => "Filter on the descriptions of items in the $fieldname field.",
+      'field'    => $fieldname,
+      'operator' => array('contains' => 'Contains'),
+      'handler'  => 'multireference_views_filter_handler_description',
+    ),
+    'reference' => array(
+      'name'     => "Multireference: $reference ($fieldname)",
+      'help'     => "Filter on the references in the $fieldname field.",
+      'field'    => $fieldname,
+      'operator' => array('contains' => 'Contains'),
+      'handler'    => 'multireference_views_filter_handler_reference',
+    ),
+  );
+
+  $tables[$fieldname] = array(
+     'name'     => 'node_field_multireference_data',
+     'provider' => 'multireference',
+     'join'     => array(
+                     'left'  => array('table' => 'node', 'field' => 'nid'),
+                     'right' => array('field' => 'nid'),
+                     'extra' => array('field_name' => $fieldname),
+                     ),
+     'fields'   => array(
+                     $fieldname => array(
+                       'name'      => "Multireference ($fieldname)",
+                       'help'      => t('Multireference field'),
+                       'handler'   => 'multireference_views_field_handler',
+                       'notafield' => TRUE,
+                       'option'    => $options,
+                       ),
+                   ),
+      'filters' => $filters,
+  );
+
+  return $tables;
+}
+
+/**
+ *  Display field in views
+ */
+function multireference_views_field_handler($fieldinfo, $fielddata, $value, $data) {
+  $fieldname = $fielddata['field'];
+  $field     = content_fields($fieldname);
+  $contents  = _multireference_load_values($data->nid, $fieldname);
+
+  switch ($fielddata['options']) {
+    case 'table' :
+      $theme_function = 'table';
+      break;
+    default :
+      $theme_function = 'default';
+      break;
+  }
+
+  eval('$return = multireference_display_'. $theme_function .'( $contents, $field );');
+  return $return;
+}
+
+/**
+ *  Filter on description text
+ */
+function multireference_views_filter_handler_description($op, $filter, $filterinfo, &$query) {
+  $value   = trim($filter['value']);
+  if (!$value) {
+    return;
+  }
+  else {
+    $value = db_escape_string($value);
+  }
+
+  list($table, $field)  = split('\.', $filter['field']);
+
+  switch ($filter['operator']) {
+    case 'contains' :
+      $clause = "( UPPER($table.description) LIKE UPPER('%$value%') OR UPPER($table.description2) LIKE UPPER('%$value%') )";
+      break;
+  }
+
+  $query->ensure_table($table);
+  $query->add_where($clause);
+  $query->set_distinct();
+}
+
+/**
+ *  Filter on reference text
+ */
+function multireference_views_filter_handler_reference($op, $filter, $filterinfo, &$query) {
+  $value   = trim($filter['value']);
+  if (!$value) {
+    return;
+  }
+  else {
+    $value = db_escape_string($value);
+  }
+
+  list($table, $field)  = split('\.', $filter['field']);
+  $field = content_fields($table);
+
+  switch ($field['r_type']) {
+    case 'nodereference' :
+      $join_table = 'node';
+      $join_field = 'title';
+      $join_id    = 'nid';
+      break;
+    case 'userreference' :
+      $join_table = 'users';
+      $join_field = 'name';
+      $join_id    = 'uid';
+      break;
+  }
+
+  switch ($filter['operator']) {
+    case 'contains' :
+      $clause = "( ($table.r_id IN (SELECT $join_id FROM $join_table WHERE UPPER($join_table.$join_field) LIKE UPPER('%%%$value%%'))) OR UPPER($table.r_text) LIKE UPPER('%%%$value%%') )";
+      break;
+  }
+
+  $query->set_distinct();
+  $query->ensure_table($table);
+  $query->add_where($clause);
+}
+
+
+/*---- utility functions ---- */
+
+
+/**
+ *  Load values from database
+ */
+function _multireference_load_values($nid = 0, $fieldname = '') {
+  $values = array();
+  if ($nid && $fieldname) {
+    $sql    = "SELECT r_id, r_text, description, description2, weight FROM {node_field_multireference_data} WHERE nid=%d AND field_name='%s' ORDER BY weight";
+    $result = db_query($sql, $nid, $fieldname);
+    $values = array();
+    while ($data = db_fetch_object($result)) {
+      $values[] = array(
+        'r_id'   => $data->r_id,
+        'r_text' => $data->r_text,
+        'desc'   => $data->description,
+        'desc2'  => $data->description2,
+      );
+    }
+  }
+  return $values;
+}
+
+
+/**
+ *  filter allowed reference types
+ *  (being extra careful because these are eval()-ed)
+ */
+function _multireference_filter_reference_type($type = NULL) {
+  $allowed_values = array('nodereference', 'userreference');
+  if (!in_array($type, $allowed_values)) {
+    $type = FALSE;
+  }
+  return $type;
+}
+
+
+/**
+ *  determines numeric and text info for a given reference
+ */
+function _multireference_get_reference_info(&$field, $ref_data) {
+  $ref_type  = _multireference_filter_reference_type($field['r_type']);
+  if (!$ref_type || !$ref_data) {
+    return array('id' => 0, 'text' => '');
+  }
+
+  static $return = array();
+  $index = $ref_type . $ref_data;
+
+  if (!isset($return["$index"])) {
+    $return[$index] = array();
+    $id = is_numeric($ref_data) ? (int) $ref_data : 0;
+    $constrain = _multireference_get_reference_constraint($field);
+
+    switch ($ref_type) {
+      case 'nodereference' :
+        if ($id > 0) {
+          $text = db_result(db_query("SELECT title FROM {node} WHERE nid = %d $constrain", $id));
+        }
+        elseif (!empty($ref_data)) {
+          $text = $ref_data;
+          $id   = db_result(db_query("SELECT nid FROM {node} WHERE title = '%s' $constrain", $ref_data));
+        }
+        break;
+
+      case 'userreference' :
+        if ($id > 0) {
+          $text = db_result(db_query("SELECT u.name FROM {users} u, {users_roles} r WHERE u.uid = %d $constrain", $id));
+        }
+        elseif (!empty($ref_data)) {
+          $text = $ref_data;
+          $id = db_result(db_query("SELECT u.uid FROM {users} u, {users_roles} r WHERE name = '%s' $constrain", $ref_data));
+        }
+        break;
+    }
+    $return[$index]['id']   = !empty($id) ? $id : 0;
+    $return[$index]['text'] = !empty($text) ? $text : '';
+  }
+  return $return[$index];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/**
+ *  Returns link or text for reference
+ */
+function _multireference_get_link(&$field, $r_id = 0, $r_text = FALSE) {
+  $r_type = _multireference_filter_reference_type($field['r_type']);
+  if (!$r_type || !$r_text) {
+    return FALSE;
+  }
+
+  // determine text and path for reference
+  $path = '';
+  $r_id = (int) $r_id;
+  if ($r_id > 0) {
+    if ($r_type == 'nodereference') {
+      $path = drupal_get_path_alias('node/'. $r_id);
+    }
+    elseif ($r_type == 'userreference') {
+      $path = 'user/'. $r_id;
+    }
+  }
+
+  if ($path) {
+    return l($r_text , $path);
+  }
+  else {
+    return check_plain($r_text);
+  }
+}
+
+
+/**
+ *  generate a select list for descriptions
+ */
+function _multireference_get_desc_options($values) {
+  $options = array();
+  if (!empty($values)) {
+    $desc_values = split("\n", $values);
+    $options[]   = t('--select--');
+    foreach ($desc_values as $value) {
+      $value = trim($value);
+      $options[$value] = $value;
+    }
+  }
+  return $options;
+}
+
+
+/**
+ * Handle autocomplete form elements: node references
+ */
+function multireference_autocomplete_node($fieldname = '', $string = '') {
+  // only bother when we have some actual data
+  if (strlen($string) < 2 || is_numeric($string) || !$fieldname) {
+    return;
+  }
+  $field     = content_fields($fieldname);
+  $matches   = array();
+  $constrain = _multireference_get_reference_constraint($field);
+  $sql       = "SELECT nid, title FROM {node} WHERE LOWER(title) LIKE LOWER('%s%%') $constrain";
+  $result    = db_query_range($sql, $string, 0, 10);
+  while ($node = db_fetch_object($result)) {
+    $matches[$node->title] = $node->title;
+  }
+  print drupal_to_js($matches);
+  exit();
+}
+
+
+/**
+ * Handle autocomplete form elements: user references
+ */
+function multireference_autocomplete_user($fieldname = '', $string = '') {
+  // only bother when we have some actual data
+  if (strlen($string) < 2 || is_numeric($string) || !$fieldname) {
+    return;
+  }
+  $field     = content_fields($fieldname);
+  $matches   = array();
+  $constrain = _multireference_get_reference_constraint($field);
+  $sql = "SELECT u.uid, u.name FROM {users} u, {users_roles} r WHERE LOWER(u.name) LIKE LOWER('%s%%') $constrain";
+  $result = db_query_range($sql, $string, 0, 10);
+  while ($user = db_fetch_object($result)) {
+    $matches[$user->name] = $user->name;
+  }
+  print drupal_to_js($matches);
+  exit();
+}
+
+
+/**
+ *  return unprocessed array of options from one of the reference modules
+ *  return values are cached for performance
+ */
+function _multireference_get_options(&$field) {
+  static $return = array();
+  $reference = _multireference_filter_reference_type($field['r_type']);
+  if (!$reference) {
+    return array();
+  }
+
+  if (!isset($return[$field['field_name']])) {
+    if ($reference == 'nodereference') {
+      include_once(drupal_get_path('module', 'content') .'/nodereference.module');
+      $options = _nodereference_potential_references($field, true);
+    }
+    elseif ($reference == 'userreference') {
+      include_once(drupal_get_path('module', 'content') .'/userreference.module');
+      $options = _userreference_potential_references($field);
+    }
+    $return[$field['field_name']] = $options;
+  }
+
+  return $return[$field['field_name']];
+}
+
+
+/**
+ *  determine the node type or user role constraints on results
+ *  return values are cached for performance
+ */
+function _multireference_get_reference_constraint(&$field) {
+  static $constraints = array();
+  if (!isset($constraints[$field['field_name']])) {
+    if ($field['r_type'] == 'nodereference') {
+      $options = $field['referenceable_types'];
+      foreach ($options as $key => $value) {
+        if (!empty($value)) {
+          $types .= $conj ."'$key'";
+          $conj = ',';
+        }
+      }
+      $constraints[$field['field_name']] = empty($types) ? '' : " AND type IN ($types) ";
+    }
+    else {
+      $options = $field['referenceable_roles'];
+      foreach ($options as $key => $value) {
+        if (!empty($value)) {
+          if ($key == 2) {  // authenticated user == in users table, so no constraint
+            $types = array();
+            break;
+          }
+          $types .= $conj . $key;
+          $conj = ',';
+        }
+      }
+      $constraints[$field['field_name']] = empty($types) ? '' : " AND r.rid IN ($types) AND r.uid=u.uid ";
+    }
+  }
+  return $constraints[$field['field_name']];
+}

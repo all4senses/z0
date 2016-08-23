@@ -1,0 +1,265 @@
+<?php
+/*******************************************************************************
+ * Drupal Hooks
+ ******************************************************************************/
+
+/**
+ * hook_perm()
+ */
+function uc_vat_perm() {
+  return array('configure vat');
+}
+
+/**
+ * hook_menu()
+ */
+function uc_vat_menu($may_cache) {
+  $items = array();
+  
+  if ($may_cache) {
+    $items[] = array('path' => 'admin/store/settings/vat',
+      'title' => t('VAT settings'),
+      'access' => user_access('configure vat'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('uc_vat_form'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+  
+  return $items;
+}
+
+/**
+ * Menu callback
+ */
+function uc_vat_form() {
+  $rates = uc_vat_rates();
+  $form = array(
+    'heading' => array(
+      '#value' => '<table><tr><th>' 
+        . t('Rate [%]') . '</th><th>'
+        . t('Title') . '</th></tr>',
+      '#weight' => -1,
+    ),
+    'footer' => array(
+      '#value' => '</table>',
+      '#weight' => 99,
+    ),
+  );
+  // one more than existing rows gives extra row to input new rate
+  for ($i = 0; $i <= count($rates); $i++) {
+    $field = 'uc_vat_' . $i;
+    $form[$field] = array(
+      '#prefix' => '<tr>',
+      '#suffix' => '</tr>',
+      '#weight' => $i,
+    );
+    $form[$field][$field . '_rate'] = array(
+      '#type' => 'textfield',
+      '#size' => 3,
+      '#default_value' => uc_vat_rate($i),
+      '#prefix' => '<td>',
+      '#suffix' => '</td>',
+    );
+    $form[$field][$field . '_title'] = array(
+      '#type' => 'textfield',
+      '#default_value' => uc_vat_rate($i, 'title'),
+      '#prefix' => '<td>',
+      '#suffix' => '</td>',
+    );
+  }
+  return system_settings_form($form);
+}
+
+/**
+ * hook_nodeapi()
+ */
+function uc_vat_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+error_log("$op rate=" . $node->vat_rate);
+  if ($node->type != 'product') {
+    return;
+  }
+  switch ($op) {
+    case 'delete':
+      db_query('delete from {uc_vat} where nid=%d and vid=%d', $node->nid, $node->vid);
+      break;
+    case 'insert':
+    case 'update':
+      db_query('replace into {uc_vat} (nid, vid, rate) values (%d, %d, %d)', 
+        $node->nid, $node->vid, $node->vat_rate);
+      break;
+    case 'load':
+      $info = db_fetch_object(
+        db_query('select rate from {uc_vat} where nid=%d and vid=%d', $node->nid, $node->vid));
+      $node->vat_rate = $info ? $info->rate : FALSE;
+      break;
+    case 'view':
+      $node->content['vat_rate'] = array(
+        '#value' => t('contains !vat% VAT', array('!vat' => uc_vat_rate($node->vat_rate))),
+        '#weight' => 10,
+      );
+      break;
+  }
+}
+
+/**
+ * hook_form_alter()
+ */
+function uc_vat_form_alter($form_id, &$form) {
+  if ($form_id != 'product_node_form') {
+    return;
+  }
+  $rates = uc_vat_rates();
+  $options = array();
+  for ($i = 0; $i < count($rates); $i++) {
+    $options[$i] = uc_vat_rate($i, 'title') . ' (' . uc_vat_rate($i) . '%)';
+  }
+  $form['base']['vat_rate'] = array('#type' => 'select',
+    '#title' => t('VAT rate'),
+    '#weight' => 5,
+    '#options' => $options,
+    '#default_value' => isset($form['#node']->vat_rate) ? $form['#node']->vat_rate : 0,
+    '#required' => true,
+  );
+}
+
+/*******************************************************************************
+ * Übercart Hooks
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_line_item().
+ *!
+function uc_vat_line_item() {
+  $items[] = array(
+    'id' => 'vat',
+    'title' => t('VAT'),
+    'weight' => 1,
+    'default' => FALSE,
+    'stored' => FALSE,
+    'calculated' => FALSE,
+    'display_only' => TRUE,
+    'callback' => 'uc_line_item_vat',
+  );
+
+  return $items;
+}
+
+!**
+ * Handle the VAT line item.
+ *!
+function uc_line_item_vat($op, $order) {
+error_log('[uc_line_item_vat] op=' . $op . ', order=' . $order);
+  switch ($op) {
+    case 'display':
+      $vat_items = uc_vat_calculate($order->products);
+      foreach ($vat_items as $rate => $vat){
+        $lines[] = array(
+          'id' => 'vat_'. $rate,
+          'title' => $vat['name'],
+          'amount' => $vat['amount'],
+        );
+      }
+      return $lines;
+  }
+}
+
+!*
+ * 
+ **/
+
+/**
+ * Implementation of hook_checkout_pane().
+ */
+function uc_vat_checkout_pane() {
+  $panes[] = array(
+    'id' => 'vat',
+    'callback' => 'uc_checkout_pane_vat',
+    'title' => t('VAT contained in order'),
+    'desc' => t("Display the VAT contained in the order."),
+    'weight' => 2,
+    'process' => FALSE,
+    'collapsible' => FALSE,
+  );
+
+  return $panes;
+}
+
+/**
+ * Display the VAT contained in the order during checkout.
+ */
+function uc_checkout_pane_vat($op) {
+  $vat_items = uc_vat_calculate(uc_cart_get_contents());
+  $vat_info = theme('uc_vat_pane', $vat_items);
+  switch ($op) {
+    case 'view':
+      $pane = uc_cart_checkout_new_pane('vat', FALSE);
+      $pane->fields['pane']['vat'] = array(
+        '#value' => $vat_info,
+        '#weight' => 2,
+      );
+      return $pane;
+
+    case 'review':
+      return $vat_info;
+  }
+}
+
+/******************************************************************************
+ * Module and Helper Functions
+ ******************************************************************************/
+
+function theme_uc_vat_pane($vat_items) {
+  $rows = array();
+  foreach ($vat_items as $rate => $vat) {
+    $rows[] = array(
+      array('data' => $vat['name'], 'width' => '50%'),
+      array('data' => uc_currency_format($vat['amount']), 'align' => 'right'),  
+    );
+  }
+  return theme('table', array(), $rows, array('class' => 'vat-table', 'width' => '100%'));
+}
+
+function uc_vat_rates() {
+  $rates = array();
+  for ($i = 0;; $i++) {
+    $rate = uc_vat_rate($i);
+    if (!$rate) {
+      break;
+    }
+    $rates[$i] = array(
+      'rate' => $rate,
+      'title' => uc_vat_rate($i, 'title'),
+    );
+  }
+  return $rates;
+}
+
+function uc_vat_rate($i, $field='rate') {
+  $var = 'uc_vat_' . $i . '_' . $field;
+  return variable_get($var, '');
+}
+
+function uc_vat_calculate($products) {
+  $vat_items = array();
+
+  if (!is_array($products)) {
+    return $vat_items;
+  }
+  $rates = uc_vat_rates();
+
+  foreach($products as $item) {
+    $product = node_load($item->nid);
+    $rate = $product->vat_rate;
+    $rate_id = 'vat_' . $rate;
+    $rate = uc_vat_rate($rate);
+    if (!isset($vat_items[$rate_id])) {
+      $vat_items[$rate_id] = array(
+        'name' => t('!rate% VAT', array(
+          '!rate' => number_format($rate, 1, variable_get('uc_currency_dec', '.'), ''))));
+    }
+    $vat_items[$rate_id]['amount'] 
+      += $item->price * $item->qty * $rate / (100 + $rate);
+  }
+  return $vat_items;
+}

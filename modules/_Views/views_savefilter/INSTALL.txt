@@ -1,0 +1,7 @@
+$Id: INSTALL.txt,v 1.1.2.4 2007/05/29 20:37:11 avf Exp $
+
+Views save filter module installation
+
+1. Untar the module into your Drupal modules/ directory
+2. Enable the module in admin/build/modules
+

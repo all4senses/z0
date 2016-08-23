@@ -1,0 +1,69 @@
+<?php
+// $Id: node_extended_stats.install,v 1.1.2.1 2008/11/20 06:34:42 jaydub Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function node_extended_stats_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {node_extended_stats_raw} (
+        nid int NOT NULL,
+        sid varchar(64) NOT NULL default '',
+        uid int unsigned default '0',
+        timestamp int unsigned NOT NULL default '0',
+        KEY nid_timestamp (nid, timestamp),
+        KEY timestamp (timestamp)
+      ) /*!40100 DEFAULT CHARACTER SET utf8 */;");
+
+      db_query("CREATE TABLE {node_extended_stats_summary} (
+        nid int NOT NULL,
+        period int unsigned NOT NULL,
+        viewcount int unsigned NOT NULL default '0',
+        commentcount int unsigned NOT NULL default '0',
+        timestamp int unsigned NOT NULL default '0',
+        PRIMARY KEY (nid, period),
+        KEY viewcount (period, viewcount),
+        KEY commentcount (period, commentcount)
+      ) /*!40100 DEFAULT CHARACTER SET utf8 */;");
+      break;
+
+    case 'pgsql':
+      db_query("CREATE TABLE {node_extended_stats_raw} (
+        nid int NOT NULL,
+        sid varchar(64) NOT NULL default '',
+        uid int_unsigned default '0',
+        timestamp int_unsigned NOT NULL default '0'
+      )");
+
+      db_query('CREATE INDEX {node_extended_stats_raw}_nid_timestamp_idx ON {node_extended_stats_raw} (nid, timestamp)');
+      db_query('CREATE INDEX {node_extended_stats_raw}_timestamp_idx ON {node_extended_stats_raw} (timestamp)');
+
+      db_query("CREATE TABLE {node_extended_stats_summary} (
+        nid int NOT NULL,
+        period int_unsigned NOT NULL,
+        viewcount int_unsigned NOT NULL default '0',
+        commentcount int_unsigned NOT NULL default '0',
+        timestamp int_unsigned NOT NULL default '0',
+        PRIMARY KEY (nid, period)
+      )");
+
+      db_query('CREATE INDEX {node_extended_stats_summary}_viewcount_idx ON {node_extended_stats_summary} (period, viewcount)');
+      db_query('CREATE INDEX {node_extended_stats_summary}_commentcount_idx ON {node_extended_stats_summary} (period, commentcount)');
+      break;
+  }
+
+  // Increase the module weight so that the stats are written first
+  // for this module before the statistics module
+  db_query("UPDATE {system} SET weight = -1 WHERE name = '%s' AND type = '%s'", 'node_extended_stats', 'module');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function node_extended_stats_uninstall() {
+  db_query('DROP TABLE {node_extended_stats_raw}');
+  db_query('DROP TABLE {node_extended_stats_summary}');
+  variable_del('node_extended_stats_nodecount_timeperiods');
+}

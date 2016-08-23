@@ -1,0 +1,5 @@
+; $Id: uc_storepickup.info 7 2007-10-19 04:14:36Z root $
+name = Store Pickup Shipping
+description = In-Store Pickup shipping option
+dependencies = uc_quote
+package = Ubercart - fulfillment

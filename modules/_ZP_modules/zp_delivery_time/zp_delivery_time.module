@@ -1,0 +1,301 @@
+<?php
+
+function zp_delivery_time_perm() {
+  return array('manage Delivery Time options');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+/*
+function zp_delivery_time_menu($may_cache) {
+  if ($may_cache) {
+      $items[] = array(
+      'path' => 'admin/store/settings/checkout/delivery_time',
+      'title' => t('Delivery Time settings'),
+      'description' => t('Manage Delivery Time options'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('zp_delivery_time_settings_form'),
+      'access' => user_access('manage Delivery Time options'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+
+  return $items;
+}
+
+function zp_delivery_time_settings_form_submit($form, $form_values) {
+  //variable_set('zp_delivery_time_per_item', $form_values['per_item']);
+  //variable_set('zp_delivery_time_charge', $form_values['charge']);
+}
+
+
+function zp_delivery_time_settings_form() {
+  $per_item = variable_get('zp_delivery_time_per_item', 1);
+  $charge = variable_get('zp_delivery_time_charge', 3.00);
+  $form['per_item'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Charge per item rather than per order'),
+    '#default_value' => $per_item,
+    '#weight' => '1'
+  );
+  $form['charge'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Price per Delivery Time'),
+    '#default_value' => $charge,
+    '#weight' => '2'
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#weight' => '3'
+  );
+  return $form;
+}
+
+*/
+
+/**
+ * Implementation of hook_checkout_pane
+ */
+function zp_delivery_time_checkout_pane() {
+  
+    $panes[] = array(
+      'id' => 'zp_delivery_time',
+      'title' => t('Delivery Time'),
+      'desc' => t('Delivery Time'),
+	  '#collapsed' => TRUE,
+      'callback' => 'uc_checkout_pane_zp_delivery_time',
+      'weight' => 10,
+    );
+    return $panes;
+ 
+}
+
+
+function uc_checkout_pane_zp_delivery_time($op, &$arg1, $arg2) {
+	
+   switch ($op) {
+   	
+    case 'view':
+    	
+    	
+    	
+		//$per_item = variable_get('zp_delivery_time_per_item', 1);
+        //$charge = variable_get('zp_delivery_time_charge', 3.00);
+		$description = t('Укажите предпочтительную дату и время доставки, вилку времени (например, с 15.00 до 18.00) или несколько вариантов (например, Сегодня после 16.30 или завтра до 12.00). Если есть особые пожелания, укажите их.');
+		/*
+		$contents['gwcheck'] = array(
+          '#type' => 'checkbox',
+          '#title' => t('Add Delivery Time ($' . number_format($charge,2) . ($per_item ? ' per item' : '') . ')'),
+          '#description' => t(''),
+          '#default_value' => $arg1->delivery_time['chk'],
+        );
+        */
+        $contents['d_time'] = array(
+          '#type' => 'textarea',
+		  '#maxlength' => 200,
+          '#cols' => 30,
+		  '#rows' => 2,
+          '#title' => t('Preferable delivery time'),
+          '#description' => t(''),
+          //'#default_value' => $arg1->delivery_time['text'],
+          '#default_value' => $arg1->data['delivery_time'],
+          '#required' => true, // пользователь обязательно должен  указать желаемое время
+        );
+		
+		
+        //print '<PRE>';
+    	//print_r($arg1);
+    	//print '</PRE>';
+        
+        return array('description' => $description, 'contents' => $contents);
+
+		
+		
+		
+		
+		
+// my changes	-----------------------------
+	
+  case 'review':
+  	
+		//print '<PRE>';
+    	//print_r($arg1);
+    	//print '</PRE>';
+    	
+  	
+        //$review[] = array('title' => t('Delivery time'), 'data' => $arg1->delivery_time['text'], 'weight' => -10);
+        $review[] = array('title' => t('Delivery time'), 'data' => $arg1->data['delivery_time']); //, 'weight' => 5
+        
+      	return $review;
+      
+
+		
+
+			
+  case 'process':
+  		//drupal_set_message('process Order-id 1 = ' . $arg1->order_id, 'error');
+  		
+  		
+
+		//$arg1->delivery_time['chk'] = $arg2['gwcheck'];
+
+		//$arg1->delivery_time['text'] = $arg2['d_time'];
+		$arg1->data['delivery_time'] = $arg2['d_time']; // как раз тут данные переносятся из формы на странице в объект, который потом будет сохранён в базе
+		
+		// занесение данных о времени доставки в объект заказа в базе (в заказе обновляется только поле data)
+    	// эта операция может выполняться как тут, так и в ниже в функции zp_delivery_time_order($op, &$arg1) в разделе case save:
+    	db_query("UPDATE {uc_orders} SET data = '%s' WHERE order_id = %d", serialize($arg1->data), $arg1->order_id);
+
+		
+		
+		
+		//print '<PRE>';
+    	//print_r($arg1);
+    	//print '</PRE>';
+    	
+		return TRUE;
+  }
+}
+
+/*
+function _zp_delivery_time_save($order_id, $total_charge, $d_time = '') {
+  uc_order_line_item_add($order_id, 'delivery_time', t('Delivery Time'), $total_charge, 1);
+  db_query("INSERT INTO {zp_delivery_time} (order_id, d_time) values(%d, '%s')", $order_id, $d_time);
+}
+
+function _zp_delivery_time_load($order_id) {
+  $result = db_query("SELECT order_id, d_time FROM {zp_delivery_time} WHERE order_id = %d", $order_id);
+  return db_fetch_object($result);
+}
+
+function _zp_delivery_time_delete($order_id) {
+  db_query("DELETE FROM {uc_order_line_items} WHERE order_id = %d AND type = 'delivery_time'", $order_id);
+  db_query("DELETE FROM {zp_delivery_time} WHERE order_id = %d", $order_id);
+}
+
+*/
+
+/*
+ *  Hook Order Funtions
+ *  Called from uc_points_payment.inc hook_order
+ */
+ 
+ /**
+ * Implementation of hook_line_item().
+ */
+ 
+/*
+function zp_delivery_time_line_item() {
+  $items[] = array(
+    'id' => 'delivery_time',
+    'title' => t('Delivery Time'),
+    'weight' => 6,
+    'stored' => true,
+	'add_list' => TRUE,
+    'default' => FALSE,
+    'calculated' => TRUE,
+    'display_only' => FALSE,
+  );
+
+  return $items;
+}
+ 
+*/
+
+
+/**
+ * Implementation of hook_order().
+ */
+
+// my changes
+//function zp_delivery_time_order($op, &$arg1) {
+function zp_delivery_time_order($op, $arg1) {
+  
+  switch ($op) {
+    case 'save':
+    	
+    	
+    	
+    	
+    	//drupal_set_message('order save = ' . $arg1->order_id, 'error');
+    	//$ord = uc_order_load($arg1->order_id);
+    	
+    	//$arg1->data['delivery_time'] = $arg1->delivery_time['text'];
+    	
+    	
+    	
+    	
+    	
+    	
+    	
+    	
+    	
+    	// правильная операция, просто она может выполняться и в другом месте...
+    	
+    	// занесение данных о времени доставки в объект заказа в базе (в заказе обновляется только поле data)
+    	// эта операция может выполняться как тут, так и в выше в функции uc_checkout_pane_zp_delivery_time($op, &$arg1, $arg2) в разделе case process:
+    	// db_query("UPDATE {uc_orders} SET data = '%s' WHERE order_id = %d", serialize($arg1->data), $arg1->order_id);
+    	
+    	//print '<PRE>';
+    	//print_r($arg1);
+    	//print '</PRE>';
+    	
+    	
+    	
+    	
+	  //print_r($arg1); die();
+	  
+	  /*
+	   _zp_delivery_time_delete($arg1->order_id);
+	   if ($arg1->delivery_time['chk']) {
+	     $per_item = variable_get('zp_delivery_time_per_item', 1);
+         $charge = variable_get('zp_delivery_time_charge', 3.00);		
+	     if ($per_item) {
+		   //charge per item - count number of items in order
+		   foreach ($arg1->products as $product) {
+		     $total_charge += $product->qty * $charge;
+		   }
+		 } 
+		 else {
+		   $total_charge = $charge;
+		 }	 
+	     _zp_delivery_time_save($arg1->order_id, $total_charge, $arg1->delivery_time['text']);
+	   }
+	   
+	   */
+	   break;
+	   
+	   
+	 case 'load':
+	 	//drupal_set_message('order load = ' . $arg1->order_id, 'error');
+	 	
+	   //if ($delivery_time = _zp_delivery_time_load($arg1->order_id)) {
+	     //$arg1->delivery_time['text'] = $arg1->data['delivery_time']; //$delivery_time->d_time;
+		 //$arg1->delivery_time['chk'] = 1;
+	  // }
+	   break;
+	   
+	   
+	 case 'submit':
+	 	
+	 	//drupal_set_message('order submit = ' . $arg1->order_id, 'error');
+	 	
+	   // add gift message as order comment so it can be seen on store admin order detail page
+	   //if ($delivery_time = _zp_delivery_time_load($arg1->order_id)) {
+	     //uc_order_comment_save($arg1->order_id, $arg1->uid, t('Preferable delibery time:') . '"' . $delivery_time->d_time . '"', 'order');
+	   //}
+	   break;
+	 
+	 //case 'total':
+	 case 'delete':
+	 	//drupal_set_message('order delete = ' . $arg1->order_id, 'error');
+	 	
+	   //clean up
+	   //_zp_delivery_time_delete($arg1->order_id);
+	   break;
+  }
+} 
+ 
+?>

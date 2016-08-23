@@ -1,0 +1,11 @@
+; $Id: countries_api_service.info,v 1.1.4.2 2009/05/17 11:17:41 mrfelton Exp $
+name = Countries API Service
+description = Provides a countries api service.
+package = Services - services
+dependencies = services countries_api
+
+; Information added by drupal.org packaging script on 2009-06-27
+version = "5.x-1.1"
+project = "countries_api"
+datestamp = "1246131026"
+

@@ -1,0 +1,337 @@
+<?php
+// $Id: uc_multi_stock.module,v 1.1.2.4 2009/05/27 14:33:27 hanoii Exp $
+
+/**
+ * @file
+ * prevent purchasing of pruducts below stock levels.
+ *
+ * this module includes some code from the Inventory API & Simple Stock Levels
+ * (http://www.ubercart.org/contrib/132), by CpILL (http://www.ubercart.org/user/29).
+ *
+ */
+
+/*******************************************************************************
+ * Hook Functions (Drupal)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_menu().
+ */
+function uc_multi_stock_menu($may_cache) {
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/store/settings/multi_stock',
+      'title' => t('Multi Stock Settings'),
+      'access' => user_access('administer store'),
+      'description' => t('Configure multi stock settings.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('uc_multi_stock_settings'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Add validation for cart view form.
+ */
+function uc_multi_stock_form_alter($form_id, &$form) {
+  // create validations for all the product forms
+  switch ($form_id) {
+    case 'uc_cart_view_form':
+      //$form['#validate'] = array('uc_multi_stock_uc_cart_view_validate' => array()) + $form['#validate'];
+      $form['#validate'] = array('uc_multi_stock_uc_cart_view_validate' => array());
+      break;
+  }
+}
+
+/*******************************************************************************
+ * Hook Functions (Ubercart)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_cart_item().
+ *
+ * change the model according to attributes - so it will be recognize by tocca_uc_stock_order()
+ */
+function uc_multi_stock_cart_item($op, &$item) {
+  switch ($op) {
+    case 'load':
+      $sku = uc_multi_get_sku($item->nid, $item->data['attributes']);
+      $item->model = $sku;
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_add_to_cart().
+ *
+ * prevent addition of out of stock products
+ */
+function uc_multi_stock_add_to_cart($nid, $qty, $data) {
+  $node = node_load($nid);                 // needed for the product
+  $product = uc_product_load($node);       // the product
+  $product->title = $node->title;          // will be used in error messages
+  $sku = uc_multi_get_sku($nid, $data['attributes']);
+
+  // get the product quantities already in the cart
+  $items = uc_cart_get_contents();
+  foreach ($items as $item) {
+    $cart_sku = uc_multi_get_sku($item->nid, $item->data['attributes']);
+    if ($cart_sku == $sku) {
+      $qty += $item->qty;
+    }
+  }
+
+  // check whether can but this product
+  $error = uc_multi_stock_can_buy($product, $sku, $qty, $data['attributes']);
+
+  if ($error) {
+    $result[] = array(
+      'success' => FALSE,
+      'message' => $error,
+    );
+  }
+  return $result;
+}
+
+/**
+ * Implementation of hook_order().
+ * @see  uc_cart_checkout_review_form_submit()
+ * @see  hook_order()
+ *
+ * Final check with the Inventory Manager before allowing purchase
+ */
+function uc_multi_stock_order($op, &$order, $arg = NULL) {
+  switch ($op) {
+    case 'submit':
+      $errors = array();
+      foreach ($order->products as $product) {
+        $data = $product->data;
+        //$sku = uc_multi_get_sku($product->nid, $data['attributes']);
+        $error = uc_multi_stock_can_buy($product, $product->model, $product->qty, $data['attributes']);
+
+        if ($error) {
+          $errors[] = array('pass' => FALSE, 'message' => $error);
+        }
+      }
+
+      if (count($errors) > 0) {
+        return $errors;
+      }
+
+      break;
+  }
+}
+
+/*******************************************************************************
+ * Module and Helper Functions
+ ******************************************************************************/
+
+/**
+ * The settings form.
+ */
+function uc_multi_stock_settings() {
+  // general settings
+  $form['uc_multi_stock_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('General Multi Stock settings'),
+    '#collapsible' => FALSE,
+  );
+  $form['uc_multi_stock_settings']['uc_multi_stock_use_thershold'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('use threshold for stock'),
+    '#default_value' => variable_get('uc_multi_stock_use_thershold', FALSE),
+    '#description' => t('sell untill stock level reaches threshold value, not 0.'),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * validate the view cart form
+ */
+function uc_multi_stock_uc_cart_view_validate($form_id, $form_values) {
+
+  // for every item in the cart
+  foreach ($form_values['items'] as $item) {
+    $nid = $item['nid'];
+    $data = unserialize($item['data']);
+
+    $node = node_load($nid);            // needed for the product
+    $product = uc_product_load($node);  // the product
+    $product->title = $node->title;     // for use in error messages
+    $sku = uc_multi_get_sku($nid, $data['attributes']);
+
+    // dont test the removal of out of stock products
+    if (!$item['remove'] && $item['qty']>0) {
+      $tmp_error = uc_multi_stock_can_buy($product, $sku, $item['qty'], $data['attributes']);
+      if ($tmp_error) {
+        $error .= $tmp_error .'<br /><br />';
+      }
+    }
+  }
+
+  if ($error) {
+    form_set_error('stock', $error);
+  }
+}
+
+/**
+ * Test if we can buy this product.
+ */
+function uc_multi_stock_can_buy($product, $sku, $qty, $attributes) {
+  // test for missing sku - can happen when the deafult option is selected
+  if (!$sku) {
+    $sku = $product->model;
+  }
+  $stock = db_fetch_object(db_query("SELECT active, threshold, stock FROM {uc_product_stock} WHERE sku = '%s'", $sku));
+
+  // check if stock level are active for this product
+  if ($stock->active) {
+    // check the buttom limit for stock - 0 or threshold ?
+    $stock_qty = 0;
+    if (variable_get('uc_multi_stock_use_thershold', FALSE)) {
+      $stock_qty = $stock->threshold;
+    }
+    // check for out of stock
+    $error = uc_multi_stock_not_in_stock($stock->stock, $stock_qty, $product, $attributes);
+    if ($error) {
+      return $error;
+    }
+    // check for buying too many
+    $left = $stock->stock - $stock_qty;
+    $error = uc_multi_stock_not_enough_in_stock($qty, $left, $product, $attributes);
+    if ($error) {
+      return $error;
+    }
+  }
+}
+
+/**
+ * Test for product not in stock.
+ */
+function uc_multi_stock_not_in_stock($stock, $threshold, $product, $attributes) {
+  if ($stock <= $threshold) {
+    return theme('uc_multi_stock_out_of_stock_error', $product, $attributes);
+  }
+  return FALSE;
+}
+
+/**
+ * test for not enough in stock
+ */
+function uc_multi_stock_not_enough_in_stock($qty, $left, $product, $attributes) {
+  if ($qty >  $left) {
+    return theme('uc_multi_stock_too_many_in_order_error', $left, $product, $attributes);
+  }
+  return FALSE;
+}
+
+/**
+ * themeable error messages
+ */
+function theme_uc_multi_stock_out_of_stock_error($product = NULL, $attributes) {
+  if (is_array($attributes) and count($attributes) > 0) {
+    return (t("We're sorry. The @product in your selected size/color combination is out of stock.  Please consider another size/color in this style.", array('@product' => $product->title)));
+  }
+  else {
+      return (t("We're sorry. The @product is out of stock.", array('@product' => $product->title)));
+  }
+}
+
+function theme_uc_multi_stock_too_many_in_order_error($qty = 0, $product = NULL , $attributes) {
+  if (is_array($attributes) and count($attributes) > 0) {
+    return (t("We're sorry.  We have only @qty unit(s) of the @product in your selected size/color combination left in stock.  Please try again with fewer units or consider another size/color in this style.", array('@qty' => $qty, '@product' => $product->title)));
+  }
+  else {
+    return (t("We're sorry. We have only @qty unit(s) of the @product left in stock. Please try again with less units.", array('@qty' => $qty, '@product' => $product->title)));
+  }
+}
+
+
+//  //////////////////////////////////////////////
+//
+//   code from Inventory API & Simple Stock Levels
+//
+//  //////////////////////////////////////////////
+function uc_multi_get_sku($nid, $attributes) {
+  // The default model should be the node's SKU ALL THE TIME
+  // There's a chance that a combination of attributes has the same SKU
+  // as the one, in which case, the combination will not be found but we still
+  // have to return the proper SKU, which should default to the node's SKU
+  $product = node_load($nid);
+  $model = $product->model;
+
+  if (is_array($attributes) and count($attributes) > 0) {
+    // There are attributes so the model (SKU) is dependant on the combo of
+    // attributes, so get all the sub products and find the attribute combo
+    // to match what we've been passed
+    foreach (uc_multi_get_subproducts($nid) as $product)
+      if (_uc_array_same($product['attributes'], $attributes)) {
+        $model = $product['model'];
+      }
+  }
+  return $model;
+}
+
+/**
+ * For products that have attributes there will be Sub-Products,
+ * one model (SKU) for every combination of attributes.
+ * This function retrives a list of these
+ * for the given Node ID
+ *
+ * @param
+ *   Product Node ID
+ *
+ * @return
+ *   Array of sub products, empty array if the product has no attrributes
+ */
+function uc_multi_get_subproducts($nid) {
+  $out = array();
+
+  if (!empty($nid) and module_exists('uc_attribute')) {
+    $sql = 'SELECT * FROM {uc_product_adjustments} WHERE nid = '. $nid;
+    $q = db_query($sql);
+    $i = 0;
+    while ($product = db_fetch_array($q)) {
+      $out[$i]['attributes'] = unserialize($product['combination']);
+      $out[$i]['model'] = $product['model'];
+      $i++;
+    }
+    return $out;
+  }
+  else {
+    return array();
+  }
+}
+
+function _uc_array_same($a1, $a2) {
+  if (!is_array($a1) || !is_array($a2)) {
+    return FALSE;
+  }
+
+  $keys = array_merge(array_keys($a1), array_keys($a2));
+
+  foreach ($keys as $k) {
+    if (!isset($a2[$k]) || !isset($a1[$k])) {
+      return FALSE;
+    }
+
+    if (is_array($a1[$k]) || is_array($a2[$k])) {
+      if (!array_same($a1[$k], $a2[$k])) {
+        return FALSE;
+      }
+    }
+    else {
+      if (! ($a1[$k] == $a2[$k])) {
+        return FALSE;
+      }
+    }
+  }
+
+  return TRUE;
+}
+

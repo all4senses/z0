@@ -1,0 +1,51 @@
+<?php
+// $Id: multireference.install,v 1.1 2008/03/31 21:12:52 stevem Exp $
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function multireference_uninstall() {
+  db_query('DROP TABLE {node_field_multireference_data};');
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function multireference_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query( "CREATE TABLE {node_field_multireference_data} (
+        id int(11) NOT NULL auto_increment,
+        nid int(10) unsigned NOT NULL default '0',
+        vid int(10) unsigned NOT NULL default '0',
+        reference varchar(32) NOT NULL default '',
+        field_name varchar(32) NOT NULL default '',
+        r_id int(10) unsigned NOT NULL default '0',
+        r_text varchar(255) NOT NULL default '',
+        description varchar(255) NOT NULL default '',
+        description2 varchar(255) NOT NULL default '',
+        weight int(11) default NULL,
+        PRIMARY KEY (id)
+        ) TYPE=MyISAM /*!40100 DEFAULT CHARACTER SET utf8 */"
+      );
+      break;
+
+    case 'pgsql':
+      db_query( "CREATE TABLE {node_field_multireference_data} (
+        id SERIAL,
+        nid integer unsigned NOT NULL default '0',
+        vid integer unsigned NOT NULL default '0',
+        reference varchar(32) NOT NULL default '',
+        field_name varchar(32) NOT NULL default '',
+        r_id integer unsigned NOT NULL default '0',
+        r_text varchar(255) NOT NULL default '',
+        description varchar(255) NOT NULL default '',
+        description2 varchar(255) NOT NULL default '',
+        weight integer default NULL,
+        PRIMARY KEY (id)
+        )"
+      );
+      break;
+  }
+}

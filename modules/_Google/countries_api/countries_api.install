@@ -1,0 +1,44 @@
+<?php
+// $Id: countries_api.install,v 1.1.4.3 2009/06/27 19:27:20 mrfelton Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function countries_api_install() {
+ switch ($GLOBALS['db_type']) {
+    case 'mysqli':
+    case 'mysql':
+      //create countries db
+      db_query("CREATE TABLE {countries_api_countries} (
+        iso2 char(2) NOT NULL DEFAULT '',
+        iso3 char(3) NOT NULL,
+        name varchar(80) NOT NULL,
+        printable_name varchar(80) NOT NULL,
+        numcode smallint(6),
+        PRIMARY KEY (iso2)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+    break;
+  }
+  //Include country module include for initial data import
+  require_once(dirname(__FILE__) . '/countries_api.module');
+  countries_api_csv_import_countries();
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function countries_api_uninstall() {
+	db_query('DROP TABLE {countries_api_countries}');
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function countries_api_update_5101() {
+  $ret = array();
+  //Include country module include for initial data import
+  require_once(dirname(__FILE__) .'/countries_api.module');
+  _countries_api_flush();
+  countries_api_csv_import_countries();
+  return $ret;
+}

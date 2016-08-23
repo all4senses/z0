@@ -1,0 +1,11 @@
+; $Id: uc_recurring.info,v 1.2.4.2 2008/07/29 22:22:40 rszrama Exp $
+name = Recurring Payments
+description = Assign recurring fees to products and manage them.
+dependencies = uc_payment workflow_ng
+package = Ubercart - payment
+
+; Information added by drupal.org packaging script on 2009-01-16
+version = "5.x-1.7"
+project = "ubercart"
+datestamp = "1232145342"
+

@@ -1,0 +1,11 @@
+; $Id: panel_style.info,v 1.1.2.1 2008/07/02 01:25:25 gordon Exp $
+name = Panel Style
+description = Allow the use of a mini panel as a style for a view.
+dependencies = views panels panels_mini
+package = Views
+
+; Information added by drupal.org packaging script on 2008-07-02
+version = "5.x-1.0-beta1"
+project = "panel_style"
+datestamp = "1214973019"
+

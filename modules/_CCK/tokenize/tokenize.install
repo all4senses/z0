@@ -1,0 +1,25 @@
+<?php
+// $Id: tokenize.install,v 1.1.2.1 2008/08/03 04:16:30 greggles Exp $
+/**
+ * Implementation of hook_install().
+ */
+function tokenize_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {
+        field_name varchar(32) NOT NULL default '0',
+  	type_name varchar(32) NOT NULL default '0',
+  	method int(1) NOT NULL default '0'
+	) /*!40100 DEFAULT CHARACTER SET utf8 */;");
+      break;
+    case 'pgsql':
+      db_query("CREATE TABLE {tokenize} (
+  			field_name varchar(32) NOT NULL default '0',
+  			type_name varchar(32) NOT NULL default '0'
+  			method int(1) NOT NULL default '0'
+			)");
+      break;
+  }
+  drupal_set_message(t("Tokenize table created successfully."));
+}

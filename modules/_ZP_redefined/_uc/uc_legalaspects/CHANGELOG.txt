@@ -1,0 +1,39 @@
+Version 1.91 3-Sep-2008
+- some more n/a-bug fixed
+- grp-download fixed
+
+Version 1.9 23-Aug-2008
+- .po file for netherland
+- n/a-bug fixed
+
+Version 1.8 23-Jul-2008
+- Some minor code-bugs fixed
+- Broken links fixed
+- Compatibility with Ubercart 1.0
+- POT File 
+- German Translation
+
+Version 1.7 13-Mar-2008
+- Configurable via store administration (admin/store/settings/checkout/edit/legal)
+- GTCT/RR could be displayed directly in pane
+- Provides print-links
+- Provides download-links
+- Provides page view of GTCT at path '/gtct'
+- Provides page view of RR at path '/revocation'
+- Provides input formats
+- Provides file upload
+- Some theme functions
+
+Releases as uc_gtct
+Version 1.6 08-Feb-2007
+- GTCT could be displayed directly in pane
+- Provides a print-link
+- Provides a download-link
+- Provides page view of GTCT at path '/gtct'
+- GTCT could be edit at store administration
+- Provides input formats
+- Provides file upload
+- Some theme functions
+
+Version 1.5 05-Feb-2007 (keesje76):
+- typo fix

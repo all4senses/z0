@@ -1,0 +1,11 @@
+; $Id: workflow_owner_workflow_ng.info,v 0
+name = Workflow Owner - Workflow NG
+description = Allows for integration between workflow owner and workflow-ng
+dependencies = workflow_owner workflow_ng
+package = "Workflow Owner - Workflow NG"
+
+; Information added by drupal.org packaging script on 2008-04-28
+version = "5.x-1.2"
+project = "workflow_owner"
+datestamp = "1209351312"
+

@@ -1,0 +1,195 @@
+<?php
+// $Id: gmaps.install,v 1.1 2008/11/19 12:16:08 xmarket Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function gmaps_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {gmaps_map_config} (
+        mcid int(10) unsigned NOT NULL default '0',
+        name varchar(255) NOT NULL default '',
+        type varchar(64) NOT NULL default 'earth',
+        api_version char(1) NOT NULL default 'c',
+        map_options varchar(255) NOT NULL default '' COMMENT 'serialized array of map options',
+        googlebar_options text NOT NULL default '' COMMENT 'serialized array of googlebar options',
+        height int(4) unsigned NOT NULL default '300',
+        width int(4) unsigned NOT NULL default '0',
+        latitude decimal(10,6) NOT NULL default '0.000000',
+        longitude decimal(10,6) NOT NULL default '0.000000',
+        default_zoom tinyint(2) unsigned NOT NULL default '10',
+        allowed_tiles text NOT NULL default '' COMMENT 'serialized array of tiles',
+        default_tile varchar(255) NOT NULL default 'normal',
+        methods text NOT NULL default '' COMMENT 'serialized array of methods',
+        map_control tinyint(1) unsigned NOT NULL default '0' COMMENT '0 disabled, 1 small zoom, 2 small, 3 large',
+        type_control tinyint(1) unsigned NOT NULL default '0' COMMENT '0 disabled, 1 standard, 2 hierarchical, 3 menu',
+        scale_control tinyint(1) unsigned NOT NULL default '0' COMMENT '0 disabled, 1 enabled',
+        overview_control tinyint(1) unsigned NOT NULL default '0' COMMENT '0 disabled, 1 enabled',
+        type_control_shortnames tinyint(1) unsigned NOT NULL default '0' COMMENT '0 long names, 1 short names',
+        display_help tinyint(1) unsigned NOT NULL default '1' COMMENT '0 disabled, 1 enabled',
+        marker_options text NOT NULL default '' COMMENT 'serialized array of marker options',
+        marker_manager_options varchar(255) NOT NULL default '' COMMENT 'serialized array of mm options',
+        PRIMARY KEY (mcid),
+        UNIQUE KEY name (name),
+        KEY type (type)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      db_query("CREATE TABLE {gmaps_icon_config} (
+        icid int(10) unsigned NOT NULL default '0',
+        name varchar(255) NOT NULL default '',
+        type varchar(64) NOT NULL default 'builtin',
+        image varchar(255) NOT NULL default '',
+        shadow varchar(255) NOT NULL default '',
+        icon_width int(4) unsigned NOT NULL default '0',
+        icon_height int(4) unsigned NOT NULL default '0',
+        shadow_width int(4) unsigned NOT NULL default '0',
+        shadow_height int(4) unsigned NOT NULL default '0',
+        iconanchor_x int(4) NOT NULL default '0',
+        iconanchor_y int(4) NOT NULL default '0',
+        iwanchor_x int(4) NOT NULL default '0',
+        iwanchor_y int(4) NOT NULL default '0',
+        printimage varchar(255) NOT NULL default '',
+        mozprintimage varchar(255) NOT NULL default '',
+        printshadow varchar(255) NOT NULL default '',
+        transparent varchar(255) NOT NULL default '',
+        imagemap varchar(255) NOT NULL default '',
+        maxheight int(4) unsigned NOT NULL default '0',
+        dcimage varchar(255) NOT NULL default '',
+        dc_width int(4) unsigned NOT NULL default '0',
+        dc_height int(4) unsigned NOT NULL default '0',
+        dcanchor_x int(4) NOT NULL default '0',
+        dcanchor_y int(4) NOT NULL default '0',
+        builtinid int(10) unsigned NOT NULL default '0',
+        primarycolor char(7) NOT NULL default '#ff0000',
+        strokecolor char(7) NOT NULL default '#000000',
+        cornercolor char(7) NOT NULL default '#ffffff',
+        PRIMARY KEY (icid),
+        UNIQUE KEY name (name)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      break;
+
+    case 'pgsql':
+      db_query("CREATE TABLE {gmaps_map_config} (
+        mcid int_unsigned NOT NULL default '0',
+        name varchar(255) NOT NULL default '',
+        type varchar(64) NOT NULL default 'earth',
+        api_version char(1) NOT NULL default 'c',
+        map_options varchar(255) NOT NULL default '' COMMENT 'serialized array of map options',
+        googlebar_options text NOT NULL default '' COMMENT 'serialized array of googlebar options',
+        height int_unsigned NOT NULL default '300',
+        width int_unsigned NOT NULL default '0',
+        latitude numeric(10,6) NOT NULL default '0.000000',
+        longitude numeric(10,6) NOT NULL default '0.000000',
+        default_zoom smallint_unsigned NOT NULL default '10',
+        allowed_tiles text NOT NULL default '' COMMENT 'serialized array of tiles',
+        default_tile varchar(255) NOT NULL default 'normal',
+        methods text NOT NULL default '' COMMENT 'serialized array of methods',
+        map_control smallint_unsigned NOT NULL default '0' COMMENT '0 disabled, 1 small zoom, 2 small, 3 large',
+        type_control smallint_unsigned NOT NULL default '0' COMMENT '0 disabled, 1 standard, 2 hierarchical, 3 menu',
+        scale_control smallint_unsigned NOT NULL default '0' COMMENT '0 disabled, 1 enabled',
+        overview_control smallint_unsigned NOT NULL default '0' COMMENT '0 disabled, 1 enabled',
+        type_control_shortnames smallint_unsigned NOT NULL default '0' COMMENT '0 long names, 1 short names',
+        display_help smallint_unsigned NOT NULL default '1' COMMENT '0 disabled, 1 enabled',
+        marker_options text NOT NULL default '' COMMENT 'serialized array of marker options',
+        marker_manager_options varchar(255) NOT NULL default '' COMMENT 'serialized array of mm options',
+        PRIMARY KEY (mcid),
+        UNIQUE (name)
+      )");
+      db_query("CREATE INDEX {gmaps_map_config}_type_idx ON {gmaps_map_config} (type)");
+
+      db_query("CREATE TABLE {gmaps_icon_config} (
+        icid int(10) unsigned NOT NULL default '0',
+        name varchar(255) NOT NULL default '',
+        type varchar(64) NOT NULL default 'builtin',
+        image varchar(255) NOT NULL default '',
+        shadow varchar(255) NOT NULL default '',
+        icon_width int_unsigned NOT NULL default '0',
+        icon_height int_unsigned NOT NULL default '0',
+        shadow_width int_unsigned NOT NULL default '0',
+        shadow_height int_unsigned NOT NULL default '0',
+        iconanchor_x int(4) NOT NULL default '0',
+        iconanchor_y int(4) NOT NULL default '0',
+        iwanchor_x int(4) NOT NULL default '0',
+        iwanchor_y int(4) NOT NULL default '0',
+        printimage varchar(255) NOT NULL default '',
+        mozprintimage varchar(255) NOT NULL default '',
+        printshadow varchar(255) NOT NULL default '',
+        transparent varchar(255) NOT NULL default '',
+        imagemap varchar(255) NOT NULL default '',
+        maxheight int_unsigned NOT NULL default '0',
+        dcimage varchar(255) NOT NULL default '',
+        dc_width int_unsigned NOT NULL default '0',
+        dc_height int_unsigned NOT NULL default '0',
+        dcanchor_x int(4) NOT NULL default '0',
+        dcanchor_y int(4) NOT NULL default '0',
+        builtinid int_unsigned NOT NULL default '0',
+        primarycolor char(7) NOT NULL default '#ff0000',
+        strokecolor char(7) NOT NULL default '#000000',
+        cornercolor char(7) NOT NULL default '#ffffff',
+        PRIMARY KEY (icid),
+        UNIQUE KEY name (name)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      /*db_query("CREATE TABLE {gcg_node_address} (
+        vid int_unsigned NOT NULL default '0',
+        nid int_unsigned NOT NULL default '0',
+        custom smallint_unsigned NOT NULL default '0',
+        accuracy smallint_unsigned NOT NULL default '0',
+        address varchar(255) NOT NULL default '',
+        latitude numeric(10,6) NOT NULL default '0.000000',
+        longitude numeric(10,6) NOT NULL default '0.000000',
+        privacy int_unsigned NOT NULL default '0',
+        country varchar(255) NOT NULL default '',
+        adminarea varchar(255) NOT NULL default '',
+        subadminarea varchar(255) NOT NULL default '',
+        locality varchar(255) NOT NULL default '',
+        deplocality varchar(255) NOT NULL default '',
+        thoroughfare varchar(255) NOT NULL default '',
+        postalcode varchar(255) NOT NULL default '',
+        PRIMARY KEY (vid)
+      )");
+      db_query("CREATE INDEX {gcg_node_address}_nid_idx ON {gcg_node_address} (nid)");
+      db_query("CREATE INDEX {gcg_node_address}_coordinates_idx ON {gcg_node_address} (latitude, longitude)");
+
+      db_query("CREATE TABLE {gcg_node_display} (
+        vid int_unsigned NOT NULL default '0',
+        nid int_unsigned NOT NULL default '0',
+        enable smallint_unsigned NOT NULL default '0',
+        context varchar(24) NOT NULL default 'block',
+        map_onload smallint NOT NULL default '0',
+        mapapi_type varchar(24) NOT NULL default 'static',
+        map_height int NOT NULL default '0',
+        map_dzoom smallint NOT NULL default '0',
+        map_type varchar(24) NOT NULL default 'normal',
+        smap_type varchar(24) NOT NULL default 'roadmap',
+        map_drag smallint NOT NULL default '1',
+        map_zoom smallint NOT NULL default '1',
+        map_scontrol smallint NOT NULL default '0',
+        weight smallint NOT NULL default '0',
+        PRIMARY KEY (vid)
+      )");
+      db_query("CREATE INDEX {gcg_node_display}_nid_idx ON {gcg_node_display} (nid)");*/
+
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function gmaps_uninstall() {
+  global $conf;
+
+  db_query('DROP TABLE {gmaps_map_config}');
+  db_query('DROP TABLE {gmaps_icon_config}');
+  
+  /*$result = db_query("SELECT name FROM {variable} WHERE name LIKE 'gcg_node_%%'");
+  while ($var = db_fetch_object($result)) {
+    db_query("DELETE FROM {variable} WHERE name = '%s'", $var->name);
+    unset($conf[$var->name]);
+  }
+  cache_clear_all('variables', 'cache');*/
+}

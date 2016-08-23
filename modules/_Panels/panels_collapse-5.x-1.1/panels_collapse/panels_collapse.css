@@ -1,0 +1,15 @@
+/* $Id: panels_collapse.css,v 1.2 2009/02/01 09:45:27 joachim Exp $ */
+
+div.panel-display div.panel-pane-collapsible h2.title {
+  background-image: url(../../../../misc/menu-expanded.png);
+  background-position: 0 center;
+  background-repeat: no-repeat;
+  padding-left: 12px;
+  cursor: pointer;
+}
+div.panel-display div.panel-pane-collapsible h2.title.collapsed {
+  background-image: url(../../../../misc/menu-collapsed.png);
+}
+div.panel-display div.panel-pane-collapsible h2.title:hover {
+  color: #00f;
+}

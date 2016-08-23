@@ -1,0 +1,528 @@
+<?php 
+
+
+/*
+
+// почему-то загруженная отдельно карта не работает :(
+
+// загрузим карту гугля и выдадим её запрашивающей функии по ajax
+// эти данные будут встроены с помощью ajax во вкладку с картой
+
+
+if($_GET['source'] == 'ajax')
+{
+
+	echo '<div class="ajaxed">';
+
+		if($map)
+		{
+     		echo theme('gmap', array('#settings' => $map)); 
+		}
+		else 
+		{
+			echo 'К сожалению, карта недоступна.';
+		}
+		
+	echo '</div>';
+	
+	return;
+	
+}
+
+// конец формирования данных для выдачи ajax-функции
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+echo '<div class="test">shop</div>';
+
+
+//if teaser ---------------------------------------------------------------------------------
+
+
+
+if ($teaser == 1): ?>
+ <div class="place_teaser shop">
+
+    <a href="<?php echo $node_url ?>">
+
+    
+      <?php 
+           
+          $data = explode(';', $node->field_placetype_n_numofphotos[0]['view']);
+      
+      	  $type = explode('***', $data[0]);
+          echo '<table><tbody><tr>'
+           . '<td class="caption">'
+           . '<div class="type">' . $type[0] . '</div>'
+           . '<div class="title">' . '<a href="' . $node_url . '">' . $title . '</a>' .'</div>'
+           . '</td>';
+           
+           $logopath = base_path() . 'files/shops/' . $node->field_zp_art_place[0]['value'] . '/' . $node->field_zp_art_place[0]['value'] . '-logo.jpg';
+           if(file_exists($_SERVER['DOCUMENT_ROOT'] . $logopath))
+				echo '<td class="logo">' . theme('imagecache', 'place_logo_teaser', $logopath, $title) . '</td>';
+
+           
+          echo '<td class="description">'
+           . '<div class="address">' . $node->field_place_address[0]['value'] . '</div>' 
+           . '<div class="descr">' . $node->field_descr_teaser[0]['value'] . '</div>'
+           . '</td>'
+           . '</tr></tbody></table>';
+      ?>   
+    
+    </a>
+
+
+
+ 
+ </div>
+<?php endif; // end of teaser ?>
+
+
+
+
+
+
+
+
+
+
+
+<?php 
+
+//if body (page) ---------------------------------------------------------------------------------
+
+
+
+
+/*
+if($_SESSION['messages'])
+ foreach($_SESSION['messages'] as $key => $values)
+ {
+   switch($key)
+    {
+	case 'error':
+		foreach($values as $value)
+		  print '<div class="message_error">' . $value . '</div>';
+		break;
+
+	case 'warning':
+                foreach($values as $value)
+         	  print '<div class="message_warning">' . $value . '</div>';
+		break;	
+
+	default:
+		foreach($values as $value)
+		  print '<div class="message_status">' . $value . '</div>';
+		break;	
+    }
+ }
+*/
+
+
+
+
+
+ // вызов события, на которое могут отреагировать другие функции, модули 
+ //workflow_ng_invoke_event('zp_webform_message_sent', array('userA' => 'aaaaa', 'userB' => 'bbbbbb')); 
+
+if($page == 1)
+{
+
+
+
+ echo '<div class="place_body shop">
+   <div class="txt">';
+
+   		$data = explode(';', $node->field_placetype_n_numofphotos[0]['view']);	
+		
+   		$type = explode('***', $data[0]);
+    	echo '<div class="type">'. $type[0] . '</div>';
+     	echo '<div class="title">' . $title . '</div>';
+     	echo '<div class="address">' . $node->field_place_address[0]['value'] . '</div>';
+     
+     
+     
+        
+    	
+		echo '<div id="tabs">';
+
+        //drupal_add_css('files/jquery.tabs.css');
+        drupal_add_css('sites/all/modules/_Jstools/jstab/jquery.tabs.css');
+    	//drupal_add_js('files/jquery.tabs.js'); 
+    	drupal_add_js('sites/all/modules/_Jstools/jstab/jquery.tabs.js'); 
+    	
+    	drupal_add_js('$(function(){
+    		basePath = "'. base_path() .'";
+    		$("#tabs").tabs({ initial: 0, fxShow: { height: "show", opacity: "show" }, fxSpeed: "normal",  remote: 0 });
+    		})', 'inline');
+    	?>  
+    		<ul>
+        		<li><a href="#descr">Описание</a></li>
+        		<li><a href="#map" id="map_button">Положение на карте</a></li>
+    		</ul>
+
+		    <div id="descr">
+		    <?php 
+		    	echo $node->content['body']['#value']; 
+		    	// если у этого магазина есть отдельная страница с описанием (конкретно этого магазина или сети, в которую этот магазин входит)
+		    	// тогда покажем ссылку на эту страницу
+		    	if($descr_page_nid = db_result(db_query("SELECT nid from {content_field_s_zp_artikuls} WHERE field_s_zp_artikuls_value = '%s'", $node->field_zp_art_place[0]['value'])))
+				{
+					echo '<div class="todescrlink">' . '<a href="' . url('node/' . $descr_page_nid) . '">Развёрнутое описание для ' . $type[1] .  ' ' . $title . '...</a></div>';					
+				}
+		    ?>
+		    </div>
+		    
+		    
+     		<div id="map">
+     		
+     		<?php 
+     		
+     				if($map) 
+     					echo theme('gmap', array('#settings' => $map)); 
+     			
+     			 	// статическая карта, загружается быстрее
+     				//if($static_map_img)
+     					//echo $static_map_img;
+     				
+     				
+     					
+     				
+     				// Отослать по почте статическую картинку с картой расположения магазина	
+     				
+     				/*
+     				
+     				// загрузим на сервер картинку с картой расположения магазина в файл с zp-артикулом магазина в названии
+
+     				// for Denver
+     				//$zp_server_directory = 'D:\\WebServers\\home\\zapokupkami-x.com\\www\\zpmaps\\shops\\';	
+     				
+     				// for remote server
+     				//$zp_server_directory = $_SERVER['DOCUMENT_ROOT'] . base_path() . 'zpmaps/shops/';	
+     				$zp_server_directory = 'zpmaps/shops/';	
+     				
+     				$map_file = $zp_server_directory . $node->field_zp_art_place[0]['value'] . '_map_1' . '.gif';
+
+    				
+     				// если для этого магазина уже сгенерирована карта и загружена на сервер, не делаем этого заново, а используем имеющийся файл
+					  
+
+     				if(!file_exists($_SERVER['DOCUMENT_ROOT'] . base_path() . $map_file))
+     				{
+     					// var. 1 ----> Working on Denver
+     					//file_put_contents($map_file, file_get_contents($static_map_url));
+     					
+     					// var. 2
+     					//copy($map_file, file_get_contents($static_map_url));
+     					
+     					
+     						
+     					// var. 3
+     					//$destination=fopen($map_file,"w");
+						//$source=fopen($static_map_url,"r");
+						//while ($a=fread($source,1024)) 
+							//fwrite($destination,$a);
+						//fclose($source);
+						//fclose($destination);
+     					
+
+    
+     					
+     					// var. 3 ----> CURL, working on remote
+     					$out = fopen($map_file, 'wb');
+    					if ($out == FALSE)
+    					{
+      						echo "Error opening destination file";
+    					}
+    					else 
+    					{
+    						$ch = curl_init();
+           
+    						curl_setopt($ch, CURLOPT_FILE, $out);
+    						curl_setopt($ch, CURLOPT_HEADER, 0);
+    						curl_setopt($ch, CURLOPT_URL, $static_map_url);
+               
+						    if(curl_exec($ch) === false)
+    						{
+    							echo "<br>Error is : ".curl_error ($ch);
+    						}
+    						else 
+    						{
+    	
+    						}
+   
+    						curl_close($ch); 
+    						
+    					} // end of else
+   
+     				} // end of if(!file_exists($map_file))
+    
+     				
+    					
+     				$attachments[]=array(         
+  							//'filepath' => 'http://www.zapokupkami.com/zpmaps/shops/z1010101_map_1.gif', //$map_file, //'/path/to/file.name',
+  							//'filepath' => 'zpmaps/shops/z1010101_map_1.gif', //$map_file, //'/path/to/file.name',
+  							'filepath' => $map_file, //'/path/to/file.name',
+  							'filemime' => 'image/gif', //  'mime/type',
+						);
+							
+					// отправляем карту по почте
+					
+					mimemail('office@zapokupkami.com', // $sender,
+							'right4business@gmail.com', // $recipient,
+							'test subject', // $subject,
+							'test body', // $body,
+							1,// $plaintext = NULL,
+							array(), // $headers=array(),
+							NULL, //$text = NULL,
+							$attachments, // $attachments = array(),
+							'map_shop' //$mailkey = ''
+						);	
+     				
+						
+     				
+     				*/
+     				
+     				
+     				
+     				
+     					
+     				/*
+     					
+     				// почему-то загруженная отдельно, через ajax, карта не работает :(
+     				
+     				
+     				// вместо того, чтобы сразу загружать карту, откладываем генерацию списка до нажатия на вкладку со статьями
+  					// список выдаём по запросу ajax-функции (вначале этого файла)
+  					
+  					drupal_add_js("
+
+						$(document).ready(function()
+						{
+							//$('#button').click
+							$('#map_button').click
+ 							(
+ 								function() 
+ 								{
+ 									//if($('#map').html() == '')
+ 									if(1)
+ 									{
+ 										$('#map').html('<div class=".'"wait"' . ">Пожалуйста, подождите. <br>Идёт загрузка данных...</div><div class=" . '"loader"' . "></div>');
+ 										$('#map').load
+ 										(
+ 											window.location.pathname + '?source=ajax .ajaxed', 
+ 											function(response, status, xhr) 
+ 											{
+  												if($('#map').children().html() == '' || status == 'error')
+													$('#map').html('Нет данных');
+											}
+										);
+		 							}
+		 						}
+							);
+ 						});
+ 	
+						", 'inline');
+     			
+					*/
+     				
+     		?>
+     		
+     		</div>
+     		
+     		
+	    </div>
+   
+   </div>
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   <div class="images">
+
+      
+	   <?php 
+	   
+	   $photopath = base_path() . 'files/shops/' . $node->field_zp_art_place[0]['value'] . '/' . $node->field_zp_art_place[0]['value'];
+       
+	   if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-logo.jpg'))
+			echo '<div class="shop_logo">' . theme('imagecache', 'place_logo_body', $photopath . '-logo.jpg', $title . ' logo') . '</div>';
+
+		
+				
+	   $big_photo_num = 1; // первая (или первая существующая на сервере) картинка большая, остальные маленькие
+	   		
+	   for($i=1; $i <= $data[1]; $i++)
+	   {
+	   		if($i == $big_photo_num)	
+	   		{
+	   			if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-photo-' . $i . '.jpg'))		
+	   			{
+		   			echo '<div class="image big">';
+		   			//echo '<a href="' . $photopath . '-photo-' . $i  . '.jpg" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+		   			echo '<a href="' . $photopath . '-photo-' . $i  . '.jpg" title="' . $title . '" rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+			    	echo theme('imagecache', 'place_body_type1', $photopath . '-photo-' . $i . '.jpg', $title . ' ' . $i);
+		  			echo '</a></div>';
+	   			}
+	   			else 
+	   				$big_photo_num = $i + 1;
+	   		}
+	   		else 
+	   		{
+	   			if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-photo-' . $i . '.jpg'))		
+	   			{
+		   			echo '<div class="image small ' . $i .'">';
+		   			//echo '<a href="' . $photopath . '-photo-' . $i  . '.jpg" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+		   			echo '<a href="' . $photopath . '-photo-' . $i  . '.jpg" title="' . $title . '" rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+			    	echo theme('imagecache', 'place_body_type2', $photopath . '-photo-' . $i . '.jpg', $title . ' ' . $i);
+		  			echo '</a></div>';
+	   			}
+	   			
+	   		}
+	   }
+			 
+
+	  
+	  
+	
+		
+	echo '</div>'; //<!-- // end of body-images -->
+ 
+	  
+    echo '<div class="list_title">Выберите отдел:</div>';
+    
+ echo '</div>';
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ // -----------------------------------------------------------------------
+ // покажем вьюс с потомками данной ноды (каталог тизеров, список отделов магазина)
+ 
+ cache_clear_all('*', 'cache_views', true);
+			
+ $view = views_get_view('nodes_of_node_subterms_list');
+		
+		
+ if($view)
+	{
+		//zp_functions_show($view);
+
+		
+
+		//$result = db_result(db_query("SELECT tid from {term_node} WHERE nid  = '%s'", $args[0]));
+		// предыдущая строка не работала, так как тогда путались словари и выдавался неправильный результат (так как у магазина - несколько словарей и несколько термов)
+		//$node_tids = taxonomy_node_get_terms_by_vocabulary($args[0], 1); // $args[0] - аргументы в синтаксисе вьюсов в интерфейсе вьюсов
+		$node_tids = taxonomy_node_get_terms_by_vocabulary(arg(1), 1);  // $args(1) - номер ноды из строки с url ($args(0) - 'node')
+		foreach($node_tids as $node_tid)
+        $result = $node_tid->tid;
+
+        if (($children = taxonomy_get_children($result))!=0) 
+ 		{
+  			$args[0] = '';
+	  		foreach ($children as $child) 
+   			{
+    			if($args[0] != '')
+      				$args[0] = $args[0] . '+';
+    			$args[0] = $args[0] . $child->tid;
+
+    			//$childdd = $child->tid;
+   				//drupal_set_message("child = $childdd", 'error');
+			}
+ 		}
+ 		else 
+ 			return;
+
+
+
+		// изменяем порядок сортировки
+		if ($_GET['sort']== "title") 
+		{
+  			$view->sort[1]['vid'] = $view->vid;
+  			$view->sort[1]['position'] = 1;
+  			$view->sort[1]['field'] = 'node.title';
+
+  			if($_GET['order'] AND $_GET['order'] != '')
+     			$view->sort[1]['sortorder'] = $_GET['order'];
+  			else
+     			$view->sort[1]['sortorder'] = 'ASC';
+
+  			$view->sort[1]['options'] = '';
+  			$view->sort[1]['tablename'] = '';
+  			$view->sort[1]['id'] = 'node.title'; 
+		}
+		else 
+		if ($_GET['sort']== "date") 
+		{
+  			$view->sort[1]['vid'] = $view->vid;
+  			$view->sort[1]['position'] = 1;
+  			$view->sort[1]['field'] = 'node.created';
+  
+  			if($_GET['order'] AND $_GET['order'] != '')
+     			$view->sort[1]['sortorder'] = $_GET['order'];
+  			else
+     			$view->sort[1]['sortorder'] = 'ASC';
+
+  			$view->sort[1]['options'] = '';
+  			$view->sort[1]['tablename'] = '';
+  			$view->sort[1]['id'] = 'node.created'; 
+		}
+		
+
+		//return $args; // в коде обработки вьюсов аргументы возвращались во вьюс для дальнейшей обработки, а тут мы их передаём в функцию формирования результатов вьюсов
+
+
+		/*
+		// для примера фильтра, взято из какой-то другой функции
+		$view->filter[1] = array (
+     		//'vid' => 3,
+    		'tablename' => '',
+      		'field' => 'term_node_7.tid',
+      		'value' => array (
+  					0 => $current_tid, 
+					),
+      		'operator' => 'AND',
+      		'options' => '',
+      		'position' => 1,
+      		'id' => 'term_node_7.tid',
+      			
+    		);	
+		*/
+		
+		//$limit = 0;
+		//$out .= views_build_view('embed', $view, array(), FALSE, $limit);
+		//echo views_build_view('embed', $view, array(), $view->use_pager, $view->nodes_per_page);
+		
+		echo views_build_view('embed', $view, $args, $view->use_pager, $view->nodes_per_page);
+		
+	} // end of if($view)
+
+ 
+ 
+ 
+} // end of if($page == 1)
+
+
+?>

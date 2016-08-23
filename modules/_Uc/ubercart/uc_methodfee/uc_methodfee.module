@@ -1,0 +1,182 @@
+<?php
+// $Id$
+
+/**
+ * Development  by Qrios Webdiensten.  http://www.qrios.nl
+ * Improvements by Michael Hübl.       http://www.michaelhuebl.com
+ */
+
+/*******************************************************************************
+ * Hook Functions (Drupal)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_menu().
+ */
+ 
+function uc_methodfee_menu($may_cache) {
+  $items[] = array(
+    'path' => 'cart/checkout/method_fee/'. arg(3),
+    'title' => t('Method Fee'),
+    'description' => t('Add a fee for a payment method to the amount.'),
+    'callback' => 'uc_get_method_fee',
+    'callback arguments' => array(arg(3)),
+    'access' => user_access('access content'),
+    'type' => MENU_CALLBACK,
+  );
+  return $items;
+}
+
+/*******************************************************************************
+ * Übercart Hooks
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_payment_method().
+ */
+function uc_methodfee_payment_method() {
+  $methods[] = array(
+    'id' => 'methodfee',
+    'name' => t('Method Fee'),
+    'title' => t('Method Fee'),
+    'desc' => t('Fee based on payment method. (Do NOT enable in checkout!)'),
+    'callback' => 'uc_method_fee_admin',
+    'weight' => 9,
+    'checkout' => FALSE,
+    'backend' => TRUE,
+  );
+
+  return $methods;
+}
+
+/**
+ * Implementation of hook_line_item().
+ */
+function uc_methodfee_line_item() {
+  $items[] = array(
+    'id' => 'methodfee',
+    'title' => t('Method Fee'),
+    'weight' => 9,
+    'default' => FALSE,
+    'stored' => TRUE,
+    'calculated' => TRUE,
+    'display_only' => TRUE,
+    'callback' => 'uc_line_item_methodfee',
+  );
+
+  return $items;
+}
+
+function uc_methodfee_order($op, &$arg1, $arg2) {
+  switch ($op) {
+    case 'total':
+      # this is code block for the order total //hier order object toevoegen, klaar
+      $fee = uc_method_fee_calc($arg1->payment_method, $arg1); //get fee value
+      return $fee;
+      break;
+  }
+}
+
+
+/*Calculate and return line in order review page*/
+function uc_line_item_methodfee($op, $order) {
+
+  switch ($op) {
+/*    case 'cart-preview':
+      break;*/
+    case 'load':
+    case 'display':
+
+      $payment_method = uc_method_fee_get_method();  //get chosen payment method
+
+      $fee = uc_method_fee_calc($payment_method, $order); //get fee value
+
+      $fee = round($fee, 2);
+
+      $payment_method_name = _payment_method_data($payment_method, 'name');
+      
+      if ($fee > 0){
+        $lines[] = array(
+          'id' => 'methodfee',
+          'title' => t('Method Fee for').' '.t($payment_method_name),
+          'amount' => $fee,
+        );
+      }
+      return $lines;
+    break;
+    
+  }
+}
+
+/*Return value to javascript in checkout form*/
+function uc_get_method_fee($method_id) {
+
+  $fee = uc_method_fee_calc($method_id); //get fee value
+
+  $payment_method_name = _payment_method_data($method_id, 'name');
+
+  $output = t('Method Fee for').' '.t($payment_method_name).'||'.$fee;
+  //print_r($fee);
+  print $output;
+  exit();
+}
+
+/*Make admin options available*/
+function uc_method_fee_admin($op, &$arg1) {
+			$methods = _payment_method_list();
+      //print_r($methods);
+  switch ($op) {
+    case 'settings':
+			$methods = _payment_method_list();
+			foreach ($methods as $method) {
+        $method_id = $method['id'];
+        if ($method_id != 'methodfee'){
+          $form['uc_'.$method_id.'_fee'] = array(
+            '#type' => 'textfield',
+            '#title' => t('The fee value for payment method:').' '.$method_id,
+            '#default_value' => variable_get('uc_'.$method_id.'_fee', 0),
+            '#description' => t('This is the amount added to the order total for payment method costs.'),
+          );
+          $form['uc_'.$method_id.'_fee_calc'] = array(
+            '#type' => 'checkbox',
+            '#title' => t('Calculation method add or multiply for').' '.$method_id,
+            '#default_value' => variable_get('uc_'.$method_id.'_fee_calc', FALSE),
+            '#description' => t('Uncheck for add (+), check for multiply (*) ordertotal with fee value.'),
+          );
+        }
+			}
+      return $form;
+  }
+}
+
+function uc_method_fee_calc($papayment_method, $order = '') {
+  $fee = variable_get('uc_'.$papayment_method.'_fee', 0); //get fee value
+  $fee_calc = variable_get('uc_'.$papayment_method.'_fee_calc', FALSE); //get fee calc method
+  
+  //Calculate fee
+  if ($fee_calc > 0 ){
+    $csubtotal = 0;
+    if (!$order) { //No order data available yet
+      $citems = uc_cart_get_contents();
+    }else{
+      $citems = $order->products;
+    }
+    if ($citems){
+      foreach ($citems as $item) {
+        $ctotal = ($item->qty) ? $item->qty * $item->price : $item->price;
+        $csubtotal += $ctotal;
+      }
+    }
+    $fee = ($fee * $csubtotal);
+  }
+return $fee;
+}
+
+
+function uc_method_fee_get_method(){
+  $order_id = intval($_SESSION['cart_order']);
+  $q_order = uc_order_load($order_id);    //get order ID
+  $q_order_total = $q_order->order_total;  //get order total
+  $payment_method = $q_order->payment_method;  //get chosen payment method
+return $payment_method;
+}

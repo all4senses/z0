@@ -1,0 +1,490 @@
+<?php 
+
+
+
+// получим список статей из того же раздела, что и текущая статья и выдадим запрашивающей функии по ajax
+// эти данные будут встроены на страницу с помощью ajax 
+
+if($_GET['source'] == 'ajax')
+{
+	
+	$vid = 7; // словарь с содержанием (списком) статей
+	foreach ($node->taxonomy as $category)
+	{
+		if($category->vid == $vid)
+		{
+			//$cur_term_tid = $category->tid;
+			$issues_term['tid'] = $category->tid;
+			$issues_term['name'] = $category->name;
+			//cur_term_tids[] = $category->tid;
+			$cur_term_tids[] = $issues_term;
+			
+			//$cur_term['name'] = $category->name;
+		}
+	}
+ 
+  	
+	
+
+
+	echo '<div class="ajaxed">';
+		
+	//$flag_not_first_block = 0;
+	foreach ($cur_term_tids as $issues_term)
+	{
+		// в общем списке статей этого же раздела не показываем ссылку на текущую статью
+		$issues_nids = db_query("SELECT nid FROM {term_node} WHERE tid = %d AND nid <> %d", $issues_term['tid'], $node->nid);
+
+		if($issues_nid = db_fetch_array($issues_nids))
+		{
+			$flag_is_other_issues = 1;
+			
+			//if($flag_not_first_block)
+				//echo '<div class="issues_list_sep"></div>';
+				
+			echo '<div class="issues_list_title">' .$issues_term['name'] . '</div>';
+			
+			echo '<div class="i_title other-issues">' . l(db_result(db_query("SELECT title FROM {node} WHERE nid = %d", $issues_nid['nid'])), 'node/' . $issues_nid['nid'], array('title' => 'Перейти на страницу со статьёй')) . '</div>';
+			echo '<div class="i_teaser">' . db_result(db_query("SELECT field_issue_teaser_value from {content_field_issue_teaser} WHERE nid = %d", $issues_nid['nid'])) . '</div>';
+
+			while($issues_nid = db_fetch_array($issues_nids))
+			{
+				echo '<div class="i_title">' . l(db_result(db_query("SELECT title FROM {node} WHERE nid = %d", $issues_nid['nid'])), 'node/' . $issues_nid['nid'], array('title' => 'Перейти на страницу со статьёй')) . '</div>';
+				echo '<div class="i_teaser">' . db_result(db_query("SELECT field_issue_teaser_value from {content_field_issue_teaser} WHERE nid = %d", $issues_nid['nid'])) . '</div>';
+			}
+			
+			//$flag_not_first_block = 1;
+		}
+		
+		
+	}
+		
+		
+	if(!$flag_is_other_issues)
+	{
+		echo 'В этом разделе пока нет других статей или описаний.';	
+	}
+
+	echo '</div>';
+	
+	return;
+	
+}
+
+// конец формирования данных для выдачи ajax-функции
+
+
+
+
+
+
+
+
+
+
+
+// получим список магазинов и отделов, где продаются товары, указанные в данной статье (определим по ключевым словам статьи, совпадающим с названиями каталогов отделов и ключевыми словами отделов и товаров).... и выдадим запрашивающей функии по ajax
+// эти данные будут встроены на страницу с помощью ajax 
+
+if($_GET['source'] == 'ajax_where_to_buy')
+{
+	
+	//zp_functions_show($node->taxonomy);
+	
+	$vid = 6; // словарь с ключевыми словами статьи, в которых указываются, кроме собственно ключевых слов, названия каталогов с картинками товаров и отделов - по ним тоже связываются статьи с товарами и отделами
+	foreach ($node->taxonomy as $keyword)
+	{
+		if($keyword->vid == $vid)
+		{
+			//$keywords[] = $keyword->tid;
+			$keywords[] = $keyword->name;
+		}
+	}
+ 
+  	foreach ($keywords as $pic_catalog)
+  	{
+  		if(!$pic_catalogs)
+  			$pic_catalogs = "field_placetype_n_numofphotos_value LIKE '%%" . ';' . $pic_catalog . "%'";
+  		else 
+  			$pic_catalogs .= " OR field_placetype_n_numofphotos_value LIKE '%%" . ';' . $pic_catalog . "%'";
+  	}
+	
+	
+	//$otdels_nids = db_query("SELECT nid FROM {content_field_placetype_n_numofphotos} WHERE field_placetype_n_numofphotos_value LIKE '%%%s%' ", $pic_catalog);
+	$otdels_nids = db_query("SELECT nid FROM {content_field_placetype_n_numofphotos} WHERE " . $pic_catalogs);
+
+
+	echo '<div class="ajaxed">';
+	
+	
+	while($otdel_nid = db_fetch_array($otdels_nids))
+	{
+		$linage = array();
+		
+		$vid = 1; // каталог
+		$terms = taxonomy_node_get_terms_by_vocabulary($otdel_nid['nid'], $vid);
+
+		foreach($terms as $value)
+		{
+			$term['name'] = $value->name;
+			$term['tid'] = $value->tid;
+			
+		}
+		$term['leaf'] = 1; // отдел не имеет детей, т.е. подотделов
+		$term['nid'] = $otdel_nid['nid'];
+		$term['link'] = l($term['name'], 'node/'.$term['nid'], array('title' => 'Перейти к покупкам в этом отделе'));//, array('rel' => 'nofollow'));
+		
+		$linage[$term['tid']] = $term;
+
+		$prev_term_tid = $term['tid'];
+		$prev_term_name = $term['name'];
+		while(($term['tid'] = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $term['tid']))) != 0)
+		{
+
+			// не ищем нид, так как это всё равно родительский терм, а с него мы ссылку (переход к родительскому отделу) не делаем
+			//$term['nid'] = db_result(db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $term['tid']));
+			
+			$term['name'] = db_result(db_query("SELECT name from {term_data} WHERE tid  = '%s'", $term['tid']));
+
+			if($term['nid'])
+				$term['link'] = l($term['name'], 'node/'.$term['nid']);//, array('rel' => 'nofollow'));
+			else
+				$term['link'] = t($term['name']);
+			
+			$term['leaf'] = 0;	// терм имеет детей... все термы в этом цикле имеют детей, так как самое последнее дитё обозначено до цикла
+				
+			$linage[$term['tid']] = $term;
+			
+			$linage[$prev_term_tid]['parent_tid'] = $term['tid'];
+			$linage[$prev_term_tid]['parent_name'] = $term['name'];
+			
+			$prev_term_tid = $term['tid'];
+			$prev_term_name = $term['name'];
+		}
+		
+		// переворачиваем массив наоборот, чтобы было направление от страны к отделу (пока - наоборот)
+		$linage = array_reverse($linage, true);
+	
+		foreach ($linage as $key => $otdel)
+		{
+			$flag_dubl = 0;
+			if($linages[$key])
+			{
+				$save_leaf = $linages[$key]['leaf'];
+				$flag_dubl = 1;
+			}
+			$linages[$key] = $otdel;
+			if($flag_dubl == 1 AND $save_leaf == 0 AND $otdel['leaf'] == 1)
+				$linages[$key]['leaf'] = 0; // если терм уже был обозначен как имеющий потомков, а потом появляется вариант без потомков, восстанавливаем значение "с потомками"!
+		}
+
+
+	}
+	
+	if($linages) // если были найдены свящанные со статьёй отделы
+	{
+		// сбрасываем названия ключей
+		$linages = array_merge(array(), $linages);
+
+		zp_functions_make_where_to_buy_list($linages, count($linages), 0);
+		
+		echo 'Пожалуйста, выберите заинтересовавший Вас магазин / заведение и отдел.';	
+	}
+	else 
+	{
+		echo 'В каталогах магазинов на нашем сайте пока нет ни одного отдела, в котором бы продавались товары или оказывались услуги, описанные в данной статье.<br> Загляните к нам позже!';	
+	}
+		
+
+	echo '</div>'; // end of echo '<div class="ajaxed">';
+	
+	return;
+	
+}
+
+// конец формирования списка магазинов и отделов, где продаются товары, указанные в данной статье данных для выдачи ajax-функции
+
+
+
+
+
+
+
+
+
+
+
+if ($teaser == 1): 
+
+
+
+// ---------------------------------------------------------------------------------------------------------
+
+
+
+
+echo '<div class="i_teaser catalog">';
+
+	
+
+	echo l($node->title, $node->path, array('class' => 'i_title catalog')); 
+	echo '<div class="i_teaser catalog">' . $node->field_issue_teaser[0]['value'] . '</div>'; 
+	
+	global $user;
+	if($user->uid == 1)
+	{
+		echo '<div class="keywords">Ключевые слова: ';
+			foreach ($node->taxonomy as $term)
+			{
+				if($term->vid == 6) // 6 - словарь с ключевыми словами по данной статье
+	 				echo $term->name . ', ';
+			}
+		echo '</div>';
+	}
+
+	?>
+	
+</div>
+
+<?php endif; // end of teaser
+
+
+
+
+
+
+
+
+
+
+	
+	
+	
+// ---------------------------------------------------------------------------------------------------------
+
+
+if ($page == 1): 
+
+
+require_once('sites/all/modules/_ZP_modules/zp_node_paths_aliases/zp_node_paths_aliases.inc');
+
+drupal_add_js('misc/collapse.js'); // схлопывающиеся филдсеты	
+
+
+/*
+
+if($_SESSION['messages'])
+ foreach($_SESSION['messages'] as $key => $values)
+ {
+   switch($key)
+    {
+	case 'error':
+		foreach($values as $value)
+		  print '<div class="message_error">' . $value . '</div>';
+		break;
+
+	case 'warning':
+                foreach($values as $value)
+         	  print '<div class="message_warning">' . $value . '</div>';
+		break;	
+
+	default:
+		foreach($values as $value)
+		  print '<div class="message_status">' . $value . '</div>';
+		break;	
+    }
+ }
+*/
+
+
+
+
+
+
+echo '<div class="i_body">';
+
+
+	foreach ($node->taxonomy as $term)
+		{
+			if($term->vid == 6) // 6 - словарь с ключевыми словами по данной статье
+				$keywords .= $term->name . ', ';
+			else
+				if($term->vid == 7) // 7 - словарь с темами статей (с типами товаров и услуг)
+				{
+					if(!$issue_type)
+						$issue_type = $term->name;
+					else
+						$issue_type .=  ', ' . $term->name;
+				}
+		}
+		
+	//echo '<div class="title2">Статьи и описания / Товары и услуги / ' . $type . ':</div>';
+	echo '<div class="title2">' . l('Статьи и описания / Товары и услуги', MY_ISSUESLIST_NODE) . ' //<br>' . $issue_type . ':</div>';
+	
+	echo '<div class="title">' . $title . '</div>';
+
+	$link = zp_functions_continue_shopping_link();
+  	echo '<div class="links">' . l('Перейти к списку всех статей', MY_ISSUESLIST_NODE, array('class' => 'links', 'title' => 'Пожалуйста, ознакомьтесь также и с другими статьями о товарах и услугах!')) . '</div>'; 
+	echo '<div class="links">' . l('Продолжить покупки', 'node/' . $link['nid'], array('class' => 'links', 'title' => 'После ознакомления со статьёй Вы можете вернуться к покупкам...')) . '</div>'; 
+  	
+	
+	
+ 	global $user;
+	if($user->uid == 1)
+	{
+		echo '<div class="keywords">Ключевые слова: ' . $keywords . '</div>';
+	
+		echo '<a class="add_node" href="' . base_path() . 'node/add/' . $node->type . '" title="Добавить новую статью">';
+			echo '> Добавить новую статью';
+		echo '</a>';
+	}
+	
+ 	echo '<div class="body">' . $node->content['body']['#value'] . '</div>'; 
+	
+	//print '<div class="author date">' . $node->name . ', ' . format_date($node->created, $format="%m/%d/%Y") . '</div>';
+
+  	
+	
+	
+	
+	// выведем через ajax список остальных статей из этого же раздела
+	echo '<div class="others_in_topic">';
+	echo '<fieldset class="collapsible collapsed other_issues_title"><legend><a href="#" id="issues_button">Остальные статьи из данного раздела</a></legend>';
+
+	
+	echo '<div id="issues">';
+
+
+	// вместо того, чтобы сразу генерировать список соответствующих материалов, откладываем генерацию списка до нажатия на вкладку со статьями
+	// список выдаём по запросу ajax-функции (вначале этого файла)
+
+	drupal_add_js("
+
+						$(document).ready(function()
+						{
+							//$('#button').click
+							$('#issues_button').click
+ 							(
+ 								function() 
+ 								{
+ 									if($('#issues').html() == '')
+ 									//if(1)
+ 									{
+ 										$('#issues').html('<div class=".'"wait"' . ">Пожалуйста, подождите. <br>Идёт загрузка данных...</div><div class=" . '"loader"' . "></div>');
+ 										$('#issues').load
+ 										(
+ 											window.location.pathname + '?source=ajax .ajaxed', 
+ 											function(response, status, xhr) 
+ 											{
+  												if($('#issues').children().html() == '' || status == 'error')
+													$('#issues').html('Нет данных');
+											}
+										);
+		 							}
+		 						}
+							);
+ 						});
+ 	
+						", 'inline');
+
+
+
+	echo '</div>'; // end of div issues
+     			
+    echo '</fieldset>';			
+    echo '</div>';
+     			
+     			
+     			
+
+         			
+	
+    
+    //test element for event.binding
+    //echo '<div id="otdel_parent">xxx</div>';
+    
+    // выведем через ajax список отделов магазинов, которые имеют названия каталогов с картинками такие же, как ключевые слова у этой стать
+    // позже нужно будет сделать, чтобы выводились также отделы, у которых ключевые слова совпадают с ключевыми словами этой статьи
+	echo '<div class="where_buy others_in_topic">';
+	echo '<fieldset class="collapsible collapsed where_buy_title"><legend><a href="#" id="where_to_buy_button">Где купить или заказать доставку на дом?</a></legend>';
+	echo '<div class="where_buy_hint">Отделы магазинов / заведений на нашем сайте, в которых можно купить товар или заказать услугу, описанные в статье (или имеющие какое-либо отношение к теме статьи) на этой странице.</div>';
+	
+	//echo '<fieldset class="collapsible collapsed"><legend><a href="#" id="where_to_buy_button">Где купить или заказать доставку на дом?<span class="where_buy_hint">Отделы магазинов / заведений на нашем сайте, в которых можно купить товар или заказать услугу, описанную в статье на этой страницу.</span></a></legend>';
+
+	
+	echo '<div id="shops_otdels">';
+
+
+	// вместо того, чтобы сразу генерировать список соответствующих материалов, откладываем генерацию списка до нажатия на вкладку со статьями
+	// список выдаём по запросу ajax-функции (вначале этого файла)
+
+	drupal_add_js("
+
+						$(document).ready(function()
+						{
+							//$('#button').click
+							//$('#issues_button').click
+							$('#where_to_buy_button').click
+ 							(
+ 								function() 
+ 								{
+ 									if($('#shops_otdels').html() == '')
+ 									//if(1)
+ 									{
+ 										$('#shops_otdels').html('<div class=".'"wait"' . ">Пожалуйста, подождите. <br>Идёт загрузка данных...</div><div class=" . '"loader"' . "></div>');
+ 										$('#shops_otdels').load
+ 										(
+ 											
+ 											//window.location.pathname + '?source=ajax .ajaxed', 
+ 											window.location.pathname + '?source=ajax_where_to_buy .ajaxed', 
+ 											function(response, status, xhr) 
+ 											{
+  												if($('#shops_otdels').children().html() == '' || status == 'error')
+													$('#shops_otdels').html('Нет данных');
+											}
+										);
+										
+										
+										
+										$('#otdel_parent').bind('mouseover', function() {
+					
+  											// Live handler called.
+  											$(this).addClass('xxx');
+  											//$(this).prev().prev().toggleClass('collapsed');
+  											//$(this).after('<p>Another paragraph!</p>');
+
+  											alert('xxx');
+										});	
+							
+							
+		 							}
+		 						}
+							);
+ 						});
+ 	
+						", 'inline');
+
+	
+	
+	
+
+	echo '</div>'; // end of div issues
+     			
+    echo '</fieldset>';			
+    echo '</div>';
+    
+    
+    
+    
+    
+	
+	
+	echo '<div class="links">' . l('Перейти к списку всех статей', MY_ISSUESLIST_NODE, array('class' => 'links', 'title' => 'Пожалуйста, ознакомьтесь также и с другими статьями о товарах и услугах!')) . '</div>'; 	
+  	echo '<div class="links">' . l('Продолжить покупки', 'node/' . $link['nid'], array('class' => 'links', 'title' => 'После ознакомления со статьёй Вы можете вернуться к покупкам...')) . '</div>'; 
+ 	
+
+echo '</div>';
+	
+endif; // end of body 
+
+?>

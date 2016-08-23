@@ -1,0 +1,538 @@
+<?php
+// $Id: uc_zp_plain_delivery.module 27 2007-11-01 06:57:25Z root $
+/* Written by Greg MacLellan <greg@mtechsolutions.ca> 
+*/
+
+/**
+ * @file
+ * Shipping quote module that provides an "ZP Plain Delivery" option
+ */
+
+/******************************************************************************
+ * Drupal Hooks                                                               *
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_menu().
+ */
+function uc_zp_plain_delivery_menu($may_cache){
+  $items = array();
+  
+  if ($may_cache){
+    $items[] = array('path' => 'admin/store/settings/quotes/methods/zp_plain_delivery',
+      'access' => user_access('configure quotes'),
+      'title' => t('ZP Plain Delivery'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => 'uc_zp_plain_delivery_admin_settings',
+      'type' => MENU_LOCAL_TASK,
+    );
+  }
+  
+  return $items;
+}
+
+
+/******************************************************************************
+ * �bercart Hooks                                                             *
+ ******************************************************************************/
+
+/**
+ * Implementation of �bercart's hook_shipping_method().
+ */
+function uc_zp_plain_delivery_shipping_method(){
+  $methods = array();
+  
+  $enabled = variable_get('uc_quote_enabled', array('zp_plain_delivery' => true));
+  $weight = variable_get('uc_quote_method_weight', array('zp_plain_delivery' => 0));
+  $methods['zp_plain_delivery'] = array(
+    'id' => 'zp_plain_delivery',
+    'module' => 'uc_zp_plain_delivery',
+    'title' => t('ZP Plain Delivery'),
+    'enabled' => $enabled['zp_plain_delivery'],
+    'quote' => array(
+      'type' => 'small_package',
+      'callback' => 'uc_zp_plain_delivery_quote',
+      'accessorials' => array( 'zp_plain_delivery'=>t('ZP Plain Delivery'), ),
+    ),
+    'ship' => array(
+      'type' => 'customer_ZP Plain Delivery',
+      'callback' => '',
+    ),
+    'weight' => $weight['customer_ZP Plain Delivery'],
+  );
+  
+  return $methods;
+}
+
+/**
+ * Implementation of �bercart's hook_shipping_type().
+ */
+function uc_zp_plain_delivery_shipping_type(){
+  $weight = variable_get('uc_quote_type_weight', array('customer_ZP Plain Delivery' => 0));
+
+  $types = array();
+  $types['customer_ZP Plain Delivery'] = array(
+    'id' => 'customer_ZP Plain Delivery',
+    'title' => t('Customer ZP Plain Delivery'),
+    'weight' => $weight['customer_ZP Plain Delivery'],
+  );
+  
+  return $types;
+}
+
+/******************************************************************************
+* Workflow-ng Hooks                                                          *
+******************************************************************************/
+
+/**
+* Implementation of hook_configuration().
+*
+* Connect the quote action with the quote event.
+*/
+function uc_zp_plain_delivery_configuration(){
+  $enabled = variable_get('uc_quote_enabled', array('zp_plain_delivery' => true));
+  $configurations = array(
+    'uc_zp_plain_delivery_get_quote' => array(
+      '#label' => t('Shipping quote for ZP Plain Delivery'),
+      '#event' => 'get_quote_from_zp_plain_delivery',
+      '#module' => 'uc_zp_plain_delivery',
+      '#active' => $enabled['zp_plain_delivery'],
+    ),
+  );
+  $action = workflow_ng_use_action('uc_quote_action_get_quote', array(
+    '#label' => t('Fetch a shipping quote'),
+  ));
+  $configurations['uc_zp_plain_delivery_get_quote'] = workflow_ng_configure($configurations['uc_zp_plain_delivery_get_quote'], $action);
+ 
+  return $configurations;
+}
+
+/******************************************************************************
+ * Menu Callbacks                                                             *
+ ******************************************************************************/
+
+/** Basic configuration settings
+ */
+function uc_zp_plain_delivery_admin_settings(){
+  $form = array();
+ 
+  /*
+  $form['uc_zp_plain_delivery_fee'] = array('#type' => 'textfield',
+    '#title' => t('ZP Plain Delivery handling fee'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_fee', '$0.00'),
+    '#description' => t('Handling fee to charge for ZP Plain Delivery, set by dollar amount or percentage.'),
+  );
+  */
+  $form['uc_zp_plain_delivery_time'] = array('#type' => 'textarea',
+    //'#title' => t('Delivery time'),
+    '#title' => t('Plain Delivery description'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_time', '24'),
+    //'#description' => t('Number of hours for Delivery time before ZP Plain Delivery is ready.'),
+  );
+  
+  /*
+  $form['uc_zp_plain_delivery_postalcodes'] = array('#type' => 'textarea',
+    '#title' => t('Restrict postal codes'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_postalcodes', ''),
+    '#description' => t('Optionally, postal/ZIP codes to restrict this option to. Enter one per line, using * as a wildcard. Note that any spaces in the user\'s postal code are removed prior to comparison, so do not include spaces. You may also enter a regular expression, so long as a forward-slash (/) is used as the first character, eg: <strong>/^K[1-3].{4}$/i</strong>. See the PHP manual on <a href="http://php.net/preg_match">preg_match()</a> for help with regex format.'),
+  );
+  */
+  /*
+  $form['uc_zp_plain_delivery_map'] = array('#type' => 'select',
+    '#title' => t('Driving directions'),
+    '#default_value' => variable_get('uc_zp_plain_delivery_map', ''),
+    '#description' => t('Provide a link that opens a page giving driving directions/maps.'),
+    '#options' => array(''=>'No map','google'=>'Google maps'),
+  );
+  */
+  return system_settings_form($form);
+}
+
+
+
+
+/**
+ * Callback for retrieving a shipping quote.
+ *
+ * @param $products
+ *   Array of cart contents.
+ * @param $details
+ *   Order details other than product information.
+ * @return
+ *   JSON object containing rate, error, and debugging information.
+ */
+function uc_zp_plain_delivery_quote($products, $details) {
+  
+
+	global $user;
+
+	$postcodes = variable_get('uc_zp_plain_delivery_postalcodes', 'xxx');
+
+	if ($postcodes) {
+		// remove any spaces
+		$clean_postal_code = str_replace(' ','',$details['postal_code']);
+		$found = false;
+		foreach (explode("\n",$postcodes) as $test_postcode) {
+			$test_postcode = trim($test_postcode);
+			if (strlen($test_postcode) > 0) {
+				if ($postcode[0] != '/') {
+					// convert to a regular expression
+					$test_postcode = '/^'.str_replace(array('*','/'), array('.*','\/'), $test_postcode).'$/i';
+				}
+				// regex match it, suppress errors in case of invalid regex
+				if (preg_match($test_postcode, $clean_postal_code)) {
+					$found = true;
+					break;
+				}
+			}
+		}
+
+		if (!$found) {
+			return array();
+		}
+	}
+	
+	
+	// максимальный коэф доставки из продуктов в корзине, нужен для определения минимальной стоимости доставки
+    $max_d_factor_otdel = 0; 
+		
+	$zp_default_set = zp_functions_get_zp_default_set();
+	
+	//$user_shops_data = $_SESSION['user_shops_data'];
+	$user_shops_data = zp_functions_get_user_shops_data();
+	
+			
+			// структура сохранённой сессионной переменной для конкретного юзера
+
+			/*
+			$_SESSION['user_shops_data']
+			$user_shops_data[$shop_tid] = array(
+			't_name' => $result->r_text,
+			//'tid' => $shop_tid, // tid выносим в ключ массива ($user_shops_data[$shop_tid])
+			'nid' => $result->r_id,
+			'price_factor' => $result->description,
+			);
+			*/
+			
+			
+			
+
+	$weight = 0;
+	$price = 0;
+	
+	
+	foreach ($products as $product){
+
+
+		// my changes ------------------------------------------------------------------------------------------------
+
+		// для каждого продукта определим его коэффициент доставки
+		// он должен быть задан в переменной $_SESSION[]
+
+
+
+		//--------------------------------------------------------------------------
+
+		// вычисляем коэффициент доставки
+		// равный перемноженным коэффициентам страна*город*район*магазин*отдел(ы)*клиент-общий*клиент-по-всей-иерархии-от-отдела-до-страны
+		// выясним всю последовательность до страны, затем тиды страны, города, района и магазина
+
+
+		//$node_tid = db_result(db_query("SELECT tid from {term_node} WHERE nid = %d", $node->nid));
+		$node_tids = taxonomy_node_get_terms_by_vocabulary($product->nid, 1);
+
+		// определим терм ноды продукта
+		foreach($node_tids as $node_tid)
+			$node_tid = $node_tid->tid;
+
+		// определим родителя терма данной ноды. Это будет как раз терм отдела, в котором продаётся этот продукт
+		$node_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $node_tid));
+		$parent_otdel_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $node_tid));
+
+		// ----------------------------------------------------------------------------------------
+
+		// вот теперь выясним, определён ли для этого отдела коэффициент доставки в сессионной переменной
+		// он сохраняется по номеру nid отдела
+
+		// dobavliaem proverku, otkuda prishel zapros na pokaz producta... esli iz korziny - ne vichisliaem factor dostavki, tak kak tam ne pokazivaetsia cena - sokrashaem vriemia raschetov
+		if(!($d_factor_otdel = $_SESSION['df' . $parent_otdel_nid]))
+		//if(!($d_factor_otdel = $_SESSION['df' . $parent_otdel_nid]))
+		{
+			// задаём массив и первым элементом делаем терм первого отдела, в котором продаётся этот продукт
+			$linage_tids = array($node_tid);
+
+			//$linage_tids[] = $node_tid;
+			//$save_node_tid = $node_tid;
+
+			$count = 1;
+			while(($node_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $node_tid))) != 0)
+			{
+				$linage_tids[] = $node_tid;
+				$count++;
+			}
+
+
+			// для примерного понимания...
+			//$item_shop_tid = $linage_tids[$count-4]; // вариант город-район-магазин.
+			//$item_rajon_tid = $linage_tids[$count-3]; // Третьим элементом в этом варианте становится район
+			//$item_city_tid = $linage_tids[$count-2]; // при любом варианте город будет вторым элементом после страны
+			//$item_country_tid = $linage_tids[$count-1];
+
+
+			for($i = 0; $i <= $count-1; $i++)
+			{
+				// начинаем со второго элемента, предполагая, что вторым элементом идёт отдел, в котором находится продукт, потом следуют родительские отделы (если есть), затем магазин, район, город, страна... Страна = $count-1
+				// формируем массив нодов с коэфффициентами доставки
+				$d_f_nids[$i] = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$i]));
+
+				$d_f_nid_titles[$i] = db_result(db_query("SELECT title from {node} WHERE nid = %d", $d_f_nids[$i]));
+
+				// поле с фактором стоимости доставки во всех типах нод называется d_factor
+				// соответственно, когда таких полей несколько (одинаковые в разных типах нодов), эти значения хранятся в таблице content_field_d_factor
+				// а значение этой переменной содержится в поле field_d_factor_value таблицы которое можно вычислить по номеру ноды nid
+				// формируем массив с коэффициентами стоимости доставки
+				$d_f_vals[$i] = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $d_f_nids[$i]));
+			}
+
+			// найдём номер ноды скрытой инфы пользователя
+			// считаем, что работаем с текущим пользователем, поэтому и берём ид текущего
+			// в принципе, можно потом сделать сложнее - определить пользователя текущей корзины и работать с ним (если админские права позволяю).
+
+			$user_hi_nid = db_result(db_query("SELECT nid from {node} WHERE title = '%s'", 'u' . $user->uid . '-hi'));
+
+			//drupal_set_message("user_hi_nid = $user_hi_nid");
+
+			//$user_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $user_hi_nid));
+			// дополняем массив с коэффициентами стоимости доствки общим коэффициентом конкретного клиента
+			$d_f_vals[++$i] = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $user_hi_nid));
+
+
+
+			// определим для конкретного клиента отличные от единицы коэффициенты для любимых магазинов, отделов и т.д. , в которых находится этот продукт
+			// и затем добавим их в список коэффициентов для этого продукта (отдела, в котором содержится этот продукт, вообще-то)
+
+
+
+			foreach($user_shops_data as $user_shops)
+			{
+				//$n = $user_shops['nid'];
+				//$t = $user_shops['t_name'];
+				//$f = $user_shops['price_factor'];
+				//drupal_set_message("before df_user n = $n, t = $t, f = $f");
+
+				if(in_array($user_shops['nid'], $d_f_nids))
+				{
+					$d_f_vals[++$i] = $user_shops['price_factor'];
+
+					//$n = $user_shops['nid'];
+					//$t = $user_shops['t_name'];
+					//$f = $user_shops['price_factor'];
+					//drupal_set_message("after df_user n = $n, t = $t, f = $f");
+				}
+			}
+
+
+
+			/*
+			foreach($linage_tids as $key => $value)
+			drupal_set_message("linage_tids key = $key, val = $value");
+
+
+			foreach($d_f_nids as $key => $value)
+			drupal_set_message("d_f_nid key = $key, val = $value");
+
+			foreach($d_f_nid_titles as $key => $value)
+			drupal_set_message("d_f_nid_title key = $key, val = $value");
+
+			foreach($d_f_vals as $key => $value)
+			drupal_set_message("df key = $key, val = $value");
+			*/
+
+
+			// перемножаем все коэффициенты и получаем финальный коэффициент
+			$final_d_f = 1;
+			
+			foreach($d_f_vals as $d_f_val)
+				$final_d_f *= $d_f_val;
+
+			//drupal_set_message(" ----final_d_f = $final_d_f");
+			//drupal_set_message("---------------------------------------------------");
+
+			/*
+			// найдём номера нодов
+			$country_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-1]));
+			$city_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-2]));
+			$rajon_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-3]));
+			$shop_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-4]));
+
+			// country_d_factor
+			$country_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $country_nid));
+			$city_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $city_nid));
+			$rajon_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $rajon_nid));
+			$shop_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $shop_nid));
+			*/
+
+
+
+
+			//получим из базы значение процента, который определяет стоимость доставки по умолчанию
+			//стоимость доставки товара по умолчанию равна стоимости товара, умноженной на процент по умолчанию
+			//и затем умноженной на только что посчитанный финальный коэффициент доставки
+
+			// процент доставки по умолчанию берётся с поля типа d_percents (поле field_d_percents_value в таблице content_type_zp_default_set)
+
+			// в этом поле значение содержится в виде процента. Поэтому чтобы получить коэффициент, делим это значение на 100.
+
+
+
+			/*
+			// загружаем из базы массив с переменными по умолчанию
+			$zp_default_set = $_SESSION['zp_default_set'];
+
+			// если массив пока не определён или в нём не определён параметр nid (номер ноды с параметрами по умолчанию),
+			// находим параметр nid и добавляем его в массив
+			if(!$zp_default_set OR !$zp_default_set['nid'])
+			$zp_default_set['nid'] = db_result(db_query("SELECT nid from {node} WHERE type = '%s'", 'zp_default_set'));
+			// делим значение процента доставки на 100 и получаем коэффициент
+			if(!$zp_default_set['d_f'])
+			{
+			// добавляем пустую строку к числу, тем самым преобразуя это число в строку, чтобы поменьше знаков сохранять в базе (без этого сохраняло 20 знаков после запятой почему-то, даже с функцией round)
+			// заодно округляем до 2 знаков после запятой
+			$zp_default_set['d_f'] = round(db_result(db_query("SELECT field_d_percents_value from {content_type_zp_default_set} WHERE nid = %d", $zp_default_set['nid'])) / 100, 2) . '';
+			// сохраняем значение коэффициента доставки по умолчанию в базе (чтобы заново не вычислять для каждого продукта)
+			$_SESSION['zp_default_set'] = $zp_default_set;
+			}
+			*/
+
+
+
+
+			// окончательный коэффициент доставки равен коэффициенту по умолчанию $zp_default_set['d_f'],
+			// умноженному на перемноженные все остальные коэффициенты доставки для данного юзера $final_d_f
+			// заодно округляем до 2 знаков после запятой
+			$d_factor_otdel = round($final_d_f * $zp_default_set['d_f'], 2) . '';
+
+			// сохраним коэффициент доставки для данного отдела в сессионной переменной
+			$_SESSION['df' . $parent_otdel_nid] = $d_factor_otdel;
+
+		} // end of if(!($d_factor_otdel = $_SESSION['df' . $parent_otdel_nid]))
+
+
+		$dost_price = $product->price * $product->qty * $d_factor_otdel;
+		$dost_price_total += $dost_price;
+
+
+
+		// необходимо только для выяснения, больше ли общая сумма заказа минимальной сумме заказа по умолчанию
+		// ВНИМАНИЕ! Тут могу юыть не учтены опции.... но может быть они уже и входят в стоимость товара, тогда всё в порядке
+		$subtotal += $product->price * $product->qty + $dost_price;
+
+		// ---------------------------------------------------------------------------
+		// найдём максимальный коэффициент доставки среди всех товаров
+        // и на основе него вычислим коэффициент для минимальной стоимости доставки
+        // которую определим как произведение минимальной стоимости доставки по умолчанию на этот коэффициент
+        if($max_d_factor_otdel < $d_factor_otdel)
+           	$max_d_factor_otdel = $d_factor_otdel;
+            	
+
+
+
+
+		// ---------------------------------------------------------------------------
+
+
+
+		$product->weight *= $product->qty;
+		// convert to kg
+		switch ($product->units){
+			case 'oz':
+				$product->weight = $product->weight * 0.0283495231;
+				break;
+			case 'lb':
+				$product->weight = $product->weight * 0.45359237;
+				break;
+			case 'g':
+				$product->weight = $product->weight / 1000;
+				break;
+				//case 'kg':
+		}
+		
+		$weight += $product->weight;
+		$price += $product->price * $product->qty;
+	}
+
+
+
+	$quantity = count($products);
+
+
+	
+	// если общая стоимость заказа меньше минимальной суммы заказа для этого магазина и клиента
+    // с учётом максимального коэффициента доставки товаров этой корзины
+    // то заменяем стоимость доставки на минимальную стоимость доставки, умноженную на максимальный коэфициент доставки
+      
+    // найдём минимальную стоимость доставки по умолчанию
+    $zp_default_set = zp_functions_get_zp_default_set();
+      
+    $max_d_factor_otdel =  $max_d_factor_otdel * 10;
+
+    $c_shop_tids = zp_functions_get_cart_shop_data(); // параметры не передаём, так что они устанавливаются в фунцкии по текущему юзеру
+      
+    if($subtotal < $c_shop_tids['shop_min_sum'])
+    {
+
+     	// изменяем стоимость доставки на миниманую по умолчанию и корректируем общую стоимость
+     	//$subtotal = $subtotal - $dost_price_total;
+     	$dost_price_total = $zp_default_set['min_dost_price_default']*$max_d_factor_otdel;
+     	//$subtotal = $subtotal + $dost_price_total;
+      	
+    }
+
+
+
+
+	// my changes -----------------------------------
+
+	$fee = $dost_price_total; //_uc_zp_plain_delivery_calculate_fee($price);
+
+
+	$delivery_time = variable_get('uc_zp_plain_delivery_time', '12');
+
+	$label = //'<img class="canadapost_logo" src="'.base_path().drupal_get_path('module', 'uc_zp_plain_delivery').'/car.png" /> '.
+	//t("ZP Plain Delivery");
+	t("Plain Delivery");
+	switch (variable_get('uc_zp_plain_delivery_map', '')) {
+	}
+	$notes = "";
+	if ($delivery_time) {
+		//$notes .= ' ('.t('Please allow !time', array('!time'=>$delivery_time.' '.($delivery_time==1?t('hour'):t('hours')))).')';
+		$notes .= ' ('.t($delivery_time).')';
+	}
+
+	return array(
+	'zp_plain_delivery'=>array(
+	'rate'=>$fee,
+	'format'=>uc_currency_format($fee),
+	'option_label'=> $label,
+	'notes'=>$notes,
+	),
+	);
+  
+}
+
+
+
+
+
+
+/**
+ * Calculates the fee to charge for ZP Plain Delivery
+ */
+function _uc_zp_plain_delivery_calculate_fee($subtotal){
+  $fee = variable_get('uc_zp_plain_delivery_fee', 0);
+  if (strpos($fee, '%') !== false){
+    return $subtotal * floatval(rtrim($fee, '%')) / 100;
+  } else {
+    return floatval(ltrim($fee,'$'));
+  }
+}

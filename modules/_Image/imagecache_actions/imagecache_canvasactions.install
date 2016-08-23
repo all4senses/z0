@@ -1,0 +1,15 @@
+<?php
+// $Id: imagecache_canvasactions.install,v 1.1.2.2 2009/03/16 01:28:42 dman Exp $
+
+function imagecache_canvasactions_install() {
+  if (function_exists('imagecache_action_definitions')) {
+    imagecache_action_definitions(TRUE);
+  }
+  cache_clear_all('imagecache_actions', 'cache');
+}
+function imagecache_canvasactions_uninstall() {
+  if (function_exists('imagecache_action_definitions')) {
+    imagecache_action_definitions(TRUE);
+  }
+  cache_clear_all('imagecache_actions', 'cache');
+}

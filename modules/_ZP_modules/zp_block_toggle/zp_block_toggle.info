@@ -1,0 +1,10 @@
+; $Id $
+name = "ZP block Toggle"
+description = "Add call of zp_block_toggle.js"
+package = ZP Modules
+
+; Information added by drupal.org packaging script on 2007-12-28
+version = "5.x-1.0"
+project = "zp_block_toggle"
+datestamp = "1224456101"
+

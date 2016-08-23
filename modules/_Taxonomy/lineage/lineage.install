@@ -1,0 +1,38 @@
+<?php
+
+function lineage_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE term_lineage ( " .
+        "tid int(10) unsigned NOT NULL default '0', " .
+        "lineage varchar(255) NOT NULL default '', " .
+        "depth int(10), " .
+        "KEY tid (tid), " .
+        "KEY lineage (lineage) " .
+      ")  TYPE=MyISAM /*!40100 DEFAULT CHARACTER SET utf8 */");
+      break;
+    case 'pgsql':
+      db_query("CREATE TABLE term_lineage ( " .
+        "tid integer NOT NULL default '0', " .
+        "lineage varchar(255) NOT NULL default '', " .
+        "depth integer NOT NULL default '' " .
+      ")");
+      db_query("CREATE INDEX term_lineage_tid_idx ON term_lineage(tid)");
+      db_query("CREATE INDEX term_lineage_lineage_idx ON term_lineage(lineage)");
+    break;
+  }
+}
+
+function lineage_uninstall() {
+  db_query("DROP TABLE term_lineage");
+}
+
+function lineage_update_1() {
+  return _system_update_utf8(array('term_lineage'));
+}
+
+function lineage_update_2() {
+  // fixed a bug that left the table in an inconsistent state. This should fix it.
+  return lineage_update_all();
+}

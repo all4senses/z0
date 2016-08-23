@@ -1,0 +1,15 @@
+<div class="test">how it works</div>
+
+<div id="how_it_works">
+
+<div class="caption"><div class="caption2">Как</div>работает сервис?</div>
+
+<div class="text">
+<div class="text2">1.Станьте нашим клиентом. </div>
+2. Зайдите на сайт под своим паролем. 3. Добавьте товары  в корзину из магазина, доступного Вам для покупок. 4. Сделайте заказ и оплатите доставленный Вам на дом товар.
+</div>
+
+<?php //print $node->field_side_images[0]['view'] ?>
+
+
+</div>

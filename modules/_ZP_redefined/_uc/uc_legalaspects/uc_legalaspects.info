@@ -1,0 +1,6 @@
+; $Id$
+name = Legal aspects checkout pane
+description = ZP Redefined. Adds a pane for agreeing terms and conditions and/or revocation rights using a checkbox.
+dependencies = uc_store
+package = "Ubercart - core (optional)"
+version = "5.x-1.0 v1.8"

@@ -1,0 +1,9 @@
+; $Id: taxonomy_batch_operations.info,v 1.1 2007/02/13 16:51:01 drawk Exp $
+name = Taxonomy Batch Operations
+description = Edit multiple taxonomy terms at once.
+dependencies = taxonomy
+; Information added by drupal.org packaging script on 2008-02-07
+version = "5.x-1.0"
+project = "taxonomy_batch_operations"
+datestamp = "1202426109"
+

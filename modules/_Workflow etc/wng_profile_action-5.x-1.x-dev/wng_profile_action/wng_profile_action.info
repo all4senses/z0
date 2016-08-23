@@ -1,0 +1,11 @@
+; $Id: wng_profile_action.info,v 1.1 2008/08/27 23:58:30 mrandrey Exp $
+name = Workflow-ng: Profile Action
+description = "Adds a Workflow-NG action to update specific profile fields."
+dependencies = workflow_ng profile token
+package = Workflow-ng
+
+; Information added by drupal.org packaging script on 2008-08-28
+version = "5.x-1.x-dev"
+project = "wng_profile_action"
+datestamp = "1219882400"
+

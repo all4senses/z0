@@ -1,0 +1,13 @@
+; $Id: editablefields.info,v 1.1.2.2.4.2 2008/08/20 12:53:25 markfoodyburton Exp $
+name = Editablefields
+description = "Allows you to make some view fields editable"
+dependencies = views
+package = Views
+
+
+
+; Information added by drupal.org packaging script on 2008-08-20
+version = "5.x-3.3"
+project = "editablefields"
+datestamp = "1219237209"
+

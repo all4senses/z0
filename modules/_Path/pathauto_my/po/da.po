@@ -1,0 +1,264 @@
+# Danish translation of Drupal (pathauto.module)
+# Copyright 2007 Morten Wulff <wulff@ratatosk.net>
+#
+# Contributors:
+#   Anders Lund <anders@alweb.dk>, 2007.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Danish translation of Drupal (pathauto.module) $Id: da.po,v 1.1.4.3 2007/12/16 18:16:09 wulff Exp $\n"
+"POT-Creation-Date: 2007-03-25 20:16+0200\n"
+"PO-Revision-Date: 2007-12-16 19:13+0100\n"
+"Last-Translator: Morten Wulff <wulff@ratatosk.net>\n"
+"Language-Team: Danish <l10n@drupaldanmark.dk>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-Language: Danish\n"
+"X-Poedit-Country: DENMARK\n"
+
+#: pathauto.inc:298
+msgid "Ignoring alias "
+msgstr "Ignorerer alias"
+
+#: pathauto.inc:298
+msgid " due to existing path conflict"
+msgstr " på grund af konflikt med eksisterende sti"
+
+#: pathauto.inc:317
+msgid "Created new alias %dst for %src, replacing %old_alias. %old_alias now redirects to %dst"
+msgstr "Nyt alias %dst for %src oprettet til erstatning for %oldalias. %old_alias peger nu på %dst"
+
+#: pathauto.inc:320
+msgid "Created new alias %dst for %src, replacing %old_alias"
+msgstr "Nyt alias %dst for %src oprettet til erstatning for %oldalias"
+
+#: pathauto.inc:323
+msgid "Created new alias %dst for %src"
+msgstr "Nyt alias %dst oprettet for %src"
+
+#: pathauto.inc:379
+msgid "Double quotes \""
+msgstr "Citationstegn \""
+
+#: pathauto.inc:380
+msgid "Single quotes (apostrophe) '"
+msgstr "Citationstegn (apostrof) '"
+
+#: pathauto.inc:381
+msgid "Back tick `"
+msgstr "Accent grave `"
+
+#: pathauto.inc:382
+msgid "Comma ,"
+msgstr "Komma ,"
+
+#: pathauto.inc:383
+msgid "Period ."
+msgstr "Punktum ."
+
+#: pathauto.inc:384
+msgid "Hyphen -"
+msgstr "Bindestreg -"
+
+#: pathauto.inc:385
+msgid "Underscore _"
+msgstr "Bundstreg _"
+
+#: pathauto.inc:386
+msgid "Colon :"
+msgstr "Kolon :"
+
+#: pathauto.inc:387
+msgid "Semicolon ;"
+msgstr "Semikolon ;"
+
+#: pathauto.inc:388
+msgid "Pipe |"
+msgstr "Lodret streg |"
+
+#: pathauto.inc:389
+msgid "Left curly bracket {"
+msgstr "Venstre tuborgklamme {"
+
+#: pathauto.inc:390
+msgid "Left square bracket ["
+msgstr "Venstre klamme ["
+
+#: pathauto.inc:391
+msgid "Right curly bracket }"
+msgstr "Højre tuborgklamme {"
+
+#: pathauto.inc:392
+msgid "Right square bracket ]"
+msgstr "Højre klamme ]"
+
+#: pathauto.inc:393
+msgid "Plus +"
+msgstr "Plus +"
+
+#: pathauto.inc:394
+msgid "Equal ="
+msgstr "Lighedstegn ="
+
+#: pathauto.inc:395
+msgid "Asterisk *"
+msgstr "Asterisk *"
+
+#: pathauto.inc:396
+msgid "Ampersand &"
+msgstr "Og-tegn &"
+
+#: pathauto.inc:397
+msgid "Percent %"
+msgstr "Procent %"
+
+#: pathauto.inc:398
+msgid "Caret ^"
+msgstr "Cirkumfleks ^"
+
+#: pathauto.inc:399
+msgid "Dollar $"
+msgstr "Dollar $"
+
+#: pathauto.inc:400
+msgid "Hash #"
+msgstr "Nummertegn #"
+
+#: pathauto.inc:401
+msgid "At @"
+msgstr "Snabel-a @"
+
+#: pathauto.inc:402
+msgid "Exclamation !"
+msgstr "Udråbstegn !"
+
+#: pathauto.inc:403
+msgid "Tilde ~"
+msgstr "Tilde ~"
+
+#: pathauto.inc:404
+msgid "Left parenthesis ("
+msgstr "Venstre parentes ("
+
+#: pathauto.inc:405
+msgid "right parenthesis )"
+msgstr "Højre parentes ("
+
+#: pathauto.inc:406
+msgid "Question mark ?"
+msgstr "Spørgsmålstegn ?"
+
+#: pathauto.inc:407
+msgid "Less than <"
+msgstr "Mindre end <"
+
+#: pathauto.inc:408
+msgid "Greater than >"
+msgstr "Større end >"
+
+#: pathauto.inc:409
+msgid "Back slash \\"
+msgstr "omvendt skråstreg \\"
+
+#: pathauto_node.inc:13
+msgid "Node path settings"
+msgstr "Indholdselementer"
+
+#: pathauto_node.inc:14
+msgid "Default path pattern (applies to all node types with blank patterns below)"
+msgstr "Standard skabelon (gælder for alle indholdstyper med blanke skabeloner nedenfor)"
+
+#: pathauto_node.inc:15
+msgid "content/[title-raw]"
+msgstr "indhold/[titel-rå]"
+
+#: pathauto_node.inc:16
+msgid "Bulk generate aliases for nodes that are not aliased"
+msgstr "Opret aliaser for alle indholdselementer som ikke allerede har et alias"
+
+#: pathauto_node.inc:17
+msgid "Generate aliases for all existing nodes which do not already have aliases. Note: Bulk Update may not complete on large or slow sites. See the README.txt for more information."
+msgstr "Opret aliaser for alle indholdselementer som ikke allerede har aliaser. Bemærk: Masseopdatering kan muligvis ikke gennemføres på store eller langsomme sites. Se filen README.txt for yderligere information."
+
+#: pathauto_node.inc:30
+msgid "Pattern for all @node_type paths"
+msgstr "Skabelon for alle @node_type-stier"
+
+#: pathauto_node.inc:88
+msgid "Bulk generation of nodes completed, one alias generated."
+msgid_plural "Bulk generation of nodes completed, @count aliases generated."
+msgstr[0] "Masseopdatering af indholdselementer fuldført. Ét alias oprettet."
+msgstr[1] "Masseopdatering af indholdselementer fuldført. @count aliaser oprettet."
+
+#: pathauto_taxonomy.inc:13
+msgid "Category path settings"
+msgstr "Indstillinger for kategori-stier"
+
+#: pathauto_taxonomy.inc:14
+msgid "Default path pattern (applies to all vocabularies with blank patterns below)"
+msgstr "Standard skabelon (gælder for alle kategori-grupper med blanke skabeloner nedenfor)"
+
+#: pathauto_taxonomy.inc:15
+msgid "category/[vocab-raw]/[catpath-raw]"
+msgstr "kategori/[vocab-raw]/[catpath-raw]"
+
+#: pathauto_taxonomy.inc:25
+msgid "Bulk generate aliases for categories that are not aliased"
+msgstr "Opret aliaser for alle kategorier som ikke allerede har et alias."
+
+#: pathauto_taxonomy.inc:26
+msgid "Generate aliases for all existing categories which do not already have aliases. Note: Bulk Update may not complete on large or slow sites. See the README.txt for more information."
+msgstr "Opret aliaser for alle kategorier som ikke allerede har et alias. Bemærk: Masseopdatering kan muligvis ikke gennemføres på store eller langsomme sites. Se filen README.txt for yderligere information."
+
+#: pathauto_taxonomy.inc:35
+msgid "Pattern for all %vocab-name paths"
+msgstr "Skabelon for alle %vocab-name stier"
+
+#: pathauto_taxonomy.inc:105
+msgid "Forum path settings"
+msgstr "Forum-sti"
+
+#: pathauto_taxonomy.inc:106
+msgid "Pattern for forums and forum containers"
+msgstr "Skabelon for forummer og beholdere"
+
+#: pathauto_taxonomy.inc:107
+msgid "[vocab-raw]/[catpath-raw]"
+msgstr "[vocab-raw]/[catpath-raw]"
+
+#: pathauto_taxonomy.inc:117
+msgid "Bulk generate forum paths"
+msgstr "Masseopret forum-stier"
+
+#: pathauto_taxonomy.inc:118
+msgid "Generate aliases for all existing forums and forum containers which do not already have aliases."
+msgstr "Opret aliaser for alle eksisterende forummer og beholdere, som ikke allerede har et alias."
+
+#: pathauto_taxonomy.inc:61
+msgid "Bulk generation of terms completed, one alias generated."
+msgid_plural "Bulk generation of terms completed, @count aliases generated."
+msgstr[0] "Masseoprettelse af ord fuldført. Ét alias oprettet."
+msgstr[1] "Masseoprettelse af ord fuldført. @count aliaser oprettet."
+
+#: pathauto_taxonomy.inc:140
+msgid "Bulk update of forums and forum containers completed, one alias generated."
+msgid_plural "Bulk update of forums and forum containers completed, @count aliases generated."
+msgstr[0] "Masseopdatering af forummer og beholdere fuldført. Ét alias oprettet."
+msgstr[1] "Masseopdatering af forummer og beholdere fuldført. @count aliaser oprettet."
+
+#: pathauto_user.inc:13
+msgid "User path settings"
+msgstr "Bruger"
+
+#: pathauto_user.inc:14
+msgid "Pattern for user account page paths"
+msgstr "Skabelon for brugerstier"
+
+#: pathauto_user.inc:15
+msgid "users/[user-raw]"
+msgstr "brugere/[user-raw]"
+
+#: pathauto_user.inc:25
+msgid "Bulk generate aliases for users that are n

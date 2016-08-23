@@ -1,0 +1,46 @@
+<?php
+// $Id: panels_titles.install,v 1.1 2007/07/16 18:35:15 dfletcher Exp $
+
+/**
+ *  Implements hook_install().
+ */
+function panels_titles_install() {
+  db_query(<<<EOT
+    CREATE TABLE {panels_titles_templates} (
+	  tid int not null default 0 primary key,
+	  title varchar(128),
+	  template TEXT
+	)
+EOT
+  );
+  $tid = db_next_id('panels_titles_templates');
+  db_query(
+    'INSERT INTO {panels_titles_templates} SET tid=%d, title="%s", template="%s"',
+	$tid, 'H1', '<h1 class="panels-title">%title%</h1>'
+  );
+  $tid = db_next_id('panels_titles_templates');
+  db_query(
+    'INSERT INTO {panels_titles_templates} SET tid=%d, title="%s", template="%s"',
+	$tid, 'H2', '<h2 class="panels-title">%title%</h2>'
+  );
+  $tid = db_next_id('panels_titles_templates');
+  db_query(
+    'INSERT INTO {panels_titles_templates} SET tid=%d, title="%s", template="%s"',
+	$tid, 'H3', '<h3 class="panels-title">%title%</h3>'
+  );
+  $tid = db_next_id('panels_titles_templates');
+  db_query(
+    'INSERT INTO {panels_titles_templates} SET tid=%d, title="%s", template="%s"',
+	$tid, 'H4', '<h4 class="panels-title">%title%</h4>'
+  );
+  $tid = db_next_id('panels_titles_templates');
+  db_query(
+    'INSERT INTO {panels_titles_templates} SET tid=%d, title="%s", template="%s"',
+	$tid, 'H5', '<h5 class="panels-title">%title%</h5>'
+  );
+  $tid = db_next_id('panels_titles_templates');
+  db_query(
+    'INSERT INTO {panels_titles_templates} SET tid=%d, title="%s", template="%s"',
+	$tid, 'H6', '<h6 class="panels-title">%title%</h6>'
+  );
+}

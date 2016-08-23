@@ -1,0 +1,277 @@
+<?php
+/**
+ * @author Ryan Hughes <ryan@linuxbox.com>
+ */
+
+require_once('views_union_ui.inc');
+
+/**
+ * Implementation of hook_views_query_alter.
+ *
+ * NOTE!  Right now, the views module is not smart about invalidating the
+ * cache.  If anything changes, it invalidates the whole cache.  We will
+ * exploit that here by not actively expiring parent views when subviews
+ * change.  One day, however, this behavior might change in the views module,
+ * and we should be prepared for it.
+ */
+function views_union_views_query_alter(&$query, &$view, $summary, $level) {
+  // If they used a filter, let's make sure to ignore all the subviews with
+  // ignore-on-filter.
+  $using_filters = false;
+  if (count($view->used_filters) > 0) {
+    $using_filters = true;
+  } // if we should ignore this one
+
+  $result = db_query(
+    "SELECT id, P.name AS parent, C.name AS child, U.lim, U.ignore_on_filter 
+     FROM   {views_union} U LEFT JOIN {view_view} P ON U.parent=P.vid 
+            LEFT JOIN {view_view} C ON U.child=C.vid
+     WHERE  U.parent='%s'",
+    $view->vid);
+
+  $child_views = array();
+  while ($row = db_fetch_array($result)) {
+    $child_views[] = $row;
+  } // while that be rows
+
+  // If we're a leaf view, quit.
+  if (!$child_views) { return; }
+
+  // Recurse
+  foreach ($child_views as $child_view) {
+    $ignore_on_filter = $child_view['ignore_on_filter'];
+    $subview = views_get_view($child_view['child']);
+    _translate_exposed_filters($view, $subview);
+    $subview->page_type = 'list';
+    $queries = views_build_view('queries', $subview, $view->args);
+
+    foreach (module_implements('views_union_ignore') as $module) {
+      $function = $module."_views_union_ignore";
+      $ignore = $function(
+          $subview, $view, $child_view['ignore_on_filter'], $using_filters);
+    } // foreach module implementing views_union_ignore
+
+    if ($ignore) { continue; }
+
+    if (!is_array($view->views_union)) {
+      $view->views_union = array();
+    } // if it's not an array yet 
+    $view->views_union['subqueries'][] = $queries['query'];
+    $view->views_union['subcountqueries'][] = $queries['countquery'];
+    if (!is_array($queries['args'])) { $queries['args'] = array(); }
+    $view->views_union['argses'][] = $queries['args'];
+    $view->views_union['limit'][] = $child_view['lim'];
+  } // foreach child view
+
+  $myquery = $query->query();
+  $view->views_union['master_queryobj'] = $query;
+  $matches = array();
+  if (!preg_match(
+        '/^SELECT (.*?) FROM (.*?)(WHERE|$)(.*?)(ORDER BY|GROUP BY|LIMIT|$)/', 
+        $myquery, $matches)) 
+  {
+    drupal_set_message(
+      t('views_union: The query for the view \'%viewname\' did not parse correctly.', 
+      array('%viewname', $view->name)));
+  } // if we failed to parse
+
+  $view->views_union['columns'] = trim($matches[1]);
+  // We don't need these, but here's how you'd find them.
+  // $from    = trim($matches[2]);
+  // $where   = trim($matches[4]);
+
+  // We have to let the actual query run, in order to get to the
+  // hook_views_pre_views hook.  We want to get to that hook because it can let
+  // us alter the items.  In this manner, we will run our own custom query.
+  // But we don't want to waste a lot of time returning results, because we're
+  // just throwing away that query.  Therefore, we'll add AND 0.
+  $query->add_where("false");
+
+  cache_set('views_union:' . $view->name, 'cache_views', serialize($view->views_union));
+
+  return;
+} // function views_union_views_query_alter
+
+
+/**
+ * Pass the exposed filters to subviews.
+ * @param object $view The master view.
+ * @param[out] object $subview The subview will be altered.
+ */
+function _translate_exposed_filters($view, &$subview) {
+  // We have to translate exposed filters from one view down to the next one in
+  // line.  Also, if a subview has an exposed filter, and the master view has a
+  // filter, exposed or not, we should pass that down.
+  // We'll do it like this:
+  // Step 1:  Create mappings so that, given filter 'id's, we can find their
+  //   positions in the master view's exposed_filters and default filter arrays.
+  // Step 2:  Loop through the subview's exposed filters and grab everything we
+  //   can from the master.
+
+  // Step 1:  Create mappings so that, given filter 'id's, we can find their
+  // positions in the master view's exposed_filters and default filter arrays.
+  $master_filter_positions = array();
+  foreach ($view->exposed_filter as $exposed_filter) {
+    $master_filter_positions[$exposed_filter['id']] = 
+        $exposed_filter['position'];
+  } // foreach exposed filter in master
+
+  $master_defaults_positions = array();
+  foreach ($view->filter as $filter) {
+    $master_defaults_positions[$filter['id']] = $filter['position'];
+  } // foreach exposed filter in master
+
+
+  // Step 2:  Loop through the subview's exposed filters and grab everything we
+  //   can from the master.
+  $used_filters = array();
+  foreach ($subview->exposed_filter as $subview_filter) {
+    // If this exposed filter is also an exposed filter in the master view,
+    // let's pass it on.  If it is not, then let's use the default filter for
+    // the subview.
+    if (isset($master_filter_positions[$subview_filter['id']])
+        || isset($master_defaults_positions[$subview_filter['id']])) 
+    {
+      // This exposed filter is also a filter in the master.
+      // Therefore, use the value from the master.
+
+      $master_filter_pos = $master_filter_positions[$subview_filter['id']];
+      $master_default_pos = $master_defaults_positions[$subview_filter['id']];
+
+      if (isset($view->used_filters['filter'.$master_filter_pos])) {
+        $master_val = $view->used_filters['filter'.$master_filter_pos];
+      } else {
+        $master_val = $view->filters[$master_default_pos]['value'];
+      } // if we get value from exposed or default
+
+      // If the op is locked, get it from default.
+      if (isset($view->used_filters['op'.$master_filter_pos])) {
+        $master_op = $view->used_filters['op'.$master_filter_pos];
+      } else {
+        $master_op = $view->filter[$master_default_pos]['operator'];
+      } // if where we get the op from
+                    
+      $used_filters['filter'.$subview_filter['position']] = $master_val;
+      $used_filters['op'.$subview_filter['position']]     = $master_op;
+    } // if this is one we should pass on
+    else {
+      // This exposed filter is mentioned in the master.
+      // Therefore, use the default from the subview.
+
+      $used_filters['filter'.$subview_filter['position']] = 
+          $subview_filter['position']['value'];
+      $used_filters['op'.$subview_filter['position']] = 
+          $subview_filter['position']['op'];
+    } // else this is one we should use the default for
+  } // foreach exposed filter in subview
+
+  // Okay, now we can set it into the subview
+  $subview->used_filters = $used_filters;
+} // function _translate_exposed_filters
+
+/**
+ * Implementation of hook_views_pre_view.
+ * Previously, we set a couple of things in the views.  We set
+ * $view->views_union['columns'] and ['subqueries'].  Columns is the columns
+ * part of the master query.  Subqueries is the full text of each subquery.
+ * Mash 'em together!
+ * Construct a custom query!
+ * Blow away the items and replace with what we got here.
+ */
+
+function sprint_r($thingy) {
+  ob_start();
+  print_r($thingy);
+  $txt = ob_get_contents();
+  ob_end_clean();
+  return $txt;
+}
+
+function views_union_views_pre_view(&$view, &$items) {
+  if (!isset($view->views_union)) {
+    $views_union_data = cache_get('views_union:' . $view->name, 'cache_views');
+    if ($views_union_data) {
+      $view->views_union = unserialize($views_union_data->data);
+    }
+  } // if we don't have any union data yet
+
+  if (!isset($view->views_union) 
+      || !is_array($view->views_union['subqueries']))
+  {
+    return "";
+  } // if we're at a leaf query
+
+  foreach ($view->views_union['subqueries'] as $whichth => $query) {
+    $matches = array();
+    $ok = preg_match(
+          '/^SELECT (.*?) FROM (.*?)(WHERE|$)(.*?)(ORDER BY|GROUP BY|LIMIT|$)/',
+          $view->views_union['subqueries'][$whichth], $matches); 
+    if (!$ok) {
+      drupal_set_message(t('views_union: A subquery did not parse correctly.'));
+    } // if we failed to parse
+    // $columns = trim($matches[1]);
+    // $from    = trim($matches[2]);
+    // $where   = trim($matches[4]);
+
+    $view->views_union['subqueries'][$whichth] = 
+      preg_replace(
+          '/^SELECT (.*?) FROM/', 
+          "SELECT {$view->views_union['columns']} FROM",
+          $view->views_union['subqueries'][$whichth]);
+
+    if (!is_null($view->views_union['limit'][$whichth])
+        && $view->views_union['limit'][$whichth] > 0) 
+    {
+      $view->views_union['subqueries'][$whichth] = 
+          preg_replace(
+              '/LIMIT .*/', 
+              "", 
+              $view->views_union['subqueries'][$whichth]);
+      $view->views_union['subqueries'][$whichth] .=
+          " LIMIT ".$view->views_union['limit'][$whichth];
+    } // if we want a limit
+  } // foreach subquery
+
+  // All the subqueries are in readiness, master.  
+  // Combine them, send it, and replace the items array.
+  // Part 1:  Combine them.
+  $masterquery = "(" 
+      .implode(') UNION (', $view->views_union['subqueries'])
+      .")";
+
+  $mastercountquery = "SELECT COUNT(*) FROM (".$masterquery.") AS sq";
+
+  $masterargs = array();
+
+  foreach ($view->views_union['argses'] as $args) {
+    if (is_array($args)) {
+      $masterargs = array_merge($masterargs, $args);
+    }
+  } // foreach args
+
+  if ($view->views_union['master_queryobj']->orderby) {
+    $masterquery .= " ORDER BY "
+        . implode(", ", $view->views_union['master_queryobj']->orderby);
+  } // if there's a natural order to the master query
+  
+  // Part 2:  Send it.
+  // Note:  I had to copy a bunch of stuff from views, in order to make us use
+  // the pager system.
+  // $result = db_query($masterquery, $masterargs);
+
+  if ($view->use_pager) {
+    $result = pager_query($masterquery, $view->pager_limit, $view->use_pager - 1, $mastercountquery, $masterargs);
+  }
+  else {
+    $result = db_query($masterquery, $masterargs);
+  }
+  $view->num_rows = db_num_rows($result);
+
+  // Part 3:  Replace the items array.
+  $newitems = array();
+  while ($row = db_fetch_object($result)) {
+    $newitems[] = $row;
+  } // while there are rows
+
+  $items = $newitems;
+} // function views_union_views_pre_view

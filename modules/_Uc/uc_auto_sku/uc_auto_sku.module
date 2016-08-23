@@ -1,0 +1,318 @@
+<?php
+// $Id: uc_auto_sku.module,v 0.4 2008/04/16 17:08:57 webmasterkai Exp $
+
+/**
+ * @file
+ * Allows hiding of the node title field and automatic title creation
+ */
+
+define('UC_AUTO_SKU_DISABLED', 0);
+define('UC_AUTO_SKU_ENABLED', 1);
+define('UC_AUTO_SKU_OPTIONAL', 2);
+
+/**
+ * Implementation of hook_perm()
+ */
+function uc_auto_sku_perm() {
+	return array('use PHP for sku patterns');
+}
+
+function uc_auto_sku_form_alter($form_id, &$form)
+{
+	if ('uc_product_settings_form' == $form_id)  { // isset($form['#node_type']) &&
+		uc_auto_sku_node_settings_form($form);
+	}else if ('uc_product_class_form' == $form_id)
+	{
+	   $field = isset($form['pcid']['#value'])? $form['pcid']['#value']: '';
+       $form['uc_auto_sku_enable'] = array(
+          '#type' => 'checkbox',
+          '#title' => t('Use own automatic SKU'),
+          '#weight' => -5,
+          '#default_value' => variable_get("rewrite_enable_$field", false),
+       );		
+	   uc_auto_sku_node_settings_form($form);	   
+	   $form['#submit']['uc_auto_sku_save_variable_product_classes'] = array();
+	   drupal_add_js(drupal_get_path('module', 'uc_auto_sku') .'/common.js');	    
+	}
+	else if (isset($form['#node']) && isset($form['#post']) && $form['#node']->type .'_node_form' == $form_id) {
+		//this is a node form
+		if (uc_auto_sku_get_setting($form['#node']->type) == UC_AUTO_SKU_ENABLED) {
+			// we will autogenerate the SKU later, just hide the title field in the meanwhile
+			$form['base']['model']['#value'] = uc_auto_sku_get_pattern($form['#node']->type);
+			$form['base']['model']['#type'] = 'value';
+			$form['base']['model']['#required'] = FALSE;
+		}
+		else if (uc_auto_sku_get_setting($form['#node']->type) == UC_AUTO_SKU_OPTIONAL) {
+			// we will make the title optional
+			$form['base']['model']['#required'] = FALSE;
+		}
+	}
+}
+
+function uc_auto_sku_save_variable_product_classes($form_id, $form_value)
+{
+	$field = $form_value['pcid'];
+
+	$rewrite_sku = isset($form_value['uc_auto_sku_enable']) && $form_value['uc_auto_sku_enable'];	
+    variable_set("rewrite_enable_$field", $rewrite_sku);   
+    
+	if (!$rewrite_sku)
+	{
+		variable_del("sku_$field");
+		variable_del("sku_pattern_$field");
+		variable_del("sku_php_$field");
+		return;
+	}
+	if ((isset($form_value["sku_$field"]) && !empty($form_value["sku_$field"])))	 
+	{	 	
+	 	variable_set("sku_$field", $form_value["sku_$field"]);
+	}
+	
+    if (isset($form_value["sku_pattern_$field"]) && !empty($form_value["sku_pattern_$field"]))   
+    {       
+        variable_set("sku_pattern_$field", $form_value["sku_pattern_$field"]);
+    }
+	
+    if (isset($form_value["sku_php_$field"]) && !empty($form_value["sku_php_$field"]))   
+    {       
+        variable_set("sku_php_$field", $form_value["sku_php_$field"]);
+    }
+    
+    
+
+    if ((isset($form_value["sku_product"]) && !empty($form_value["sku_product"])))     
+    {       
+        variable_set("sku_$field", $form_value["sku_product"]);
+    }
+    
+    if (isset($form_value["sku_pattern_product"]) && !empty($form_value["sku_pattern_product"]))   
+    {       
+        variable_set("sku_pattern_$field", $form_value["sku_pattern_product"]);
+    }
+    
+    if (isset($form_value["sku_php_product"]) && !empty($form_value["sku_php_product"]))   
+    {       
+        variable_set("sku_php_$field", $form_value["sku_php_product"]);
+    }    
+    
+}
+
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function uc_auto_sku_nodeapi(&$node, $op, $form = NULL, $a4 = NULL) {
+	if ($op == 'insert' || $op == 'update') 
+	{
+		if ((uc_auto_sku_get_setting($node->type) == UC_AUTO_SKU_ENABLED) || ((uc_auto_sku_get_setting($node->type) == UC_AUTO_SKU_OPTIONAL) && (empty($node->model) || (isset($_SESSION['uc_product_sku_on_validate']) && $_SESSION['uc_product_sku_on_validate'])))) 
+		{
+			if (isset($_SESSION['uc_product_sku_on_validate']))
+			{
+				unset($_SESSION['uc_product_sku_on_validate']);
+			};
+			uc_auto_sku_set($node);
+			$sql = "UPDATE {uc_products} SET model = '$node->model' WHERE nid = '$node->nid'";
+			db_query($sql);
+		}
+	}elseif($op == 'validate')
+	{
+		if ((uc_auto_sku_get_setting($node->type) == UC_AUTO_SKU_ENABLED) || ((uc_auto_sku_get_setting($node->type) == UC_AUTO_SKU_OPTIONAL) && empty($node->model))) 
+		{
+			if ($node->nid)
+			{
+				uc_auto_sku_set($node);		
+			}else{
+				$node->model = uc_auto_sku_get_pattern($node->type);
+				form_set_value($form['base']['model'], $node->model);
+				$_SESSION['uc_product_sku_on_validate'] = true;
+			}
+		}
+	}
+}
+
+
+/*
+ * Sets the automatically generated SKU for the node
+ */
+function uc_auto_sku_set(&$node) {
+	$types = node_get_types();
+	$pattern = uc_auto_sku_get_pattern($node->type);
+	if (trim($pattern)) {
+		$node->changed = time();
+		$node->model = _uc_auto_sku_patternprocessor($pattern, $node);
+	}
+	else if ($node->nid) {
+		$node->model = t('@type @node-id', array('@type' => $types[$node->type]->name, '@node-id' => $node->nid));
+	}
+	else {
+		$temp = db_next_id('{node}_nid');
+		$node->model = t('@type', array('@type' => $types[$node->type]->name, '@node-id' => $temp));
+	}
+
+	// warn, if the generated title is empty
+	if (!trim($node->model)  && !variable_get('sku_emptyok_'. $node->type, 0)) {
+		$message = t('Autogenerated SKU field is blank.');
+		if (user_access('administer nodes')) {
+			$message .= ' '. t('Perhaps you need to change the <a href="@url">configuration settings</a> for this content type.', array('@url' => 'admin/content/types/'. $node->type));
+		}
+	}
+
+}
+
+
+/**
+ * Helper function to generate SKU according to the PHP code.
+ * Right now its only a wrapper, but if this is to be expanded, here is the place to be.
+ * @return SKU string
+ */
+function _uc_auto_sku_patternprocessor($output, $node) {
+	if (module_exists('token')) {
+		$output = token_replace($output, 'node', $node);
+	}
+	if (uc_auto_sku_get_php_enable($node->type)) {
+		$output = drupal_eval($output);
+	}
+	if (uc_auto_sku_get_php_enable($node->type) || module_exists('token')) {
+		$output = preg_replace('/[\t\n\r\0\x0B]/', '', strip_tags($output));
+	}
+	return $output;
+}
+
+/**
+ * Helper function for hook_form_alter() renders the settings per node-type.
+ * @TODO: a re-evaluate PHP pattern on edit? option.
+ */
+function uc_auto_sku_node_settings_form(&$form) {
+	$field = (isset($form['pcid']['#value']) && !empty($form['pcid']['#value']))? $form['pcid']['#value'] : 'product';
+	if (isset($form['pcid']) && !isset($form['pcid']['#value']))
+	{
+		$sku_pattren = '';
+		$sku_field = 0;
+		$sku_php = '';
+	}else{
+        $sku_pattren = variable_get("sku_pattern_$field" , '');
+        $sku_field = variable_get('sku_'.$field,  UC_AUTO_SKU_DISABLED);
+        $sku_php = variable_get("sku_php_$field", '');		
+	}
+	
+	$form['uc_auto_sku'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Automatic sku generation'),
+    '#weight' => -5,
+    '#collapsible' =>TRUE,
+    '#collapsed' => TRUE,
+	'#attributes' => array('id' => 'uc-auto-sku'),	
+	);
+
+	$form['uc_auto_sku']["sku_$field"] = array(
+    '#type' => 'radios',
+    '#default_value' => $sku_field,
+    '#options' => array(
+	t('Disabled'),
+	t('Automatically generate SKU and hide SKU field'),
+	t('Automatically generate SKU if SKU field is left empty'),
+	),	
+	);
+
+	if (module_exists('token') || user_access('use PHP for sku patterns')) {
+
+		$description = t('Leave blank for using the per default generated SKU. Otherwise this string will be used as SKU.');
+		if (module_exists('token')) {
+			$description .= ' '. t('Use the syntax [token] if you wsku to insert a replacement pattern.');
+		}
+		$form['uc_auto_sku']["sku_pattern_$field"] = array(
+      '#type' => 'textarea',
+      '#title' => t('Pattern for SKU'),
+      '#description' => $description,
+      '#default_value' => $sku_pattren,
+		);
+	}
+
+	if (module_exists('token')) {
+		$form['uc_auto_sku']['token_help'] = array(
+      '#title' => t('Replacement patterns'),
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#description' => t('Prefer raw-text replacements for text to avoid problems with HTML entities!'),
+		);
+		$form['uc_auto_sku']['token_help']['help'] = array(
+      '#value' => theme('token_help', 'node'),
+		);
+	}
+	if (user_access('use PHP for sku patterns')) {
+		$form['uc_auto_sku']["sku_php_$field"] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Evaluate PHP in pattern.'),
+      '#description' => t('Put PHP code above that returns your string, but make sure you surround code in &lt;?php and ?&gt;'),
+      '#default_value' => $sku_php,
+		);
+	}
+	else {
+		// if user doesn't have PHP permission, their submission will reset PHP evaluation
+		$form['uc_auto_sku']['uc_auto_sku_php'] = array(
+      '#type' => 'value',
+      '#value' => 0,
+		);
+	}
+}
+
+/**
+ * Gets the auto sku setting associated with the given content type.
+ */
+function uc_auto_sku_get_setting($type) {
+	$own_parametr = 0;
+    $class_list = uc_auto_sku_get_class_list();
+    if (!in_array($type, $class_list)) return 0;	
+	if(variable_get("rewrite_enable_$type",false))
+	{
+	   $own_parametr = variable_get('sku_'.$type,  UC_AUTO_SKU_DISABLED);	
+	}else{
+		$own_parametr = variable_get('sku_product',  UC_AUTO_SKU_DISABLED);
+	}	
+	return $own_parametr;
+}
+
+function uc_auto_sku_get_pattern($type)
+{
+    $own_parametr = '';
+    $class_list = uc_auto_sku_get_class_list();
+    if (!in_array($type, $class_list)) return '';     
+    
+    if(variable_get("rewrite_enable_$type",false))
+    {
+       $own_parametr = variable_get('sku_pattern_'.$type,  '');   
+    }else{
+        $own_parametr = variable_get('sku_pattern_product',  '');
+    }   
+    return $own_parametr;	
+}
+
+function uc_auto_sku_get_php_enable($type)
+{
+    $own_parametr = '';
+    $class_list = uc_auto_sku_get_class_list();
+    if (!in_array($type, $class_list)) return 0;     
+    if(variable_get("rewrite_enable_$type",false))
+    {
+       $own_parametr = variable_get('sku_php_'.$type,  0);   
+    }else{
+        $own_parametr = variable_get('sku_php_product',  0);
+    }   
+    return $own_parametr;   
+}
+
+function uc_auto_sku_get_class_list()
+{
+  $temp = array();
+  $result = db_query("SELECT * FROM {uc_product_classes}");
+  $rows = array();
+  while ($class = db_fetch_object($result)) {
+    $temp[] = $class->pcid;
+  }
+  $temp[] = 'product';
+  return $temp;
+	
+}
+
+?>

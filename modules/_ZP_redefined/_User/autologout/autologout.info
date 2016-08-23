@@ -1,0 +1,9 @@
+; $Id: autologout.info,v 1.2 2006/09/16 00:11:55 karpuz Exp $
+name = autologout
+description = Adds automated timed logout
+
+; Information added by drupal.org packaging script on 2008-02-28
+version = "5.x-2.2"
+project = "autologout"
+datestamp = "1204178102"
+

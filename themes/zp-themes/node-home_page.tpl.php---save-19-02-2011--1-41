@@ -1,0 +1,191 @@
+<!-- <div class="test">home page tpl</div> -->
+
+
+<?php 
+
+
+
+// paths for my cart and order nodes
+
+//MY_CART_NODE, MY_CART_CHECKOUT_NODE, MY_CART_REVIEW_NODE, MY_CART_COMPLETE_NODE
+//MY_ORDER_HISTORY_NODE, MY_ORDER_REVIEW_NODE
+
+
+require_once('sites/all/modules/_ZP_modules/zp_node_paths_aliases/zp_node_paths_aliases.inc');
+
+//drupal_set_message("test cart path, MY_CART_NODE = " . MY_CART_NODE, 'error');
+
+
+
+
+/*
+if($_SESSION['messages'])
+ foreach($_SESSION['messages'] as $key => $values)
+ {
+   switch($key)
+    {
+	case 'error':
+		foreach($values as $value)
+		  print '<div class="message_error">' . $value . '</div>';
+		break;
+
+	case 'warning':
+        foreach($values as $value)
+       	  print '<div class="message_warning">' . $value . '</div>';
+		break;	
+
+	default:
+		foreach($values as $value)
+		  print '<div class="message_status">' . $value . '</div>';
+		break;	
+    }
+ }
+
+ */
+ 
+ 
+echo '<div class="title"><h1>Доставка продуктов <br />и других товаров к Вам <br />на дом и в офис</h1></div>';
+
+// uncomment to use of jcarousel
+
+echo '
+<div id="mycarousel" class="jcarousel-skin-tango">
+  <ul class="jcarousel-list jcarousel-list-horizontal">
+';
+ 
+ 	 for($i=0; $node->field_zp_reklama[$i]['view']; $i++) 
+ 		{ 
+		    	//print theme('imagecache', 'place_img_body', $node->field_place_img[$i]['filepath'], $node->field_place_img[$i]['alt'], $node->field_place_img[$i]['title']); //, $attributes); 
+		    	echo '<li class="jcarousel-item-' . ($i+1) . '"><img src="' . base_path() . $node->field_zp_reklama[$i]['filepath'] . '" alt="' . $node->field_zp_reklama[$i]['alt'] . '" /></li>';
+		}
+	
+
+ echo '
+ </ul>
+ <div class="jcarousel-control">
+ ';
+ 
+ 	 for($j=1; $j<=$i; $j++) 
+      echo '<a href="#">' . $j . '</a>';
+
+echo '      
+ </div>
+</div>
+';
+
+
+
+// Тизер / краткое описание службы доставки для первой страницы
+// текст содержится в ноде с заголовком "Анонс службы доставки для домашней страницы"
+
+ //if($anons = db_result(db_query("SELECT body from {node_revisions} WHERE title = '%s'", 'Анонс службы доставки для домашней страницы')))
+ //	echo '<div class="zp_anons">' . $anons . '</div>';
+
+ 
+echo  '<div class="zp_anons">' . $node->content['body']['#value'] . '</div>';
+
+global $user;
+if(!$user->uid)
+	echo '<div class="become_client home"><a href="http://www.zapokupkami.com/feedback/stat-nashim-klientom-prosto"><strong>Стать клиентом</strong> службы доставки <strong>"За Покупками!"</strong> очень просто!</a></div><br>';
+
+
+
+
+
+
+$view = views_get_view('blog_zp_view');
+if($view)
+{
+	echo '<div class="blog home">';
+	echo '<div class="title">' . 'Блог <span class="title2">/последние записи' . '</span></div>';
+	$limit = 3;
+	echo views_build_view('embed', $view, array(), FALSE, $limit);
+	
+	//print '<div class="read_more">' . l(t('Read more'), 'node/233', array('class' => 'blog_link')) . '</div>';
+	echo '<div class="read_more">' . l(t('Read more'), MY_ZP_BLOG_NODE, array('class' => 'blog_link')) . '</div>';
+	echo '</div>';
+}
+
+
+$view = views_get_view('news_view');
+if($view)
+{
+	echo '<div class="news home">';
+	echo '<div class="title">Новости <span class="title2">/последние</span></div>';
+	$limit = 2;
+	echo views_build_view('embed', $view, array(), FALSE, $limit);
+
+	//print '<div class="read_more">' . l(t('Read more'), 'node/238', array('class' => 'blog_link')) . '</div>';
+	echo '<div class="read_more">' . l(t('Read more'), MY_ZP_NEWS_NODE, array('class' => 'blog_link')) . '</div>';
+	echo '</div>';
+}
+
+
+
+
+
+/*
+
+echo '<div class="demo">';
+	
+	echo '<div id="resizable" class="ui-widget-content">';
+		echo '<h3 class="ui-widget-header">Resize larger / smaller</h3>';
+	echo '</div>';
+	
+echo '</div>'; 
+
+*/
+
+
+
+// uncomment to use of jcarousel
+jcarousel_add(); //------------------------------------------------------
+
+?>
+
+<script type="text/javascript">
+function mycarousel_initCallback(carousel)
+{
+	// jQuery('.jcarousel-control a').bind('click', function() {
+	jQuery('.jcarousel-control a').bind('mouseover', function() { 
+        carousel.scroll(jQuery.jcarousel.intval(jQuery(this).text()));
+        return false;
+    });
+	
+	
+    // Disable autoscrolling if the user clicks the prev or next button.
+    /*
+    carousel.buttonNext.bind('click', function() {
+        carousel.startAuto(0);
+    });
+
+    carousel.buttonPrev.bind('click', function() {
+        carousel.startAuto(0);
+    });
+    
+    */
+
+    // Pause autoscrolling if the user moves with the cursor over the clip.
+    carousel.clip.hover(function() {
+        carousel.stopAuto();
+    }, function() {
+        carousel.startAuto();
+    });
+    
+    
+};
+
+
+// Ride the carousel...
+jQuery(document).ready(function() {
+    jQuery('#mycarousel').jcarousel({
+        auto: 5,
+        wrap: 'last', //'both'
+        //wrap: 'circular',
+        //vertical: 'true',
+        scroll: 1,
+        initCallback: mycarousel_initCallback
+    });
+});
+
+</script>

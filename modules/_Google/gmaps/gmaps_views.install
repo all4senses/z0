@@ -1,0 +1,39 @@
+<?php
+// $Id: gmaps_views.install,v 1.1 2008/11/19 12:16:08 xmarket Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function gmaps_views_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {gmaps_views} (
+        vid int(10) unsigned NOT NULL default '0',
+        page int(10) unsigned NOT NULL default '0',
+        block int(10) unsigned NOT NULL default '0',
+        PRIMARY KEY (vid)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      break;
+
+    case 'pgsql':
+      db_query("CREATE TABLE {gmaps_views} (
+        vid int_unsigned NOT NULL default '0',
+        page int_unsigned NOT NULL default '0',
+        block int_unsigned NOT NULL default '0',
+        PRIMARY KEY (vid)
+      )");
+
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function gmaps_views_uninstall() {
+  global $conf;
+
+  db_query('DROP TABLE {gmaps_views}');
+}

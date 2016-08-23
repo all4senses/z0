@@ -1,0 +1,8 @@
+; $Id $
+name = Whizzywig
+description = "Enables the use of the Whizzywig WYSIWYG editor."
+; Information added by drupal.org packaging script on 2007-11-19
+version = "5.x-1.2"
+project = "whizzywig"
+datestamp = "1195477810"
+

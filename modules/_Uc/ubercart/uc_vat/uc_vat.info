@@ -1,0 +1,6 @@
+; $Id$
+name = Value Added Tax
+description = Define a line item to display V.A.T. included in cart items.
+dependencies = uc_store
+package = "Ubercart - core (optional)"
+

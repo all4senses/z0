@@ -1,0 +1,8 @@
+; $Id $
+name = "ZP create ZP tables"
+description = "Add necessary ZP tables to DB"
+package = ZP Modules
+
+version = "5.x-1.0"
+project = "zp_create_zptables"
+

@@ -1,0 +1,2021 @@
+<?php
+
+// $Id: gmaps.module,v 1.3 2009/02/24 16:42:16 xmarket Exp $
+
+/**
+ * @file
+ * Google Maps
+ */
+
+define('GMAPS_MI_TO_YD', 1760);
+define('GMAPS_YD_TO_FT', 3);
+define('GMAPS_FT_TO_IN', 12);
+define('GMAPS_MI_TO_M', 1609,344);
+
+/**
+* Implementation of hook_help().
+*/
+function gmaps_help($section = '') {
+
+  $output = '';
+
+  switch ($section) {
+    case 'admin/help#gmaps' :
+      $output = '<p>' . t("The core of the API integration. Allows you to configure maps, overlay handlers, icons and icon vocabularies.") . '</p>';
+      break;
+  }
+
+  return $output;
+}
+
+/**
+* Implementation of hook_perm().
+*/
+function gmaps_perm() {
+  return array('administer gmaps',
+    );
+}
+
+/**
+* Implementation of hook_enable().
+*/
+function gmaps_enable() {
+  $icon_path = file_create_path(variable_get('gmaps_icon_path', 'gmaps_icons'));
+  file_check_directory($icon_path, 1);
+}
+
+/**
+* Implementation of hook_menu().
+*/
+function gmaps_menu($may_cache) {
+  $items = array();
+  
+  $admin = user_access('administer gmaps');
+  
+  if ($may_cache) {
+    $items[] = array('path' => 'admin/settings/gmaps', 'title' => t('Google Maps Tools'), 'description' => t('Configure Google Maps API settings.'),
+      'callback' => 'drupal_get_form','callback arguments' => array('gmaps_settings'),
+      'access' => $admin);
+    $items[] = array('path' => 'admin/build/gmaps-map-config', 'title' => t('Map configurations'), 'description' => t('List, add, edit or delete map configurations.'),
+      'callback' => 'gmaps_map_config_overview', 'access' => $admin);
+    $items[] = array('path' => 'admin/build/gmaps-map-config/list', 'title' => t('List'),
+      'type' => MENU_DEFAULT_LOCAL_TASK, 'weight' => -10,
+    );
+    $items[] = array('path' => 'admin/build/gmaps-map-config/add', 'title' => t('Add map configuration'),
+      'callback' => 'gmaps_map_config_add', 'type' => MENU_LOCAL_TASK,
+    );
+    
+    $items[] = array('path' => 'admin/build/gmaps-icon-config', 'title' => t('Icon configurations'), 'description' => t('List, add, edit or delete marker icons'),
+      'callback' => 'gmaps_icon_config_overview', 'access' => $admin);
+    $items[] = array('path' => 'admin/build/gmaps-icon-config/list', 'title' => t('List'),
+      'type' => MENU_DEFAULT_LOCAL_TASK, 'weight' => -10,
+    );
+    $items[] = array('path' => 'admin/build/gmaps-icon-config/add', 'title' => t('Add marker icon'),
+      'callback' => 'gmaps_icon_config_add', 'type' => MENU_LOCAL_TASK,
+    );
+    if (variable_get('gmaps_debug_map_config', 0)) {
+      $items[] = array('path' => 'admin/help/gmaps-debug', 'title' => t('Debug geocoder result parser'),
+        'callback' => 'drupal_get_form', 'callback arguments' => array('gmaps_debug_geocoder_result_parser'),
+        'type' => MENU_CALLBACK,
+      );
+    }
+  } else {
+    if (arg(0) == 'admin' && arg(1) == 'build' && arg(2) == 'gmaps-map-config' && is_numeric(arg(3))) {
+      if ($config = gmaps_load_map_config(arg(3))) {
+        $items[] = array('path' => 'admin/build/gmaps-map-config/' . $config->mcid .'/edit',
+          'title' => t('Edit map configuration'),
+          'callback' => 'gmaps_map_config_edit', 'callback arguments' => array($config),
+          'type' => MENU_CALLBACK,
+        );
+        $items[] = array('path' => 'admin/build/gmaps-map-config/' . $config->mcid .'/delete',
+          'title' => t('Delete map configuration'),
+          'callback' => 'gmaps_map_config_delete', 'callback arguments' => array($config),
+          'type' => MENU_CALLBACK,
+        );
+      }
+    }
+    if (arg(0) == 'admin' && arg(1) == 'build' && arg(2) == 'gmaps-icon-config' && is_numeric(arg(3))) {
+      if ($config = gmaps_load_icon_config(arg(3))) {
+        $items[] = array('path' => 'admin/build/gmaps-icon-config/' . $config->icid .'/edit',
+          'title' => t('Edit icon configuration'),
+          'callback' => 'gmaps_icon_config_edit', 'callback arguments' => array($config),
+          'type' => MENU_CALLBACK,
+        );
+        $items[] = array('path' => 'admin/build/gmaps-icon-config/' . $config->icid .'/delete',
+          'title' => t('Delete icon configuration'),
+          'callback' => 'gmaps_icon_config_delete', 'callback arguments' => array($config),
+          'type' => MENU_CALLBACK,
+        );
+      }
+    }
+  }
+  
+  return $items;
+}
+
+/**
+ * Implementation of hook_elements().
+ */
+function gmaps_elements() {
+  $type['buttonbutton'] = array(
+    '#input' => TRUE,
+    '#name' => 'buttonbutton',
+    '#button_type' => 'button',
+    '#executes_submit_callback' => FALSE
+  );
+  $type['distance'] = array(
+    '#input' => TRUE,
+    '#process' => array('_gmaps_distance_expand' => array()),
+    '#validate' => array('_gmaps_distance_validate' => array()),
+  );
+  $type['address'] = array(
+    '#input' => TRUE,
+    '#process' => array('_gmaps_address_expand' => array()),
+    '#validate' => array('_gmaps_address_validate' => array()),
+    '#address_allowed_countries' => array(),
+    '#address_required_accuracy' => 0,
+  );
+  $type['latlon'] = array(
+    '#input' => TRUE,
+    '#process' => array('_gmaps_latlon_expand' => array()),
+    '#validate' => array('_gmaps_latlon_validate' => array()), 
+    '#use_map_config' => 0,
+  );
+  $type['gaddress'] = array(
+    '#input' => TRUE,
+    '#needs_validation' => TRUE,
+    '#process' => array('_gmaps_gaddress_expand' => array()),
+    '#address_allowed_countries' => array(),
+    '#address_required_accuracy' => 0,
+    '#use_map_config' => 0,
+  );
+
+  return $type;
+}
+
+/**
+ * Implementation of hook_file_download().
+ */
+function gmaps_file_download($file) {
+  if (user_access('access content') && strpos($file, variable_get('gmaps_icon_path', 'gmaps_icons')) === 0) {
+    $info = image_get_info(file_create_path($file));
+    return array('Content-type: '. $info['mime_type']);
+  }
+}
+
+/**
+ * Implementation of hook_gmaps_map_types().
+ * 
+ * Will be extended to support custom map types and map config based type configurations.
+ */
+function gmaps_gmaps_map_types($op) {
+  switch ($op) {
+    case 'types':
+      return array(
+        'earth' => array(
+          'name' => t('Earth map'),
+          'tiles' => array(
+            'G_NORMAL_MAP' => t('Normal map'),
+            'G_SATELLITE_MAP' => t('Satellite map'),
+            'G_HYBRID_MAP' => t('Hybrid map'),
+            'G_PHYSICAL_MAP' => t('Physical map'),
+          ),
+          'body' => array(
+            'a' => 6378137,
+            'b' => 6356752.3142,
+          ),
+          /**
+           * For custom types:
+           * 'js' => array(
+           *   'file' => '', //the path of the file to be added
+           *   'function' => '',//the nem of the function which will return the GMapType instance: fnc(arg = 'tile')
+           * ),
+           */
+        ),
+        'moon' => array(
+          'name' => t('Moon map'),
+          'tiles' => array(
+            'G_MOON_ELEVATION_MAP' => t('Moon elevation map'),
+            'G_MOON_VISIBLE_MAP' => t('Moon visible map'),
+          ),
+          'body' => array(
+            'a' => 1738140,
+            'b' => 1735970,
+          ),
+        ),
+        'mars' => array(
+          'name' => t('Mars map'),
+          'tiles' => array(
+            'G_MARS_ELEVATION_MAP' => t('Mars elevation map'),
+            'G_MARS_VISIBLE_MAP' => t('Mars visible map'),
+            'G_MARS_INFRARED_MAP' => t('Mars infrared map'),
+          ),
+          'body' => array(
+            'a' => 3396200,
+            'b' => 3376200,
+          ),
+        ),
+        'sky' => array(
+          'name' => t('Sky map'),
+          'tiles' => array(
+            'G_SKY_VISIBLE_MAP' => t('Sky visible map'),
+          ),
+        ),
+      );
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_gmaps_overlay_handlers().
+ * 
+ * Will be extended to support custom map types and map config based type configurations.
+ */
+function gmaps_gmaps_overlay_handlers($op, $config = NULL) {
+  switch($op) {
+    case 'handlers':
+      return array(
+        'marker' => array(
+          'name' => t('Marker handler'),
+          'handler' => 'gmaps_marker_overlay_handler',
+          'js' => array(
+            'filename' => drupal_get_path('module', 'gmaps') . '/misc/gmaps-marker.js',
+            'functionname' => 'GMaps.addMarkers',
+          ),
+        ),
+      ); 
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_keys_service().
+ */
+function gmaps_keys_service() {
+  if(!module_exists('gmap')) {
+    return array(
+      'gmaps' => array(
+        'name' => t('Google Maps API key'),
+      )
+    );
+  }
+}
+
+function _gmaps_distance_expand($element) {
+  if (!isset($element['#value']) || !is_array($element['#value'])) {
+    $element['#value'] =  array();
+  }
+
+  $element['#tree'] = TRUE;
+  
+  if (!isset($element['#disabled'])) {
+    $element['#disabled'] = FALSE;
+  }
+
+  $element['distance'] = array('#type' => 'textfield',
+    '#default_value' => $element['#value']['distance'],
+    '#size' => 16,
+    '#disabled' => $element['#disabled'],
+    '#required' => $element['#required'],
+  );
+  $element['unit'] = array('#type' => 'select',
+    '#default_value' => $element['#value']['unit'],
+    '#options' => gmaps_measurement_units(),
+    '#disabled' => $element['#disabled'],
+  );
+  return $element;
+}
+
+function _gmaps_distance_validate($element) {
+  if (!gmaps_is_distance_empty($element['#value'])) {
+    if (!is_numeric($element['#value']['distance']) || $element['#value']['distance'] < 0) {
+      form_error($element['distance'], t('The distance must be a positive number.'));
+    }
+  }
+}
+
+function gmaps_is_distance_empty($dist) {
+  return (empty($dist['distance']) && $dist['distance'] != '0');
+}
+
+function _gmaps_address_expand($element) {
+  static $labels = NULL;
+  static $details = NULL;
+
+  if (is_null($labels)) {
+    $details = array('adminarea' => t('Admin. area'),
+      'subadminarea' => t('Sub-admin. area'),
+      'locality' => t('Locality'),
+      'deplocality' => t('Dep. locality'),
+      'thoroughfare' => t('Street, number'),
+      'postalcode' => t('Postal code'),
+    );
+    $labels = array('country' => t('Country'));
+  }
+
+  if (!isset($element['#value']) || !is_array($element['#value'])) {
+    $element['#value'] =  array('country' => '',
+      'locality' => '',
+      'thoroughfare' => '',
+    );
+  }
+
+  $element['#tree'] = TRUE;
+  
+  if (!isset($element['#disabled'])) {
+    $element['#disabled'] = FALSE;
+  }
+  $countries = _gmaps_country_list();
+  if (!empty($element['#address_allowed_countries']) && is_array($element['#address_allowed_countries'])) {
+    $country_options = array('' => $countries['']);
+    foreach($element['#address_allowed_countries'] as $code) {
+      if (isset($countries[$code])) {
+        $country_options[$code] = $countries[$code];
+      }
+    }
+  } else {
+    $country_options = $countries;
+  }
+
+  $element['country'] = array('#type' => 'select',
+    '#title' => $labels['country'],
+    '#default_value' => $element['#value']['country'],
+    '#options' => $country_options,
+    '#disabled' => $element['#disabled'],
+    '#attributes' => array('class' => 'country'),
+  );
+  foreach ($details as $field => $title) {
+    $element[$field] = array('#type' => 'textfield',
+      '#title' => $title,
+      '#default_value' => $element['#value'][$field],
+      '#size' => 40,
+      '#disabled' => $element['#disabled'],
+      '#attributes' => array('class' => $field),
+    );
+  }
+  $element['postalcode']['#size'] = 8;
+  if ($element['#required']) {
+    $element['#address_required_accuracy'] = !empty($element['#address_required_accuracy']) ? $element['#address_required_accuracy'] : 1;
+  }
+  if (!empty($element['#address_required_accuracy'])) {
+    $element['#required'] = TRUE;
+    $element['country']['#required'] = TRUE;
+    $element['locality']['#required'] = ($element['#address_required_accuracy'] >= 2);
+    $element['thoroughfare']['#required'] = ($element['#address_required_accuracy'] == 3);
+  }
+
+  return $element;
+}
+
+function _gmaps_address_validate($element) {
+  $value = &$element['#value'];
+  if (!empty($value['locality']) && empty($value['country'])) {
+    form_error($element['country'], t('You need to set the country also.'));
+  }
+  if (!empty($value['deplocality']) && empty($value['locality'])) {
+    form_error($element['locality'], t('You need to set the city also.'));
+  }
+  if (!empty($value['postalcode']) && empty($value['locality'])) {
+    form_error($element['locality'], t('You need to set the city also.'));
+  }
+  if (!empty($value['adminarea']) && empty($value['country'])) {
+    form_error($element['country'], t('You need to set the country also.'));
+  }
+  if (!empty($value['subadminarea']) && empty($value['adminarea'])) {
+    form_error($element['adminarea'], t('You need to set the adninistrative area also.'));
+  }
+}
+
+function gmaps_is_address_empty($address) {
+  if (empty($address['country']) && empty($address['adminarea']) && empty($address['subadminarea']) && empty($address['locality']) && empty($address['deplocality']) && empty($address['thoroughfare']) && empty($address['postalcode'])) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+function _gmaps_latlon_expand($element) {
+  static $labels = NULL;
+
+  if (is_null($labels)) {
+    $labels = array(
+      'latitude' => t('Lat.'),
+      'longitude' => t('Lng.'),
+      'privacy' => t('Privacy'),
+      'add_marker' => t('You need to double click on the map to add coordinates.'),
+      'move_marker' => t('You can drag the marker to arrange the coordinates.'),
+    );
+    drupal_add_js(drupal_get_path('module', 'gmaps') . '/misc/gmaps-latlon-element.js');
+  }
+
+  if (!isset($element['#value']) || !is_array($element['#value'])) {
+    $element['#value'] = array();
+  }
+
+  $element['#tree'] = TRUE;
+  
+  if (!isset($element['#disabled'])) {
+    $element['#disabled'] = FALSE;
+  }
+
+  $element['latitude'] =  array('#type' => 'textfield',
+    '#title' => $labels['latitude'],
+    '#default_value' => $element['#value']['latitude'],
+    '#required' => $element['#required'],
+    '#disabled' => $element['#disabled'],
+    '#field_suffix' => '&deg;',
+    '#size' => 22,
+    '#maxlength' => 20,
+    '#prefix' => '<div class="latlon-coordinate-container">',
+  );
+  $element['longitude'] = $element['latitude'];
+  $element['longitude']['#title'] = $labels['longitude'];
+  $element['longitude']['#default_value'] = $element['#value']['longitude'];
+  $element['longitude']['#suffix'] = '</div>';
+  unset($element['longitude']['#prefix']);
+
+  $settings = array($element['#id'] => array());
+
+  if (!$element['#disabled'] && !empty($element['#use_map_config'])) {
+    $map = gmaps_get_map($element['#id'] . '-map', $element['#use_map_config']);
+    
+    if (is_object($map)) {
+      if (empty($element['#value'])) {
+        $map->help[] = $labels['add_marker'];
+      }
+      $map->help[] = $labels['move_marker'];
+      $map->config->marker_options['marker_manager'] = 0;
+      $map->config->methods['dragging'] = 1;
+      $map->config->methods['googlebar'] = 0;
+      $map->config->methods['doubleclickzoom'] = 0;
+      $map->config->methods['auto_center_zoom'] = 0;
+      $map->config->latitude = $element['#value']['latitude'];
+      $map->config->longitude = $element['#value']['longitude'];
+      $markerid = $element['#id'] . '-marker';
+      if ($element['#value']['latitude'] != '' && $element['#value']['longitude'] != '') {
+        $map->overlays['marker'][] = array(
+          'latitude' => $element['#value']['latitude'],
+          'longitude' => $element['#value']['longitude'],
+          'draggable' => TRUE,
+          'id' => $markerid,
+        );
+      }
+      gmaps_add_map($map);
+      $element['map'] = array('#value' => theme('gmaps_container', $map),
+        '#prefix' => '<div class="latlon-map-container">',
+        '#suffix' => '</div>',
+      );
+      $settings[$element['#id']] = array('containerId' => $map->container, 'markerId' => $markerid);
+    } else {
+      $element['map'] = array('#value' => theme('placeholder', $map));
+    }
+  }
+
+  drupal_add_js(array('gmapsLatlonElements' => $settings), 'setting');
+
+  return $element;
+}
+
+function _gmaps_latlon_validate($element) {
+  $value = &$element['#value'];
+  if (gmaps_is_latlon_empty($value)) {
+    return;
+  }
+  if (!is_numeric($value['latitude']) || $value['latitude'] < -90 || $value['latitude'] > 90) {
+    form_error($element['latitude'], t('The latitude must be a number between -90 and 90.'));
+  }
+  if (!is_numeric($value['longitude']) || $value['longitude'] < -180 || $value['longitude'] > 180) {
+    form_error($element['longitude'], t('The longitude must be a number between -180 and 180.'));
+  }
+}
+
+function gmaps_is_latlon_empty($latlon) {
+  if ((empty($latlon['latitude']) && $latlon['latitude'] != '0') || (empty($latlon['longitude']) && $latlon['longitude'] != '0')) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+function _gmaps_gaddress_expand($element) {
+  static $labels = NULL;
+
+  $result = gmaps_add_maps_api();
+  if ($result !== TRUE) {
+    $element['error'] = array(
+      '#type' => 'item',
+      '#value' => theme('placeholder', $result),
+    );
+    return $element;
+  }
+
+  if (is_null($labels)) {
+    $labels = array('search' => t('Search'));
+    drupal_add_js(drupal_get_path('module', 'gmaps') . '/misc/gmaps-gaddress-element.js');
+  }
+
+  if (!isset($element['#value']) || !is_array($element['#value'])) {
+    $element['#value'] = array('address' => array(), 'coordinates' => array());
+  }
+
+  $element['#tree'] = TRUE;
+  
+  if (!isset($element['disabled'])) {
+    $element['disabled'] = FALSE;
+  }
+
+  drupal_add_js(array(
+    'gmapsGAddressElements' => array($element['#id'] => array()),
+    'gmapsGeocoderResultLevels' => _gmaps_geocoder_accuracy_levels(),
+  ), 'setting');
+
+  $element['query'] = array('#type' => 'textfield',
+    '#size' => 50,
+    '#prefix' => '<div class="gaddress-search-container">',
+    '#disabled' => $element['#disabled'],
+  );
+  if (isset($element['#query_value'])) {
+    $element['query']['#default_value'] = $element['#query_value'];
+  }
+  $element['search'] = array('#type' => 'buttonbutton',
+    '#default_value' => $labels['search'],
+    '#suffix' => '</div>',
+    '#disabled' => $element['#disabled'],
+  );
+  $element['restrictcountry'] = array('#type' => 'checkbox',
+    '#title' => t('Restrict search to selected country'),
+    '#default_value' => 0,
+    '#prefix' => '<div class="gaddress-search-options-container">',
+    '#suffix' => '</div>',
+    '#disabled' => $element['#disabled'],
+    '#description' => t('Automatically adds the country code to the query.'),
+  );
+  
+  $element['address'] = array('#type' => 'address',
+    '#default_value' => $element['#value']['address'],
+    '#disabled' => $element['#disabled'],
+    '#required' => $element['#required'],
+  );
+  if (isset($element['#address_allowed_countries'])) {
+    $element['address']['#address_allowed_countries'] = $element['#address_allowed_countries'];
+  }
+  if (isset($element['#address_required_accuracy'])) {
+    $element['address']['#address_required_accuracy'] = $element['#address_required_accuracy'];
+  }
+
+  $element['coordinates'] = array('#type' => 'latlon',
+    '#default_value' => $element['#value']['coordinates'],
+    '#disabled' => $element['#disabled'],
+    '#required' => $element['#required'],
+  );
+  if (isset($element['#use_map_config'])) {
+    $element['coordinates']['#use_map_config'] = $element['#use_map_config'];
+  }
+  
+  if (isset($element['#debug_geocoder_result']) && $element['#debug_geocoder_result']) {
+    $element['debugarea'] = array('#type' => 'textarea', '#title' => t('Debug'));
+  }
+
+  return $element;
+}
+
+function gmaps_is_gaddress_empty($gaddress) {
+  if (gmaps_is_address_empty($gaddress['address']) && gmaps_is_latlon_empty($gaddress['coordinates'])) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+function gmaps_measurement_units() {
+  static $units = NULL;
+  
+  if (is_null($units)) {
+    $units = array('km' => t('kilometers'),
+      'm' => t('meters'),
+      'cm' => t('centimeters'),
+      'mi' => t('miles'),
+      'yd' => t('yards'),
+      'ft' => t('feet'),
+      'in' => t('inches'),
+    );
+  }
+  
+  return $units;
+}
+
+function _gmaps_country_list() {
+  $countries = array('' => t('Unknown country'));
+  foreach (countries_api_get_list() as $key => $country) {
+    $countries[$country['iso2']] = $country['name'];
+  }
+  return $countries;
+}
+
+function _gmaps_address_accuracy_levels() {
+  static $levels = NULL;
+  
+  if (is_null($levels)) {
+    $levels = array(t('Any location'),
+      t('Country level'),
+      t('Town (city, village) level'),
+      t('Street, address level'),
+    );
+  }
+  
+  return $levels;
+}
+
+function _gmaps_geocoder_accuracy_levels() {
+  static $levels = NULL;
+  
+  if (is_null($levels)) {
+    $levels = array(t('Unknown'),
+      t('Country'),
+      t('Region'),
+      t('Sub-region'),
+      t('Town'),
+      t('Zip code'),
+      t('Street'),
+      t('Intersection'),
+      t('Address'),
+      t('Premise'),
+    );
+  }
+  
+  return $levels;
+}
+
+function gmaps_get_map_types($op = 'types', $config = NULL, $reset = FALSE) {
+  static $_map_types, $_map_names;
+
+  if ($reset || !isset($_map_types)) {
+    foreach (module_implements('gmaps_map_types') as $module) {
+      $function = $module .'_gmaps_map_types';
+      $result = $function('types');
+      if (isset($result)) {
+        foreach($result as $key => $info) {
+          $info['type'] = $key;
+          $info['module'] = $module;
+          $_map_types[$key] = (object)$info;
+          $_map_names[$key] = $info['name'];
+        }
+      }
+    }
+
+    asort($_map_names);
+  }
+
+  if ($config) {
+    if (is_array($config)) {
+      $type = $config['type'];
+    }
+    elseif (is_object($config)) {
+      $type = $config->type;
+    }
+    elseif (is_string($config)) {
+      $type = $config;
+    }
+    if (!isset($_map_types[$type])) {
+      return FALSE;
+    }
+  }
+  switch ($op) {
+    case 'types':
+      return $_map_types;
+    case 'type':
+      return $_map_types[$type];
+    case 'module':
+      return $_map_types[$type]->module;
+    case 'names':
+      return $_map_names;
+    case 'name':
+      return $_map_names[$type];
+  }
+}
+
+function gmaps_get_handler_types($op = 'types', $handler = NULL, $reset = FALSE) {
+  static $_handler_types, $_handler_names;
+
+  if ($reset || !isset($_handler_types)) {
+    foreach (module_implements('gmaps_overlay_handlers') as $module) {
+      $function = $module .'_gmaps_overlay_handlers';
+      $result = $function('handlers');
+      if (isset($result)) {
+        foreach($result as $key => $info) {
+          $info['type'] = $key;
+          $info['module'] = $module;
+          $_handler_types[$key] = (object)$info;
+          $_handler_names[$key] = $info['name'];
+        }
+      }
+    }
+
+    asort($_handler_names);
+  }
+
+  if ($handler) {
+    if (is_array($handler)) {
+      $type = $handler['type'];
+    }
+    elseif (is_object($handler)) {
+      $type = $handler->type;
+    }
+    elseif (is_string($handler)) {
+      $type = $handler;
+    }
+    if (!isset($_handler_types[$type])) {
+      return FALSE;
+    }
+  }
+  switch ($op) {
+    case 'types':
+      return $_handler_types;
+    case 'type':
+      return $_handler_types[$type];
+    case 'module':
+      return $_handler_types[$type]->module;
+    case 'names':
+      return $_handler_names;
+    case 'name':
+      return $_handler_names[$type];
+  }
+}
+
+function gmaps_marker_overlay_handler(&$map) {
+  if (isset($map->overlays['marker'])) {
+    gmaps_add_icon($map->config->marker_options['default_icon']);
+
+    foreach ($map->overlays['marker'] as $i => $marker) {
+      if ($result = gmaps_marker_overlay_process($marker)) {
+        $map->overlays['marker'][$i] = $result;
+      } else {
+        unset($map->overlays['marker'][$i]);
+      }
+    }
+  }
+}
+
+function gmaps_marker_overlay_process($marker) {
+  if (isset($marker['latitude']) && isset($marker['longitude'])) {
+    if (isset($marker['icon'])) {
+      gmaps_add_icon($marker['icon']);
+    }
+    if (isset($marker['title'])) {
+      $marker['title'] = check_plain($marker['title']);
+    }
+    if (isset($marker['url']) && !empty($marker['url'])) {
+      $marker['url'] = check_url(url($marker['url'], NULL, NULL, TRUE));
+    }
+    if (isset($marker['iw_autocomplete']) && !empty($marker['iw_autocomplete'])) {
+      $marker['iw_autocomplete'] = check_url(url($marker['iw_autocomplete'], NULL, NULL, TRUE));
+    }
+    
+    return $marker;
+  }
+  
+  return FALSE;
+}
+
+/**
+ * Loads a map configuration.
+ */
+function gmaps_load_map_config($mcid) {
+  $result = db_query('SELECT * FROM {gmaps_map_config} WHERE mcid = %d', $mcid);
+  
+  if (db_num_rows($result)) {
+    $config = db_fetch_object($result);
+    $config->name = t($config->name);
+    $config->map_options = unserialize($config->map_options);
+    $config->googlebar_options = unserialize($config->googlebar_options);
+    $config->allowed_tiles = unserialize($config->allowed_tiles);
+    $config->methods = unserialize($config->methods);
+    $config->marker_options = unserialize($config->marker_options);
+    $config->marker_manager_options = unserialize($config->marker_manager_options);
+    $config->center = array();
+    $config->center['latitude'] = $config->latitude;
+    $config->center['longitude'] = $config->longitude;
+    unset($config->latitude, $config->longitude);
+    //TODO:
+    /**
+     * hook_gmaps_map_types('load', $mcid);
+     * hook_gmaps_overlay_handlers('load', $mcid);
+     */
+    return $config;
+  }
+  
+  return FALSE;
+}
+
+function _gmaps_get_builtin_icon_info($key) {
+  include_once(drupal_get_path('module', 'gmaps') . '/includes/gmaps-builtin-icons.inc');
+  $icons = _gmaps_builtin_icons();
+  
+  foreach($icons as $group => $items) {
+    foreach($items as $i => $info) {
+      if ($i == $key) {
+        return $info;
+      }
+    }
+  }
+  
+  return array();
+}
+
+/**
+ * Loads an icon configuration.
+ */
+function gmaps_load_icon_config($icid) {
+  $result = db_query('SELECT * FROM {gmaps_icon_config} WHERE icid = %d', $icid);
+  
+  if (db_num_rows($result)) {
+    $config = db_fetch_object($result);
+    $config->name = t($config->name);
+    return $config;
+  }
+  
+  return FALSE;
+}
+
+function _gmaps_get_prepared_icon_config($icid) {
+  $config = gmaps_load_icon_config($icid);
+  
+  if ($config) {
+    if ($config->type == 'builtin') {
+      $info = _gmaps_get_builtin_icon_info($config->builtinid);
+      $info['name'] = $config->name;
+      $info['type'] = 'builtin';
+      $config = (object)$info;
+    }
+    else if ($config->type == 'factory') {
+      $fields = array('shadow', 'shadow_width', 'shadow_height', 'iconanchor_x', 'iconanchor_y', 'iwanchor_x', 'iwanchor_y', 'printshadow',
+        'imagemap', 'maxheight', 'dcimage', 'dc_width', 'dc_height', 'dcanchor_x', 'dcanchor_y');
+      foreach($fields as $field) {
+        unset($config->$field);
+      }
+    }
+    $config->image =  (url($config->image) == $config->image) ? $config->image : (base_path() . $config->image);
+    
+    //$config->image = file_create_url($config->image);
+    $fields = array('shadow', 'printimage', 'mozprintimage', 'printshadow', 'transparent', 'dcimage');
+    foreach($fields as $field) {
+      if (isset($config->$field) && !empty($config->$field)) {
+        $config->$field = url($config->$field);
+      }
+    }
+    unset($config->icid, $config->builtinid, $config->primarycolor, $config->strokecolor, $config->cornercolor);
+    return $config;
+  }
+  
+  return FALSE;
+}
+
+function gmaps_get_map_configs($type = NULL) {
+  $sql = 'SELECT mcid FROM {gmaps_map_config} mc';
+  $args = array();
+  $configs = array();
+  if (!empty($type)) {
+    $sql .= " WHERE mc.type = '%s'";
+    $args[] = $type;
+  }
+  $result = db_query($sql . ' ORDER BY mc.name ASC', $args);
+  while ($conf = db_fetch_object($result)) {
+    $configs[] = gmaps_load_map_config($conf->mcid);
+  }
+  
+  return $configs;
+}
+
+/**
+ * Helper function which returns map configs ready to use in select elements.
+ * If $type is null, than the list is groupped by map type. 
+ */
+function _gmaps_get_map_config_options($type = NULL) {
+  $configs = gmaps_get_map_configs($type);
+  $options = array(0 => t('Disabled'));
+  
+  if ($configs) {
+    if (is_null($type)) {
+      $types = gmaps_get_map_types('names');
+      foreach($configs as $obj) {
+        $options[$types[$obj->type]][$obj->mcid] = check_plain($obj->name);
+      }
+      ksort($options);
+    } else {
+      foreach($configs as $obj) {
+        $options[$obj->mcid] = check_plain($obj->name);
+      }
+    }
+  }
+  
+  return $options;
+}
+
+function gmaps_get_icon_configs() {
+  $configs = array();
+  $result = db_query('SELECT ic.icid, ic.* FROM {gmaps_icon_config} ic ORDER BY ic.name ASC');
+  while ($conf = db_fetch_object($result)) {
+    $configs[$conf->icid] = $conf;
+  }
+  
+  return $configs;
+}
+
+function _gmaps_get_icon_config_options() {
+  $configs = gmaps_get_icon_configs();
+  $options = array('i' => t('Inherited'), 0 => t('API default'));
+  
+  if ($configs) {
+    foreach($configs as $id => $obj) {
+      $options[$id] = check_plain($obj->name);
+    }
+  }
+  
+  return $options;
+}
+
+function gmaps_map_config_save($config) {
+  $config = (object)$config;
+  
+  $config->map_options = serialize($config->map_options);
+  $config->googlebar_options = serialize($config->googlebar_options);
+  $config->allowed_tiles = serialize($config->allowed_tiles);
+  $config->methods = serialize($config->methods);
+  $config->marker_options = serialize($config->marker_options);
+  $config->marker_manager_options = serialize($config->marker_manager_options);
+
+  if (!isset($config->mcid)) {
+    $config->mcid = db_next_id('{gmaps_map_config}_mcid');
+    
+    db_query("INSERT INTO {gmaps_map_config} (mcid, name, type, map_options, googlebar_options, height, width," .
+      "latitude, longitude, default_zoom, allowed_tiles, default_tile, methods, map_control, type_control, scale_control, overview_control, type_control_shortnames," .
+      "display_help, marker_options, marker_manager_options)" .
+      " VALUES (%d, '%s', '%s', '%s', '%s', %d, %d, %f, %f, %d, '%s', '%s', '%s', %d, %d, %d, %d, %d, %d, '%s', '%s')",
+      $config->mcid, $config->name, $config->type, $config->map_options, $config->googlebar_options,
+      $config->height, $config->width, $config->center['latitude'], $config->center['longitude'], $config->default_zoom, $config->allowed_tiles, $config->default_tile,
+      $config->methods, $config->map_control, $config->type_control, $config->scale_control, $config->overview_control, $config->type_control_shortnames,
+      $config->display_help, $config->marker_options, $config->marker_manager_options);
+  }
+  else {
+    db_query("UPDATE {gmaps_map_config} SET name = '%s', type = '%s', map_options = '%s', googlebar_options = '%s'," .
+      "height = %d, width = %d, latitude = %f, longitude = %f, default_zoom = %d, allowed_tiles = '%s', default_tile = '%s'," .
+      "methods = '%s', map_control = %d, type_control = %d, scale_control = %d, overview_control = %d, type_control_shortnames = %d," .
+      "display_help = %d, marker_options = '%s', marker_manager_options = '%s' WHERE mcid = %d",
+      $config->name, $config->type, $config->map_options, $config->googlebar_options,
+      $config->height, $config->width, $config->center['latitude'], $config->center['longitude'], $config->default_zoom, $config->allowed_tiles, $config->default_tile,
+      $config->methods, $config->map_control, $config->type_control, $config->scale_control, $config->overview_control, $config->type_control_shortnames,
+      $config->display_help, $config->marker_options, $config->marker_manager_options, $config->mcid);
+  }
+  
+  return gmaps_load_map_config($config->mcid);
+}
+
+function _gmaps_get_api_key() {
+  if (module_exists('keys_api')) {
+    if (module_exists('gmap')) {
+      $key = keys_api_get_key('gmap', $_SERVER['HTTP_HOST']);
+    } else {
+      $key = keys_api_get_key('gmaps', $_SERVER['HTTP_HOST']);
+    }
+  } else {
+    $key = variable_get('gmaps_api_key', '');
+  }
+  
+  return $key;
+}
+
+/**
+ * Constructs a map object. Returns an error message if no Maps API key configured or the requested configuration doesn't exist.
+ */
+function gmaps_get_map($container, $config) {
+  static $api_key = NULL; 
+  
+  if (is_null($api_key)) {
+    $api_key = _gmaps_get_api_key();
+  }
+  if (empty($api_key)) {
+    return t('No Google Maps API key available.');
+  }
+
+  if (!is_object($config)) {
+    $config = gmaps_load_map_config($config);
+  }
+  
+  if (!$config) {
+    return t('The requested configuration does not exist.');
+  }
+
+  $map = array(
+    'container' => $container,
+    'config' => $config,
+    'help' => array(),
+    'overlays' => array(),
+  );
+  
+  return (object)$map;
+}
+
+/**
+ * Helper function to merge overlays.
+ */
+function _gmaps_add_map_overlays(&$map, $overlays) {
+  foreach ($overlays as $type => $content) {
+    if (isset($map->overlays[$type])) {
+      $map->overlays[$type] = array_merge($map->overlays[$type], $content);
+    } else {
+      $map->overlays[$type] = $content;
+    }
+  }
+}
+
+function gmaps_add_icon($icid) {
+  static $added_icons = array();
+  
+  if ($icid > 0 && !isset($added_icons[$icid])) {
+    $icons = new stdClass();
+    $icons->$icid = _gmaps_get_prepared_icon_config($icid);
+    drupal_add_js(array('gmaps' => array('icons' => $icons)), 'setting');
+    $added_icons[$icid] = 1;
+  }
+
+}
+
+function gmaps_add_maps_api() {
+  static $api = FALSE;
+
+  if (!$api) {
+    $api_key = _gmaps_get_api_key();
+    if (empty($api_key)) {
+      return t('No Google Maps API key available.');
+    }
+    drupal_set_html_head('<script src="http://maps.google.com/maps?file=api&v=2&key=' . $api_key . '" type="text/javascript"></script>');
+    $api = TRUE;
+  }
+  
+  return TRUE;
+}
+/**
+ * Adds a fully qualified map to the current page.
+ */
+function gmaps_add_map(&$map) {
+  static $added_handlers = array();
+  static $api = FALSE;
+  
+  if (!$api) {
+    $result = gmaps_add_maps_api();
+    if ($result !== TRUE) {
+      return $result;
+    }
+    drupal_add_js(drupal_get_path('module', 'gmaps') . '/misc/gmaps.js');
+    $api_settings = array('gmaps' => array(
+      'unsupportedBrowser' => t('This browser is not supported by the Google Maps API.'),
+      'contentLoaderIcon' => theme('gmaps_content_loader_icon'),
+    ));
+    drupal_add_js($api_settings, 'setting');
+    $api = TRUE;
+  }
+  
+  $handlers = gmaps_get_handler_types();
+
+  $settings = array('maps' => array($map->container => array('config' => (array)$map->config)));
+  
+  foreach($handlers as $type => $info) {
+    if (isset($info->handler) && function_exists($info->handler)) {
+      $function = $info->handler;
+      $function($map);
+    }
+  }
+
+  foreach ((array)$map->overlays as $type => $content) {
+    if (count($content)) {
+      $settings['maps'][$map->container]['overlays'][$type] = $content;
+      if (!isset($added_handlers[$type])) {
+        drupal_add_js($handlers[$type]->js['filename']);
+        $settings['handlers'][$type] = $handlers[$type]->js['functionname'];
+        $added_handlers[$type] = 1;
+      }
+    }
+  }
+
+  drupal_add_js(array('gmaps' => $settings), 'setting');
+
+  return NULL;
+}
+
+function gmaps_settings() {
+  $form['gmaps'] = array('#type' => 'fieldset',
+    '#title' => t('Core settings'),
+    '#weight' => -20,
+  );
+  if (module_exists('keys_api')) {
+    $self = TRUE;
+    if (module_exists('gmap')) {
+      $key = keys_api_get_key('gmap', $_SERVER['HTTP_HOST']);
+      $self = FALSE;
+    } else {
+      $key = keys_api_get_key('gmaps', $_SERVER['HTTP_HOST']);
+    }
+    if(strlen($key)) {
+      if ($self) {
+        $form['gmaps']['gmaps_api_key'] = array('#value' => t('Google Maps Tools currently using the API key set via keys_api.'));
+      } else {
+        $form['gmaps']['gmaps_api_key'] = array('#value' => t('Google Maps Tools currently using the API key set for the GMap module via keys_api. You should redefine the key at !keys_api for this module if you disable the GMap one.', array('!keys_api' => l('Keys API', 'admin/settings/keys'))));
+      }
+    } else {
+      $form['gmaps']['gmaps_api_key'] = array('#value' => '<div class="error">'. $_SERVER['HTTP_HOST'] .t('Please define a Google Maps API Key in !keys_api config.', array('!keys_api' => l('Keys API', 'admin/settings/keys'))) .'</div>');
+    }
+  } else {
+    $form['gmaps']['gmaps_api_key'] = array('#type' => 'textfield',
+      '#title' => t('Google MAPS API key'),
+      '#default_value' => variable_get('gmaps_api_key', ''),
+      '#required' => TRUE,
+    );
+  }
+
+  $icon_path = file_create_path(variable_get('gmaps_icon_path', 'gmaps_icons'));
+  file_check_directory($icon_path, 1, 'gmaps_icon_path');
+
+  $form['gmaps']['gmaps_icon_path'] = array('#type' => 'textfield',
+    '#title' => t('Icon path'),
+    '#default_value' => variable_get('gmaps_icon_path', 'gmaps_icons'),
+    '#required' => TRUE,
+  );
+
+  $form['gmaps_debug'] = array('#type' => 'fieldset',
+    '#title' => t('Debugging'),
+    '#weight' => -1,
+  );
+  $form['gmaps_debug']['gmaps_debug_map_config'] = array('#type' => 'select',
+    '#title' => t('Debug map configuration'),
+    '#default_value' => variable_get('gmaps_debug_map_config', 0),
+    '#options' => _gmaps_get_map_config_options('earth'),
+    '#description' => t('If you select a valid configuration, you can test the geocoder result parser at !link', array('!link' => l('Debug geocoder result parser', 'admin/help/gmaps-debug'))),
+  );
+
+  return system_settings_form($form);
+}
+
+function gmaps_map_config_overview() {
+  $types = gmaps_get_map_types();
+
+  $header = array(
+    array('data' => t('Name'), 'field' => 'mc.name', 'sort' => 'asc'),
+    array('data' => t('Type'), 'field' => 'mc.type'),
+    t('Allowed tiles'),
+    array('data' => t('Operations'), 'colspan' => '2')
+  );
+
+  $rows = array();
+  $path = 'admin/build/gmaps-map-config/';
+
+  $result = pager_query('SELECT mc.mcid, mc.name, mc.type, mc.allowed_tiles FROM {gmaps_map_config} mc' . tablesort_sql($header), 25);
+  while ($rec = db_fetch_object($result)) {
+    $type_url_str = str_replace('_', '-', $rec->type);
+
+    $allowed_tiles = array();
+    $rec->allowed_tiles = unserialize($rec->allowed_tiles);
+    foreach ($types as $type => $info) {
+      $allowed = array_intersect_key($info->tiles, array_flip($rec->allowed_tiles));
+      if (!empty($allowed)) {
+        $allowed_tiles = theme('item_list', $allowed);
+        break;
+      }
+    }
+    $row = array(
+      array('data' => l($rec->name, $path . $rec->mcid)),
+      array('data' => l($types[$rec->type]->name, $path . 'add/' . $type_url_str)),
+      array('data' => $allowed_tiles),
+      array('data' => l(t('edit'), $path . $rec->mcid .'/edit')),
+      array('data' => l(t('delete'), $path . $rec->mcid .'/delete'))
+    );
+    $rows[] = $row;
+  }
+
+  if (empty($rows)) {
+    $rows[] = array(array('data' => t('No map configurations available.'), 'colspan' => '5', 'class' => 'message'));
+  }
+
+  return theme('table', $header, $rows) . theme('pager', NULL, 25, 0);
+}
+
+function gmaps_map_config_add($type = NULL) {
+  
+  $map_types = gmaps_get_map_types();
+  if (is_null($type) || !isset($map_types[$type])) {
+    $items = array();
+    foreach($map_types as $key => $info) {
+      $items[] = l($info->name, 'admin/build/gmaps-map-config/add/' . $key);
+    }
+    return theme('item_list', $items, t('Please select a map type'));
+  } else {
+    include_once(drupal_get_path('module', 'gmaps') . '/includes/gmaps-admin.inc');
+    $config = (object)array(
+      'type' => $type,
+      'api_version' => 'c',
+      'height' => 300,
+      'width' => 0,
+      'center' => array(
+        'latitude' => 0,
+        'longitude' => 0,
+      ),
+      'default_zoom' => 10,
+      'allowed_tiles' => array_keys($map_types[$type]->tiles),
+      'default_tile' => key($map_types[$type]->tiles),
+      'methods' => array('dragging' => 1, 'infowindow' => 1, 'doubleclickzoom' => 0, 'continuouszoom' => 0, 'scrollwheelzoom' => 0, 'googlebar' => 1, 'auto_center_zoom' => 1, 'keyboardhandler' => 0),
+      'map_control' => 1,
+      'type_control' => 0,
+      'scale_control' => 0,
+      'overview_control' => 0,
+      'type_control_shortnames' => 0,
+      'display_help' => 1,
+      'googlebar_options' => array(
+        'showonload' => 1,
+        'linktarget' => 'G_GOOGLEBAR_LINK_TARGET_BLANK',
+        'resultlist' => 'G_GOOGLEBAR_RESULT_LIST_INLINE',
+        'suppress_selection' => 1,
+        'suppress_zoom' => 1,
+      ),
+      'marker_options' => array(
+        'default_icon' => 0,
+        'delayed_iw_content' => 1,
+        'linktarget' => '_top',
+        'iw_maxwidth' => 400,
+        'iw_nocloseonclick' => 1,
+        'marker_manager' => 1,
+      ),
+      'marker_manager_options' => array(
+        'borderpadding' => 10,
+        'maxzoom' => 0,
+        'trackmarkers' => 0,
+      ),
+    );
+    return drupal_get_form('_gmaps_map_config_form', $config);
+  }
+}
+
+function gmaps_map_config_edit($config) {
+  include_once(drupal_get_path('module', 'gmaps') . '/includes/gmaps-admin.inc');
+  return drupal_get_form('_gmaps_map_config_form', $config);
+}
+
+function gmaps_map_config_delete($config) {
+  $refs = module_implements('gmaps_config_reference');
+  if (count($refs)) {
+  	$links = array();
+    foreach ($refs as $module) {
+      if ($result = module_invoke($module, 'gmaps_config_reference', 'map', $config)) {
+        $links = array_merge_recursive($links, $result);
+      }
+    }
+    if (count($links)) {
+      $output = '<p>'. t('Unable to delete this map configuration because of the following references. Remove them if you really want to delete the configuration.') .'</p>';
+      foreach($links as $group => $items) {
+        $output .= '<p>'. theme('item_list', $items, $group) .'</p>';
+      }
+      $output .= '<p>'. l(t('Cancel'), 'admin/build/gmaps-map-config') .'</p>';
+      return $output;
+    }
+  }
+
+  include_once(drupal_get_path('module', 'gmaps') . '/includes/gmaps-admin.inc');
+  return drupal_get_form('_gmaps_map_config_delete_form', $config);
+}
+
+function gmaps_gmaps_config_reference($type, $config) {
+	switch($type) {
+		case 'icon':
+            $refs = array();
+            foreach(gmaps_get_map_configs() as $conf) {
+            	if ($conf->marker_options['default_icon'] == $config->icid) {
+            		$refs[] = l($conf->name, 'admin/build/gmaps-map-config/'. $conf->mcid .'/edit', array(), drupal_get_destination());
+            	}
+            }
+            if (count($refs)) {
+              return array(t('GMaps - map configuration references') => $refs);
+            }
+            break;
+	}
+}
+
+function _gmaps_get_icon_types() {
+  return array(
+    'builtin' => t('Built-in icon'),
+    'factory' => t('Factory icon'),
+    /*'custom' => t('Custom icon'),*///TODO: ernable custom config
+  );
+}
+
+function gmaps_icon_config_overview() {
+  $types = _gmaps_get_icon_types();
+  $header = array(
+    array('data' => t('Name'), 'field' => 'ic.name', 'sort' => 'asc'),
+    array('data' => t('Type'), 'field' => 'ic.type'),
+    t('Size'),
+    t('Preview'),
+    array('data' => t('Operations'), 'colspan' => '2')
+  );
+
+  $rows = array();
+  $path = 'admin/build/gmaps-icon-config/';
+
+  $result = pager_query('SELECT ic.icid, ic.name, ic.type, ic.image, ic.icon_width, ic.icon_height FROM {gmaps_icon_config} ic' . tablesort_sql($header), 25);
+  while ($rec = db_fetch_object($result)) {
+    $type_url_str = str_replace('_', '-', $rec->type);
+
+    $row = array(
+      array('data' => l($rec->name, $path . $rec->icid)),
+      array('data' => l($types[$rec->type], $path . 'add/' . $type_url_str)),
+      array('data' => $rec->type == 'builtin' ? '20x34' : $rec->icon_width . 'x' . $rec->icon_height),
+      array('data' => theme('image', $rec->image)),
+      array('data' => l(t('edit'), $path . $rec->icid .'/edit')),
+      array('data' => l(t('delete'), $path . $rec->icid .'/delete')),
+    );
+    $rows[] = $row;
+  }
+
+  if (empty($rows)) {
+    $rows[] = array(array('data' => t('No icon configurations available.'), 'colspan' => '6', 'class' => 'message'));
+  }
+
+  return theme('table', $header, $rows) . theme('pager', NULL, 25, 0);
+}
+
+function gmaps_icon_config_add($type = NULL) {
+  
+  $types = _gmaps_get_icon_types();
+  if (is_null($type) || !isset($types[$type])) {
+    $items = array();
+    foreach($types as $key => $name) {
+      $items[] = l($name, 'admin/build/gmaps-icon-config/add/' . $key);
+    }
+    return theme('item_list', $items, t('Please select an icon type'));
+  } else {
+    include_once(drupal_get_path('module', 'gmaps') . '/includes/gmaps-admin.inc');
+    switch ($type) {
+      case 'builtin':
+        return drupal_get_form('_gmaps_builtin_icon_config_form', new stdClass());
+      case 'factory':
+        $config = (object)array(
+          'icon_width' => '32',
+          'icon_height' => '32',
+          'primarycolor' => '#ff0000',
+          'strokecolor' => '#000000',
+          'cornercolor' => '#ffffff',
+        );
+        return drupal_get_form('_gmaps_factory_icon_config_form', $config);
+      //TODO: implement custom icon config
+      /*case 'custom':
+        break;*/
+      default:
+        drupal_goto('admin/build/gmaps-icon-config/add');
+    }
+  }
+}
+
+function gmaps_icon_config_edit($config) {
+  include_once(drupal_get_path('module', 'gmaps') . '/includes/gmaps-admin.inc');
+  //TODO: enable builtin
+  if ($config->type == 'builtin') {
+    return drupal_get_form('_gmaps_builtin_icon_config_form', $config);
+  }
+  else if ($config->type == 'factory') {
+    return drupal_get_form('_gmaps_factory_icon_config_form', $config);
+  }
+  /*else if ($config->type == 'factory') {
+    //TODO: call custom form
+  }*/
+  else {
+    drupal_goto('admin/build/gmaps-icon-config');
+  }
+}
+
+function gmaps_icon_config_delete($config) {
+  $refs = module_implements('gmaps_config_reference');
+  if (count($refs)) {
+    $links = array();
+    foreach ($refs as $module) {
+      if ($result = module_invoke($module, 'gmaps_config_reference', 'icon', $config)) {
+        $links = array_merge_recursive($links, $result);
+      }
+    }
+    if (count($links)) {
+      $output = '<p>'. t('Unable to delete this icon configuration because of the following references. Remove them if you really want to delete the icon.') .'</p>';
+      foreach($links as $group => $items) {
+        $output .= '<p>'. theme('item_list', $items, $group) .'</p>';
+      }
+      $output .= '<p>'. l(t('Cancel'), 'admin/build/gmaps-icon-config') .'</p>';
+      return $output;
+    }
+  }
+
+  include_once(drupal_get_path('module', 'gmaps') . '/includes/gmaps-admin.inc');
+  return drupal_get_form('_gmaps_icon_config_delete_form', $config);
+}
+
+function gmaps_icon_config_save($config) {
+  $config = (object)$config;
+  
+  $icon_fields = _gmaps_icon_config_fields();
+  
+  if (!isset($config->icid)) {
+    $config->icid = db_next_id('{gmaps_icon_config}_icid');
+    if ($config->type == 'factory') {
+      gmaps_cache_factory_icon_images($config);
+    }
+    foreach ($icon_fields as $key) {
+      if (isset($config->$key)) {
+        switch ($key) {
+          case 'icid':  case 'icon_width':  case 'icon_height': case 'shadow_width':  case 'shadow_height':
+          case 'iconanchor_x':  case 'iconanchor_y':  case 'iwanchor_x':  case 'iwanchor_y':
+          case 'maxheight':  case 'dc_width':  case 'dc_height':  case 'dcanchor_x':  case 'dcanchor_y':
+          case 'builtinid':
+            $fields[] = $key;
+            $values[] = $config->$key;
+            $s[] = "%d";
+            break;
+          default:
+            $fields[] = $key;
+            $values[] = $config->$key;
+            $s[] = "'%s'";
+            break;
+        }
+      }
+    }
+    db_query('INSERT INTO {gmaps_icon_config} ('. implode(', ', $fields) .') VALUES ('. implode(', ', $s) .')', $values);
+  }
+  else {
+    if ($config->type == 'factory') {
+      gmaps_cache_factory_icon_images($config);
+    }
+    foreach ($icon_fields as $key) {
+      if (isset($config->$key)) {
+        switch ($key) {
+          case 'icid':
+            break;
+          case 'icon_width':  case 'icon_height': case 'shadow_width':  case 'shadow_height':
+          case 'iconanchor_x':  case 'iconanchor_y':  case 'iwanchor_x':  case 'iwanchor_y':
+          case 'maxheight':  case 'dc_width':  case 'dc_height':  case 'dcanchor_x':  case 'dcanchor_y':
+          case 'builtinid':
+            $query[] = "$key = %d";
+            $v[] = $config->$key;
+            break;
+          default:
+            $query[] = "$key = '%s'";
+            $v[] = $config->$key;
+            break;
+        }
+      }
+    }
+    db_query("UPDATE {gmaps_icon_config} SET " . implode(', ', $query) . " WHERE icid = %d", array_merge($v, array($config->icid)));
+  }
+  
+  return gmaps_load_icon_config($config->icid);
+}
+
+function _gmaps_icon_config_fields() {
+  return array('icid', 'name', 'type', 'image', 'shadow', 'icon_width', 'icon_height', 'shadow_width', 'shadow_height',
+    'iconanchor_x', 'iconanchor_y', 'iwanchor_x', 'iwanchor_y', 'printimage', 'mozprintimage', 'printshadow', 'transparent',
+    'imagemap', 'maxheight', 'dcimage', 'dc_width', 'dc_height', 'dcanchor_x', 'dcanchor_y',
+    'builtinid', 'primarycolor', 'strokecolor', 'cornercolor');
+}
+
+function gmaps_cache_factory_icon_images(&$config) {
+  $dir = variable_get('gmaps_icon_path', 'gmaps_icons');
+  $baseUrl = 'http://chart.apis.google.com/chart?cht=mm';
+  $baseIconUrl = $baseUrl . '&chs=' . $config->icon_width . 'x' . $config->icon_height . 
+      '&chco=' . str_replace('#', '', $config->cornercolor) . ',' . str_replace('#', '', $config->primarycolor) . ',' . str_replace('#', '', $config->strokecolor);
+  $iconUrl = $baseIconUrl . '&ext=.png';
+  if ($file = _gmaps_cache_factory_icon_image($iconUrl, $dir . '/' . $config->icid . '-image.png')) {
+    $config->image = $file;
+  } else {
+    return;
+  }
+  if ($file = _gmaps_cache_factory_icon_image($iconUrl . '&chof=gif', $dir . '/' . $config->icid . '-printimage.gif')) {
+    $config->printimage = $file;
+  }
+  if ($file = _gmaps_cache_factory_icon_image($iconUrl . '&chf=bg,s,ECECD8&chof=gif', $dir . '/' . $config->icid . '-mozprintimage.gif')) {
+    $config->mozprintimage = $file;
+  }
+  if ($file = _gmaps_cache_factory_icon_image($iconUrl . '&chf=a,s,ffffff11&ext=.png', $dir . '/' . $config->icid . '-transparent.png')) {
+    $config->transparent = $file;
+  }
+}
+
+function _gmaps_cache_factory_icon_image($url, $dest) {
+  $file = null;
+  $result = drupal_http_request($url);
+  switch ($result->code) {
+    case 304:
+    case 301:
+    case 200:
+    case 302:
+    case 307:
+      $file = file_save_data($result->data, $dest, FILE_EXISTS_REPLACE);
+      break;
+    default:
+      watchdog('gmaps', t('The icon maker chart seems to be broken, due to "%error".', array('%error' => $result->code .' '. $result->error)), WATCHDOG_WARNING);
+      drupal_set_message(t('The icon maker chart seems to be broken, because of error "%error".', array('%error' => $result->code .' '. $result->error)));
+  }
+  return $file;
+}
+
+function _gmaps_add_element_css() {
+  static $added = FALSE;
+  
+  if (!$added) {
+    drupal_add_css(drupal_get_path('module', 'gmaps') .'/misc/gmaps-element.css');
+    $added = TRUE;
+  }
+}
+
+function _gmaps_add_css() {
+  static $added = FALSE;
+  
+  if (!$added) {
+    drupal_add_css(drupal_get_path('module', 'gmaps') .'/misc/gmaps.css');
+    $added = TRUE;
+  }
+}
+
+function gmaps_format_geod_coordinate($coord) {
+  $coord = abs($coord);
+  $deg = intval($coord);
+  $min = ($coord - $deg) * 60;
+  $sec = ($min - intval($min)) * 60;
+  return $deg . '&deg; ' . intval($min) . '&prime; ' . round($sec, 2) . '&Prime;';
+  
+}
+
+/*
+ * Signatures:
+ * num lat, num lon, string map_type, num height
+ * array values, NULL, string map_type, num height
+ * array values NULL, string map_type, NULL
+ * array values, NULL, NULL, num height
+ * array values
+ * 
+ * values array keys: 'latitude', 'longitude', 'map_type', 'height'
+ */
+function gmaps_latlon_to_xyz($lat, $lon = NULL, $type = 'earth', $height = 0) {
+  $map_types = gmaps_get_map_types();
+
+  if (is_array($lat)) {
+    $lon = $lat['longitude'];
+    $type = isset($lat['map_type']) ? $lat['map_type'] : $type;
+    $height = (isset($lat['height'])) ? $lat['height'] : $height;
+    $lat = $lat['latitude'];
+  }
+  
+  if (!isset($map_types[$type]) || !isset($map_types[$type]->body)) {
+    return array(NULL, NULL, NULL);
+  }
+
+  if ((empty($lat) && $lat != 0) || (empty($lon) && $lon != 0)) {
+    return array(NULL, NULL, NULL);
+  }
+
+  $a = $map_types[$type]->body['a'];
+  $b = $map_types[$type]->body['b'];
+  
+  $e = sqrt((pow($a, 2) - pow($b, 2))) / $a;
+
+  $lat = deg2rad($lat);
+  $lon = deg2rad($lon);
+  $N = $a / pow(1 - (pow($e, 2) * pow(sin($lat), 2)), 0.5);
+  
+  $x = ($N + $height) * cos($lat) * cos($lon);
+  
+  $y = ($N + $height) * cos($lat) * sin($lon);
+  
+  $z = (($N * (pow($b, 2)) / pow($a, 2)) + $height) *sin($lat);
+  
+  return array($x, $y, $z);
+}
+
+function gmaps_convert_distance($dist, $to_unit) {
+  if ($dist['unit'] == $to_unit) {
+    return $dist['distance'];
+  }
+  if ($dist['distance'] == 0) {
+    return 0;
+  }
+  $unit_keys = array_keys(gmaps_measurement_units());
+  if (!in_array($dist['unit'], $unit_keys) || !in_array($to_unit, $unit_keys)) {
+    return FALSE;
+  }
+  
+  $sign = ($dist['distance'] == abs($dist['distance'])) ? 1 : -1;
+  $dist['distance'] = abs($dist['distance']);
+  $result = _gmaps_convert_distance_internal($dist['distance'], $dist['unit'], $to_unit);
+  
+  if (is_null($result)) {
+    $result = $dist['distance'] / _gmaps_convert_distance_internal(1, $to_unit, $dist['unit']);
+  }
+  
+  return $sign * $result;
+}
+
+function _gmaps_convert_distance_internal($dist, $from, $to) {
+  switch($from) {
+    case 'mi':
+      switch($to) {
+        case 'yd':
+          return $dist * GMAPS_MI_TO_YD;
+        case 'ft':
+          return $dist * GMAPS_MI_TO_YD * GMAPS_YD_TO_FT;
+        case 'in':
+          return $dist * GMAPS_MI_TO_YD * GMAPS_YD_TO_FT * GMAPS_FT_TO_IN;
+        case 'km':
+          return ($dist * GMAPS_MI_TO_M) / 1000;
+        case 'm':
+          return $dist * GMAPS_MI_TO_M;
+        case 'cm':
+          return $dist * GMAPS_MI_TO_M * 100;
+      }
+      break;
+    case 'yd':
+      switch($to) {
+        case 'ft':
+          return $dist * GMAPS_YD_TO_FT;
+        case 'in':
+          return $dist * GMAPS_YD_TO_FT * GMAPS_FT_TO_IN;
+        case 'km':
+          return (($dist / GMAPS_YD_TO_FT) * GMAPS_MI_TO_M) / 1000;
+        case 'm':
+          return ($dist / GMAPS_YD_TO_FT) * GMAPS_MI_TO_M;
+        case 'cm':
+          return ($dist / GMAPS_YD_TO_FT) * GMAPS_MI_TO_M * 100;
+      }
+      break;
+    case 'ft':
+      switch($to) {
+        case 'in':
+          return $dist * GMAPS_FT_TO_IN;
+        case 'km':
+          return ((($dist / GMAPS_YD_TO_FT) / GMAPS_MI_TO_YD) * GMAPS_MI_TO_M) / 1000;
+        case 'm':
+          return (($dist / GMAPS_YD_TO_FT) / GMAPS_MI_TO_YD) * GMAPS_MI_TO_M;
+        case 'cm':
+          return (($dist / GMAPS_YD_TO_FT) / GMAPS_MI_TO_YD) * GMAPS_MI_TO_M * 100;
+      }
+      break;
+    case 'in':
+      switch($to) {
+        case 'km':
+          return (((($dist / GMAPS_FT_TO_IN) / GMAPS_YD_TO_FT) / GMAPS_MI_TO_YD) * GMAPS_MI_TO_M) / 1000;
+        case 'm':
+          return ((($dist / GMAPS_FT_TO_IN) / GMAPS_YD_TO_FT) / GMAPS_MI_TO_YD) * GMAPS_MI_TO_M;
+        case 'cm':
+          return ((($dist / GMAPS_FT_TO_IN) / GMAPS_YD_TO_FT) / GMAPS_MI_TO_YD) * GMAPS_MI_TO_M * 100;
+      }
+      break;
+    case 'km':
+      switch($to) {
+        case 'm':
+          return $dist * 1000;
+        case 'cm':
+          return $dist * 1000 *100;
+      }
+      break;
+    case 'm':
+      switch($to) {
+        case 'cm':
+          return $dist * 100;
+      }
+      break;
+    case 'cm':
+      break;
+  }
+  
+  return NULL;
+}
+
+function gmaps_get_destination_coordinates($lat1, $lng1, $bearing, $dist, $map_type) {
+  if (!is_numeric($dist) || $dist <= 0) {
+    return array($lat1, $lng1);
+  }
+  
+  $map_type = gmaps_get_map_types('type', $map_type);
+  if (!$map_type || empty($map_type->body)) {
+    return array(null, null);
+  }
+
+  $alpha1 = deg2rad($bearing);
+
+  // WGS-84 ellipsiod
+  $a = $map_type->body['a'];
+  $b = $map_type->body['b'];
+  $f = ($a - $b) / $a; //1/298.257223563;
+  $s = $dist;
+  $sinAlpha1 = sin($alpha1);
+  $cosAlpha1 = cos($alpha1);
+  
+  $tanU1 = (1-$f) * tan(deg2rad($lat1));
+  $cosU1 = 1 / sqrt((1 + $tanU1*$tanU1));
+  $sinU1 = $tanU1*$cosU1;
+  $sigma1 = atan2($tanU1, $cosAlpha1);
+  $sinAlpha = $cosU1 * $sinAlpha1;
+  $cosSqAlpha = 1 - $sinAlpha*$sinAlpha;
+  $uSq = $cosSqAlpha * ($a*$a - $b*$b) / ($b*$b);
+  $A = 1 + $uSq/16384*(4096+$uSq*(-768+$uSq*(320-175*$uSq)));
+  $B = $uSq/1024 * (256+$uSq*(-128+$uSq*(74-47*$uSq)));
+  
+  $sigma = $s / ($b*$A);
+  $sigmaP = 2*M_PI;
+  while (abs($sigma-$sigmaP) > pow(10, -12)) {
+    $cos2SigmaM = cos(2*$sigma1 + $sigma);
+    $sinSigma = sin($sigma);
+    $cosSigma = cos($sigma);
+    $deltaSigma = $B*$sinSigma*($cos2SigmaM+$B/4*($cosSigma*(-1+2*$cos2SigmaM*$cos2SigmaM)-
+      $B/6*$cos2SigmaM*(-3+4*$sinSigma*$sinSigma)*(-3+4*$cos2SigmaM*$cos2SigmaM)));
+    $sigmaP = $sigma;
+    $sigma = $s / ($b*$A) + $deltaSigma;
+  }
+
+  $tmp = $sinU1*$sinSigma - $cosU1*$cosSigma*$cosAlpha1;
+  $lat2 = atan2($sinU1*$cosSigma + $cosU1*$sinSigma*$cosAlpha1, 
+      (1-$f)*sqrt($sinAlpha*$sinAlpha + $tmp*$tmp));
+  $lambda = atan2($sinSigma*$sinAlpha1, $cosU1*$cosSigma - $sinU1*$sinSigma*$cosAlpha1);
+  $C = $f/16*$cosSqAlpha*(4+$f*(4-3*$cosSqAlpha));
+  $L = $lambda - (1-$C) * $f * $sinAlpha *
+      ($sigma + $C*$sinSigma*($cos2SigmaM+$C*$cosSigma*(-1+2*$cos2SigmaM*$cos2SigmaM)));
+
+  $revAz = atan2($sinAlpha, -$tmp);  // final bearing
+
+  return array(rad2deg($lat2), $lng1+rad2deg($L));
+}
+
+function gmaps_maps_google_com_directions_url($address, $to = FALSE, $coordinates = NULL, $label = NULL) {
+  $prefix = 'http://maps.google.com?'. ($to ? 'daddr=' : 'saddr=');
+  $query = NULL;
+
+  if (!is_null($address) && is_array($address)) {
+    $result = array();
+    foreach (array('thoroughfare', 'postalcode', 'deplocality', 'locality', 'subadminarea', 'adminarea', 'country') as $key) {
+      if (!empty($address[$key])) {
+        $result[] = $address[$key];
+      }
+    }
+    if (!empty($result)) {
+      $query = implode(',', $result);
+    }
+  }
+  else if (!is_null($coordinates) && is_array($coordinates)) {
+    $query = $coordinates['latitude'] .','. $coordinates['longitude'];
+    if (!empty($label)) {
+      $query .= '('. $label .')';
+    }
+  }
+
+  if (!is_null($query)) {
+    return $prefix . $query;
+  }
+
+  return '';
+}
+
+function gmaps_debug_geocoder_result_parser() {
+  $form['debugger'] = array('#type' => 'gaddress',
+    '#debug_geocoder_result' => TRUE,
+    '#use_map_config' => variable_get('gmaps_debug_map_config', 0),
+  );
+  
+  return $form;
+}
+
+function _gmaps_coordinates_theme_params($lat, $lon = NULL) {
+  if (is_array($lat)) {
+    $lon = $lat['longitude'];
+    $lat = $lat['latitude'];
+  }
+  else if (is_object($lat)) {
+    $lon = $lat->longitude;
+    $lat = $lat->latitude;
+  }
+
+  if ((empty($lat) && $lat != '0') || (empty($lon) && $lon != '0')) {
+    return array(NULL, NULL);
+  }
+
+  return array($lat, $lon);
+}
+
+/**
+ * Themeables
+ */
+
+function theme_gmaps_container(&$map) {
+  _gmaps_add_css();
+
+  $output = '<div id="' . $map->container . '-wrapper" class="gmaps-container-wrapper">';
+  
+  if ($map->config->display_help && count($map->help)) {
+    $output .= '<div class="description">'. (count($map->help) == 1 ? array_shift($map->help) : theme('item_list', $map->help)) .'</div>';
+  }
+
+  $output .= '<div class="gmaps-container" id="' . $map->container . '"><script type="text/javascript">document.write("' . t('Loading...') . '");</script><noscript>' . t('You should enable javascript to use the map.') . '</noscript></div>';
+
+  if ($map->config->methods['googlebar'] && $map->config->googlebar_options['resultlist'] == 'element') {
+    $output .= '<div id="' . $map->container . '-result-list" class="gmaps-result-list"></div>';
+  }
+  
+  $output .= '</div>';
+
+  return $output;
+}
+
+function theme_gmaps_content_loader_icon() {
+  return array(
+    'type' => 'custom',
+    'image' => url(drupal_get_path('module', 'gmaps') . '/misc/ajax-loader.gif'),
+    'icon_width' => 16,
+    'icon_height' => 16,
+  );
+}
+
+function theme_buttonbutton($element) {
+  // Make sure not to overwrite classes.
+  if (isset($element['#attributes']['class'])) {
+    $element['#attributes']['class'] = 'form-'. $element['#button_type'] .' '. $element['#attributes']['class'];
+  }
+  else {
+    $element['#attributes']['class'] = 'form-'. $element['#button_type'];
+  }
+
+  return '<input type="button" '. (empty($element['#name']) ? '' : 'name="'. $element['#name'] .'" ')  .'id="'. $element['#id'].'" value="'. check_plain($element['#value']) .'" '. drupal_attributes($element['#attributes']) ." />\n";
+}
+
+function theme_distance($element) {
+  _gmaps_add_element_css();
+  return theme('form_element', $element, '<div class="distance-container">'. $element['#children'] .'</div>');
+}
+
+function theme_address($element) {
+  _gmaps_add_element_css();
+  return theme('form_element', $element, '<div class="address-container">'. $element['#children'] .'</div>');
+}
+
+function theme_latlon($element) {
+  _gmaps_add_element_css();
+  return theme('form_element', $element, '<div class="latlon-container">'. $element['#children'] .'</div>');
+}
+
+function theme_gaddress($element) {
+  _gmaps_add_element_css();
+  return theme('form_element', $element, '<div class="gaddress-container">'. $element['#children'] .'</div>');
+}
+
+/*
+ * Signatures:
+ * array dist
+ * array dist, int acc
+ * array dist, NULL, int acc
+ * int dist, string unit, int acc
+ * 
+ * dist array keys: 'distance', 'unit'
+ */
+function theme_gmaps_distance($dist, $unit = NULL, $accuracy = 3) {
+
+  _gmaps_add_css();
+
+  if (is_array($dist)) {
+    $accuracy = is_null($unit) ? $accuracy : $unit;
+    $unit = $dist['unit'];
+    $dist = $dist['distance'];
+  }
+
+  $units = gmaps_measurement_units();
+  $output = '<div class="gmaps-distance">' . number_format($dist, $accuracy, '.', '');
+  $output .= ' <span class="unit">' . $units[$unit] . '</span>';
+  $output .= '</div>';
+  return $output; 
+}
+
+/*
+ * See microformats: http://microformats.org/wiki/geo
+ */
+function theme_gmaps_coordinates($lat, $lon = NULL) {
+  list($lat, $lon) = _gmaps_coordinates_theme_params($lat, $lon);
+
+  if (is_null($lat)) {
+    return '';
+  }
+
+  _gmaps_add_css();
+
+  //Standard Geo microformat
+  $output = '<div class="gmaps-coordinates gmaps-plain-coordinates geo"><label>'. t('Coordinates') .'</label><div class="content">';
+  $output .= '<span class="coordinate latitude gmaps-coordinate-latitude">' . number_format($lat, 6, '.', '') . '&deg;</span> ';
+  $output .= '<span class="coordinate longitude gmaps-coordinate-longitude">' . number_format($lon, 6, '.', '') . '&deg;</span>';
+  $output .= '</div></div>';
+  return $output; 
+}
+
+function theme_gmaps_formatted_coordinate($value, $compass) {
+  return '<span class="gmaps-formatted-coordinate"><label>'. $compass .'</label> '. $value .'</span>';
+}
+
+function theme_gmaps_dms_coordinates($lat, $lon = NULL) {
+  list($lat, $lon) = _gmaps_coordinates_theme_params($lat, $lon);
+
+  if (is_null($lat)) {
+    return '';
+  }
+
+  _gmaps_add_css();
+
+  $t_arg = array('!compass' => '');
+  $lat_fmt = gmaps_format_geod_coordinate($lat);
+  $lat_fmt = theme('gmaps_formatted_coordinate', $lat_fmt, abs($lat) == $lat ? t('N!compass', $t_arg) : t('S!compass', $t_arg));
+  $lon_fmt = gmaps_format_geod_coordinate($lon);
+  $lon_fmt = theme('gmaps_formatted_coordinate', $lon_fmt, abs($lon) == $lon ? t('E!compass', $t_arg) : t('W!compass', $t_arg));
+
+  //using the addr-design-pattern
+  $output = '<div class="gmaps-coordinates gmaps-dms-coordinates geo"><label>'. t('Coordinates') .'</label><div class="content">';
+  $output .= '<abbr class="coordinate latitude gmaps-coordinate-latitude" title="' . number_format($lat, 6, '.', '') . '">' . $lat_fmt . '</abbr> ';
+  $output .= '<abbr class="coordinate longitude gmaps-coordinate-longitude" title="' . number_format($lat, 6, '.', '') . '">' . $lon_fmt . '</abbr>';
+  $output .= '</div></div>';
+
+  return $output; 
+}
+
+function theme_gmaps_cartesian_coordinates($xyz, $latlon = array()) {
+  if (empty($xyz)) {
+    list($x, $y, $z) = gmaps_latlon_to_xyz($latlon);
+  } else {
+    $x = $xyz['x'];
+    $y = $xyz['y'];
+    $z = $xyz['z'];
+  }
+  if (is_null($x)) {
+    return '';
+  }
+
+  _gmaps_add_css();
+
+  $output = '<div class="gmaps-coordinates gmaps-cartesian-coordinates"><label>'. t('Coordinates') .'</label><div class="content">';
+  //Geo microformat support only the earth
+  if (isset($latlon['map_type']) && $latlon['map_type'] == 'earth') {
+    //Geo micreformat for parsers
+    $output = '<div style="display: none;">' . theme('gmaps_coordinates', $latlon) . '</div>';
+  }
+  $output .= '<div class="coordinate gmaps-formatted-coordinate gmaps-coordinate-x"><label>X: </label>' . number_format($x, 3, '.', '') . 'm</div>';
+  $output .= '<div class="coordinate gmaps-formatted-coordinate gmaps-coordinate-y"><label>Y: </label>' . number_format($y, 3, '.', '') . 'm</div>';
+  $output .= '<div class="coordinate gmaps-formatted-coordinate gmaps-coordinate-z"><label>Z: </label>' . number_format($z, 3, '.', '') . 'm</div>';
+  $output .= '</div></div>';
+  return $output; 
+}
+
+function theme_gmaps_address($address) {
+  if (empty($address) || !is_array($address)) {
+    return '';
+  }
+  static $countries = NULL;
+
+  _gmaps_add_css();
+
+  $output = '<div class="gmaps-address adr"><label>'. t('Address') .'</label><div class="content">';
+  if (isset($address['thoroughfare']) && !empty($address['thoroughfare'])) {
+    $output .= '<div class="street-address">' . $address['thoroughfare'];
+    if (isset($address['deplocality']) && !empty($address['deplocality'])) {
+      $output .= ', ' . $address['deplocality'];
+    }
+    $output .= '</div>';
+  }
+  if (isset($address['locality']) && !empty($address['locality'])) {
+    $output .= '<div class="locality">' . $address['locality'] . '</div>';
+  }
+  if (isset($address['adminarea']) && !empty($address['adminarea'])) {
+    $output .= '<div class="region">';
+    if (isset($address['subadminarea']) && !empty($address['subadminarea'])) {
+      $output .= $address['subadminarea'] . ', ';
+    }
+    $output .= $address['adminarea'] . '</div>';
+  }
+  if (isset($address['postalcode']) && !empty($address['postalcode'])) {
+    $output .= '<div class="postal-code">' . $address['postalcode'] . '</div>';
+  }
+  if (isset($address['country']) && !empty($address['country'])) {
+    if (strlen($address['country']) == 2 && strtoupper($address['country']) == $address['country']) {
+      if (is_null($countries)) {
+        $countries = _gmaps_country_list();
+      }
+      if (isset($countries[$address['country']])) {
+        $address['country'] = $countries[$address['country']];
+      }
+    }
+    $output .= '<div class="country-name">' . $address['country'] . '</div>';
+  }
+  $output .= '</div></div>';
+  return $output; 
+}
+
+function theme_gmaps_directions_links($from, $to) {
+  _gmaps_add_css();
+  $output = '<div class="gmaps-directions-links"><label>'. t('Directions') .'</label><div class="content">';
+  $output .= ' <span class="directions-from">'. l(t('From here'), $from) .'</span>';
+  $output .= ' <span class="directions-to">'. l(t('To here'), $to) .'</span>';
+  $output .= '</div></div>';
+  
+  return $output;
+}

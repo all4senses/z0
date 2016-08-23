@@ -1,0 +1,298 @@
+<div class="test">shop</div>
+
+<?php 
+
+//if teaser ---------------------------------------------------------------------------------
+
+?>
+
+<?php if ($teaser == 1): ?>
+ <div class="place_teaser dept">
+
+    <a href="<?php print $node_url ?>">
+
+    
+      <?php 
+      		
+       	  $data = explode(';', $node->field_placetype_n_numofphotos[0]['view']);	 	   
+      
+      	  echo '<table><tbody><tr>'
+           . '<td class="caption">'
+           . '<div class="type">' . $data[0] . '</div>'
+           . '<div class="title">' . '<a href="' . $node_url . '">' . $title . '</a>' .'</div>'
+           . '</td>';
+      
+          
+           $logopath = base_path() . 'files/shops/' . substr($node->field_zp_art_place[0]['value'], 0, 8) . '/' . $node->field_zp_art_place[0]['value'] . '-logo.jpg';
+           if(file_exists($_SERVER['DOCUMENT_ROOT'] . $logopath))
+				echo '<td class="logo">' . theme('imagecache', 'place_logo_teaser', $logopath, $title) . '</td>';
+
+          echo '<td class="description">'
+           . '<div class="address">' . $node->field_place_address[0]['value'] . '</div>'
+           . '<div class="descr">';
+           
+          if($node->field_descr_teaser[0]['value'])
+          	echo $node->field_descr_teaser[0]['value'];
+          else 
+          	echo $node->content['body']['#value'];
+           
+          echo '</div>'
+           . '</td>'
+           . '</tr></tbody></table>';
+                      
+      ?>   
+    
+    </a>
+    
+    
+    
+ </div>
+<?php endif; // end of teaser ?>
+
+
+
+
+
+
+
+
+
+
+
+<?php 
+
+//if body (page) ---------------------------------------------------------------------------------
+
+?>
+
+
+<?php if ($page == 1): 
+
+
+$data = explode(';', $node->field_placetype_n_numofphotos[0]['view']);	
+ 
+// получим справочные статьи с пересекающимися с этим товаром ключевыми словами
+  
+  // получим номер словаря c ключевыми словами, имеющимися в статьях, по названию словаря
+  //$issue_vid = db_result(db_query("SELECT vid from {vocabulary} WHERE name = '%s'", 'Issues keywords'));
+  $issue_vid = 6; // зададим явно номер словаря, чтоб быстрее
+
+  if($node->field_keywords[0]['view'])
+  	$keywords = explode(',', $node->field_keywords[0]['view']);
+	
+  $keywords[] = $data[2]; // также используем в качестве ключевого слова название каталога с картинками
+  
+
+  if($keywords)
+  	foreach ($keywords as $keyword)
+  	{
+
+  		if(($keyword = trim($keyword)) != '')
+  			$tid = db_result(db_query("SELECT tid from {term_data} WHERE name = '%s' AND vid = %d", $keyword, $issue_vid));
+	  	else 
+  			continue;
+  		
+  		$issues_nids = db_query("SELECT nid from {term_node} WHERE tid = %d", $tid);
+  	
+    	while($issue = db_fetch_array($issues_nids))
+	    {
+    		$issue_name = db_result(db_query("SELECT title from {node} WHERE nid = %d", $issue['nid']));
+    		$issue_teaser = db_result(db_query("SELECT field_issue_teaser_value from {content_type_zp_issue} WHERE nid = %d", $issue['nid']));
+    		
+    		$issues[$issue['nid']]['title'] = $issue_name;
+    		$issues[$issue['nid']]['teaser'] = $issue_teaser;
+	    }
+  	}
+  
+  //foreach ($issues as $nid => $title)
+  	//echo l($title, 'node/' . $nid, array('class' => 'issue')) . '<br>';
+  
+  	
+  	
+  	
+  	
+  	
+  	
+  	
+  	
+
+ echo '<div class="place_body dept">
+   <div class="txt">';
+   
+   		
+
+   		echo '<div class="type">'. $data[0] . '</div>';
+     	echo '<div class="title">' . $title . '</div>';
+     	
+     	
+     	
+     	
+     	
+        
+   
+   		// если есть статьи по теме этогот  товара, создаём группу вкладок (tabs), на первой из которых будет оригинальное описание
+   		// а на второй ссылки на статьи
+   
+		// здесь, если есть статьи, создаём "шапку" для табов и открываем таб-контейнер для оригинального описания
+   		if($issues)
+ 		{
+ 			echo '<div id="tabs">';
+
+    	
+        	drupal_add_css('sites/all/modules/_Jstools/jstab/jquery.tabs.css');
+    		drupal_add_js('sites/all/modules/_Jstools/jstab/jquery.tabs.js'); 
+    		drupal_add_js('$(function(){
+    			basePath = "'. base_path() .'";
+    			$("#tabs").tabs({ initial: 0, fxShow: { height: "show", opacity: "show" }, fxSpeed: "normal",  remote: 0 });
+    			})', 'inline');
+    	  
+    	
+    	
+    		echo '<ul>';
+        		echo '<li><a href="#main_tab">Описание</a></li>';
+        		echo '<li><a href="#issues">Справочные данные, статьи</a></li>';
+    		echo '</ul>';
+    		
+    		
+    		echo '<div id="main_tab">';
+ 		}
+    
+ 		
+ 		// далее идёт оригинальное описание
+ 		
+ 		// если бы статей не было, массив с вкладками не создавался бы и шапка для табов также не создавалась бы
+ 		// и описание шло само по себе, без всяких вкладок
+ 		
+     	
+     	
+     	// адрес отдела
+     	echo '<div class="address">' . $node->field_place_address[0]['value'] . '</div>';
+     	
+     	// покажем админу некоторые данные по отделу
+     	global $user;
+     	if ($user->uid == 1)
+    	 {
+    		echo '<div class="art_and_bar"><div class="label">Каталог с картинками: </div>' . $data[2] . '</div>';
+     		if($node->field_keywords[0]['value'])
+     			echo '<div class="art_and_bar"><div class="label">Ключевые слова: </div>' . $node->field_keywords[0]['value'] . '</div>';
+     		echo '<br>';
+    	 }	
+
+     	// описание отдела
+     	echo '<div class="descr">' . $node->content['body']['#value'] . '</div>';
+     	//echo '<div class="descr">' . $node->content['body']['view'] . '</div>';
+     	
+     	
+     	
+     	
+     	
+     	
+     	  
+      
+    	// если есть статьи по теме этого товара, то ранее был открыт массив с вкладками, открыта вкладка с основным описанием
+    	// и теперь нужно закрыть вкладку с основным описанием, вывести вкладку со статьями и закрыть массив с вкладками
+    
+    	// если бы статей не было, вкладки бы не создавались и закрывать или добавлять ничего не надо было бы
+    	if($issues)  
+		 { 
+     			echo '</div>'; // end of div main_tab	
+		 	
+		 		echo '<div id="issues">';
+     		
+     				foreach ($issues as $nid => $issue)
+     				{
+  						echo l($issue['title'], 'node/' . $nid, array('class' => 'i_title', 'title' => 'Перейти на страницу со статьёй "' . $issue['title'] . '".', 'target' => '_blank')) . '<br>';
+  						if($issue['teaser']) 
+  							echo '<div class="i_teaser">' . $issue['teaser'] . '</div>';
+     				}
+     		
+     			echo '</div>'; // end of div issues
+  			  
+  			  
+  			  
+	    	echo '</div>'; // end if div tabs
+	    	
+		 }
+      
+		 
+		 
+     	
+     	
+   echo '</div>';  // end of div txt
+   
+
+   
+   
+   
+   
+   
+  echo '<div class="images">';
+  
+
+   
+	   $photopath = base_path() . 'files/shops/' . substr($node->field_zp_art_place[0]['value'], 0, 8) . '/' . $node->field_zp_art_place[0]['value'] . '/' . $node->field_zp_art_place[0]['value'];
+       
+	   if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-logo.jpg'))
+			echo '<div class="shop_logo">' . theme('imagecache', 'place_logo_body', $photopath . '-logo.jpg', $title . ' logo') . '</div>';
+
+		
+				
+	   $big_photo_num = 1; // первая (или первая существующая на сервере) картинка большая, остальные маленькие
+	   		
+	   for($i=1; $i <= $data[1]; $i++)
+	   {
+	   		if($i == $big_photo_num)	
+	   		{
+	   			//if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-photo-' . $i . '.jpg'))		
+	   			if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-' . $i . '.jpg'))		
+	   			{
+		   			echo '<div class="image big">';
+		   			//echo '<a href="' . $photopath . '-photo-' . $i  . '.jpg" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+		   			echo '<a href="' . $photopath . '-' . $i  . '.jpg" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+			    	//echo theme('imagecache', 'place_body_type1', $photopath . '-photo-' . $i . '.jpg', $title . ' ' . $i);
+		   			echo theme('imagecache', 'place_body_type1', $photopath . '-' . $i . '.jpg', $title . ' ' . $i);
+		  			echo '</a></div>';
+		  			$photo_exist = 1;	
+	   			}
+	   			else 
+	   				$big_photo_num = $i + 1;
+	   		}
+	   		else 
+	   		{
+	   			//if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-photo-' . $i . '.jpg'))		
+	   			if(file_exists($_SERVER['DOCUMENT_ROOT'] . $photopath . '-' . $i . '.jpg'))		
+	   			{
+		   			echo '<div class="image small ' . $i .'">';
+		   			//echo '<a href="' . $photopath . '-photo-' . $i  . '.jpg" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+		   			echo '<a href="' . $photopath . '-' . $i  . '.jpg" title="Увеличить и посмотреть другие фото..." rel="lightbox[roadtrip][' . $title . ' ' . $i . ']" rel2="body-images">';// class="lightbox_hide_image"
+			    	//echo theme('imagecache', 'place_body_type2', $photopath . '-photo-' . $i . '.jpg', $title . ' ' . $i);
+			    	echo theme('imagecache', 'place_body_type2', $photopath . '-' . $i . '.jpg', $title . ' ' . $i);
+		  			echo '</a></div>';
+	   			}
+	   			
+	   		}
+	   }
+	   
+	   if(!$photo_exist AND $data[2] AND file_exists($_SERVER['DOCUMENT_ROOT'] . base_path() . 'files/p/' . $data[2] . '/default.jpg'))
+   		{
+   			
+   			$photo_default = base_path() . 'files/p/' . $data[2] . '/default.jpg';
+   			
+   			echo '<div class="image_big">'
+   					. theme('imagecache', 'product_body_type1-default', $photo_default) // третий аргумент - alt
+   					. '</div>'; 
+   		}
+			 
+	  ?>
+	  
+	  
+	
+		
+	</div> <!-- // end of body-images -->
+	  
+	  
+ 
+    <div class="list_title"><?php print 'Сделайте свой выбор:' ?></div>
+
+ </div>
+<?php endif; // end of body ?>

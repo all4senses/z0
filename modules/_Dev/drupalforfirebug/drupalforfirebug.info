@@ -1,0 +1,9 @@
+name = Drupal for Firebug
+description = A helper extension for the Drupal for Firebug Firefox extension addon
+package = Drupal for Firebug
+
+; Information added by drupal.org packaging script on 2010-12-15
+version = "5.x-1.5"
+project = "drupalforfirebug"
+datestamp = "1292378609"
+

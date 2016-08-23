@@ -1,0 +1,156 @@
+<?php
+
+
+function zp_create_zptables_enable() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+    	
+      
+      // таблицы с описаниями продуктов	
+      // p_descr_bw - таблица с описанием продукта по мировому штрих-коду 
+      // p_bw - глобальный, мировой штрих-код (bw = bar-world)
+      // keywords - ключевые слова по товару для связи с тематическими статьями
+     
+      db_query("CREATE TABLE IF NOT EXISTS {p_descr_bw}(
+      		`p_bw` mediumint(9) NOT NULL,
+      		`p_name` varchar(100) NOT NULL,
+      		`descr` LONGTEXT NOT NULL,
+      		`keywords` LONGTEXT NOT NULL,
+          	PRIMARY KEY (p_bw)
+        ) DEFAULT CHARACTER SET utf8 ;"); //!40100 DEFAULT CHARACTER SET utf8
+    	
+      
+      
+      
+       
+      // p_descr_sh - описание продукта по внутреннему id продукта в конкретном магазине
+      // p_id может быть штрих-кодом (bs-xxxxxxxxxx), артикулом (as-xxxxxxxxxx) или названием (ns-xxxxxxxxxxx)
+      // shop_id - внутренний zp-код магазина типа z10101001 (1-страна, 01 - город, 01 - район, 001 - магазин)
+      // keywords - ключевые слова по товару для связи с тематическими статьями
+      
+      /*
+      
+      //  эта таблица не нужна, так как описание продуктов в конкретных магазинах хранятся в нодах продуктов конкретных магазинов
+      
+      db_query("CREATE TABLE IF NOT EXISTS {p_descr_sh}(
+      		`num` mediumint(9) NOT NULL auto_increment,
+      		`p_id` varchar(100) NOT NULL,
+      		`p_name` varchar(100) NOT NULL,
+          	`shop_id` varchar(25) NOT NULL,
+      		`shop_name` varchar(100) NOT NULL,
+      		`descr` LONGTEXT NOT NULL,
+      		`keywords` LONGTEXT NOT NULL,
+      		PRIMARY KEY (num)
+        ) DEFAULT CHARACTER SET utf8 ;"); //!40100 DEFAULT CHARACTER SET utf8    	
+
+      */
+      
+      
+      
+      
+      
+      // p_descr_mc - описание продукта по внутреннему id продукта конкретного производителя или поставщика
+      // p_id может быть штрих-кодом производителя (manufacrurer) или поставщика (caterer) - (bm-xxxxxxxxxx или bc-xxxxxxxxxx), артикулом (am-xxxxxxxxxx или ac-xxxxxxxxxx) или названием (nm-xxxxxxxxxxx или nc-xxxxxxxxxxx)
+      // seller_id - внутренний ZP id производителя или поставщика в формате mc101001 (1-страна, 01 - город, 001 - производитель или поставщик)
+      // seller_name - название производителя или поставщика
+      // keywords - ключевые слова по товару для связи с тематическими статьями
+      
+      db_query("CREATE TABLE IF NOT EXISTS {p_descr_mc}(
+      		`num` mediumint(9) NOT NULL auto_increment,
+      		`p_id` varchar(100) NOT NULL,
+      		`p_name` varchar(100) NOT NULL,
+      		`seller_id` varchar(100) NOT NULL,
+          	`seller_name` varchar(25) NOT NULL,
+      		`descr` LONGTEXT NOT NULL,
+      		`keywords` LONGTEXT NOT NULL,
+      		PRIMARY KEY (num)
+        ) DEFAULT CHARACTER SET utf8;"); //!40100 DEFAULT CHARACTER SET utf8
+
+      
+      
+      
+           
+   	  // таблицы с комментариями к продуктам (и, возможно, к производителям, поставщикам, магазинам в будущем)	
+   	  
+   	  // p_opinions_bw - мнения (комментарии) покупателей о товарах, для товаров с мировым штрих-кодом
+   	  // op_id - уникальный номер комментария в таблице
+   	  // p_bw - мировой щтрих-код продукта (bw = bar-world)
+      // opinion - собственно мнение
+      // uid - id пользователя, оставившего комментарий
+      // uname - имя пользователя, оставившего комментарий
+      // shop_id - внутренний ZP id магазина, в котором было оставлено мнение в формате z10101001 (1-страна, 01 - город, 01 - район, 001 - магазин)
+      // shop_name - название этого магазина
+      
+      db_query("CREATE TABLE IF NOT EXISTS {p_opinions_bw}(
+      		`op_id` mediumint(9) NOT NULL auto_increment,
+      		`p_bw` varchar(25) NOT NULL,
+      		`opinion` LONGTEXT NOT NULL,
+          	`uid` mediumint(9) NOT NULL,
+          	`uname` varchar(100) NOT NULL,
+          	`shop_id` varchar(100) NOT NULL,
+          	`shop_name` varchar(100) NOT NULL,
+          	`shop_address` varchar(200) NOT NULL,
+          	PRIMARY KEY (op_id)
+        ) DEFAULT CHARACTER SET utf8;"); //!40100 DEFAULT CHARACTER SET utf8
+      
+      
+
+      // p_opinions_mc - мнения (комментарии) покупателей о товарах, для товаров с внутренним идентификатором конкретных производителей или поставщиков (если нет мировых штрих-кодов)
+   	  // op_id - уникальный номер комментария в таблице
+   	  // p_id - внутренний идентификатор продукта у конкретного производителя или поставщика, может быть внутренним штрих-кодом продукта производителя или поставщика (bm-xxxxxxxxxx или bc-xxxxxxxxxx), артикулом (am-xxxxxxxxxx или ac-xxxxxxxxxx) или названием (nm-xxxxxxxxxxx или nc-xxxxxxxxxxx)
+      // seller_id - внутренний ZP id производителя или поставщика в формате mc101001 (1-страна, 01 - город, 001 - производитель или поставщик)
+      // seller_name - название производителя или поставщика
+   	  // opinion - собственно мнение
+      // uid - id пользователя, оставившего комментарий
+      // uname - имя пользователя, оставившего комментарий
+      // shop_id - внутренний ZP id магазина, в котором было оставлено мнение в формате z10101001 (1-страна, 01 - город, 01 - район, 001 - магазин)
+      // shop_name - название этого магазина
+      
+      db_query("CREATE TABLE IF NOT EXISTS {p_opinions_mc} (
+      		`op_id` mediumint(9) NOT NULL auto_increment,
+      		`p_id` varchar(25) NOT NULL,
+      		`seller_id` varchar(25) NOT NULL,
+      		`seller_name` varchar(100) NOT NULL,
+      		`opinion` LONGTEXT NOT NULL,
+          	`uid` mediumint(9) NOT NULL,
+          	`uname` varchar(100) NOT NULL,
+          	`shop_id` varchar(25) NOT NULL,
+          	`shop_name` varchar(100) NOT NULL,
+          	`shop_address` varchar(200) NOT NULL,
+          	PRIMARY KEY  (op_id)
+        ) DEFAULT CHARACTER SET utf8;"); //!40100 DEFAULT CHARACTER SET utf8
+      
+      
+      
+      // p_opinions_sh - мнения (комментарии) покупателей о товарах, для товаров с внутренним идентификатором конкретных магазинов (если нет мировых штрих-кодов)
+   	  // op_id - уникальный номер комментария в таблице
+   	  // p_id - внутренний идентификатор продукта в конкретном магазине, может быть внутренним штрих-кодом продуктв в магазине (bs-xxxxxxxxxx), внутренним артикулом (as-xxxxxxxxxx) или названием (ns-xxxxxxxxxx)
+      // opinion - собственно мнение
+      // uid - id пользователя, оставившего комментарий
+      // uname - имя пользователя, оставившего комментарий
+      // shop_id - внутренний ZP id магазина, в котором было оставлено мнение в формате z10101001 (1-страна, 01 - город, 01 - район, 001 - магазин)
+      // shop_name - название этого магазина
+      
+      db_query("CREATE TABLE IF NOT EXISTS {p_opinions_sh} (
+      		`op_id` mediumint(9) NOT NULL auto_increment,
+      		`p_id` varchar(25) NOT NULL,
+      		`shop_id` varchar(25) NOT NULL,
+          	`shop_name` varchar(100) NOT NULL,
+          	`shop_address` varchar(200) NOT NULL,
+      		`opinion` LONGTEXT NOT NULL,
+          	`uid` mediumint(9) NOT NULL,
+          	`uname` varchar(100) NOT NULL,
+          	PRIMARY KEY  (op_id)
+        ) DEFAULT CHARACTER SET utf8;"); //!40100 DEFAULT CHARACTER SET utf8
+      
+      
+      
+      
+
+      
+      break;
+  }
+}
+
+

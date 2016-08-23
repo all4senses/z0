@@ -1,0 +1,86 @@
+<?php
+/* $Id: views_savefilter.module,v 1.1.2.5 2008/04/14 12:28:32 avf Exp $ */
+
+/**
+* Display help and module information
+*/
+function views_savefilter_help($section='') {
+
+  $output = '';
+
+  switch($section) {
+    case "admin/help#views_savefilter":
+      $output = '<p>' . t("The Views save filter module saves exposed filter values and restores them when the user returns to the view page or block.") . '</p>';
+      break;
+  }
+
+  return($output);
+} // function views_savefilter_help
+
+/**
+* Take care of loading and saving used_filters to/from database
+*/
+function views_savefilter_views_query_alter(&$query, &$view, $summary, $level) {
+
+  global $user;
+
+  if(!$view->used_filters) {
+    // If used_filters is empty, load from database
+    $res = db_query("SELECT used_filters FROM {views_savefilter_used_filters} WHERE uid = %d AND vid = %d", $user->uid, $view->vid);
+    if(db_num_rows($res) > 0) {
+      $obj = db_fetch_object($res);
+      $view->used_filters = unserialize($obj->used_filters);
+
+      // Build new $query based on used_filters (horrible hack, sorry, couldn't see a better way to do it)
+      // Convert from $view->used_filters to what _views_view_build_filters wants
+      $exposed_filter_values = array();
+      foreach($view->used_filters as $field => $value) {
+        if(strpos($field, 'filter') === 0) {
+          $id = substr($field, 6);
+          $exposed_filter_values[$id]['filter'] = $value;
+        } else if(strpos($field, 'op') === 0) {
+          $id = substr($field, 2);
+          $exposed_filter_values[$id]['op'] = $value;
+        }
+      }
+      // Clear where clause from query...
+      $query->where = array();
+      $query->where_args = array();
+      // ...and rebuild it
+      _views_view_build_filters($query, $view, $exposed_filter_values);
+      foreach($view->argument as $i => $argument) {
+        if($view->args[$i] != NULL && $view->args[$i] != '' && $view->args[$i] != '$arg') {
+          _views_view_build_arg($query, $view->args[$i], $argument);
+        }
+      }
+    }
+  } else {
+    // Save used_filters to database if it's set
+    $ser = serialize($view->used_filters);
+    db_query("UPDATE {views_savefilter_used_filters} SET used_filters = '%s' WHERE uid = %d AND vid = %d", $ser, $user->uid, $view->vid);
+    if(!db_affected_rows()) {
+      db_query("INSERT INTO {views_savefilter_used_filters} (uid, vid, used_filters) VALUES (%d, %d, '%s')", $user->uid, $view->vid, $ser);
+    }
+  }
+} // function views_savefilter_views_query_alter
+
+/**
+* Fix forms and delete records when view edited
+*/
+function views_savefilter_form_alter($form_id, &$form) {
+
+  switch($form_id) {
+    case 'views_filters':
+      // Set default form values from used_filters (not sure why this should be necessary, but I can't see a way round it)
+      foreach($form['view']['#value']->used_filters as $field => $value) {
+        $form[$field]['#default_value'] = $value;
+      }
+      break;
+    case 'views_edit_view':
+      // Delete records when view edited
+      db_query("DELETE FROM {views_savefilter_used_filters} WHERE vid = %d", $form['vid']['#value']);
+      break;
+  }
+} // views_savefilter_form_alter
+
+?>

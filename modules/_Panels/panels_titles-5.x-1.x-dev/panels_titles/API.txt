@@ -1,0 +1,35 @@
+The Panels Titles module provides a developer API for creating new types of
+titles from Drupal modules. The API consists of a single hook and a callback.
+The hook is:
+
+  hook_panels_titles_templates()
+
+This hook requires no parameters. It must return an array of template options.
+The options array follows this format:
+
+$options = array();
+$options[t('Group Name'] = array();
+$options[t('Group Name')]['unique-template-id'] = array(
+  'title' => t('Name of Template'),
+  'callback' => 'my_panels_titles_display_callback',
+  'callback arguments' => array('h4'),
+);
+
+The "Group Name" simply groups similar templates in the title type menu.
+
+The unique template ID uniquely identifies the template (as it's name implies),
+and is used to find the display callback when it is time to draw the title.
+
+The 'title' field should be a legible name for the template.
+
+'callback' points to a function that will provide HTML for the title.
+
+'callback arguments' are passed into the 'callback' function.
+
+A sample callback function with one extra argument looks like this:
+
+  function my_panels_titles_display_callback($title, $myarg) {
+    return "<$myarg>$title</$myarg>";
+  }
+
+Enjoy!

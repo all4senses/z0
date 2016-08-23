@@ -1,0 +1,4 @@
+name = Auto-calculate Shipping
+description = Use JavaScript to automatically click the Calculate Shipping button at checkout.
+package = Ubercart - fulfillment
+dependencies = uc_quote

@@ -1,0 +1,165 @@
+<?php
+// $Id: tokenize.module,v 1.1.2.1 2008/08/03 04:16:30 greggles Exp $
+
+/**
+ * @file
+ *  Provides configurable, automatic tokenization of CCK widgets.
+ * 
+ * @ingroup token
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Adds a checkbox to the field settings form to allow tokenization.
+ * Captures form submission to handle the checkbox.
+ */
+function tokenize_form_alter($form_id, &$form) {
+  if (isset($form['#node'])) {
+    $node = $form['#node'];
+  } 
+  else {
+    //This may seem pretty pointless, but it allows for some splicity down below.
+    $node = new stdClass();
+    $node->type = '';
+  }
+
+  switch ($form_id) {
+    case '_content_admin_field':
+      $tokenize_widget = tokenize_get_settings($form['field_name']['#value'], $form['type_name']['#value'], TRUE);
+
+      // Add a new checkbox for tokenization
+      $form['widget']['tokenize'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Tokenization'),
+        '#collapsed' => FALSE,
+        '#collapsible' => FALSE,
+        '#description' => t('Because the %t module is enabled, you may use tokens in this widget when creating new nodes of this type. To enable token replacement, check the box below.', array('%t' => 'Token')),
+      );
+      
+      $form['widget']['tokenize']['tokenize'] = array(
+        '#type' => 'radios',
+        '#title' => t('Token replacement'),
+        '#default_value' => $tokenize_widget,
+        '#options' => array(
+          FALSE => t('Off'),
+          1 => t('Replace on node views / Preserve tokens'),
+          2 => t('Replace on node submission'),
+        ),
+      );
+      
+      // Make sure we capture form submission to deal with our new checkbox.
+      $form['#submit']['tokenize_content_admin_field_submit'] = array();
+      
+      break;
+    case $node->type .'_node_form':
+      $fields = tokenize_get_settings(NULL, $node->type);
+      dsm($fields);
+      foreach ((array)$fields as $field => $method) {
+        $form[$field][0]['token_help'] = array(
+          '#title' => t('Replacement patterns'),
+          '#type' => 'fieldset',
+          '#collapsible' => TRUE,
+          '#collapsed' => TRUE,
+          '#description' => t('Prefer raw-text replacements for text to avoid problems with HTML entities!'),
+        );
+        $form[$field][0]['token_help']['help'] = array(
+          '#value' => theme('token_help', 'node'),
+        );
+      }
+      
+      break;
+
+  }
+}
+ 
+/**
+ * Implementation of hook_nodeapi().
+ * 
+ * Does the tokenization for the proper fields on update and insert.
+ */
+function tokenize_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'submit':
+      $fields = array();
+      $fields = tokenize_get_settings(NULL, $node->type);
+      foreach ((array)$fields as $field => $method) {
+        if ($method == 2) {
+          $new_field = array();
+          foreach ($node->$field as $key => $value) {
+            $value['value'] = token_replace($value['value'], $type = 'node', $node);
+            $new_field[$key] = $value;          
+          }
+          $node->$field = $new_field;
+        }
+      }
+      break;
+    case 'view':
+      $fields = array();
+      $fields = tokenize_get_settings(NULL, $node->type);
+      foreach ((array)$fields as $field => $method) {
+        if ($method == 1) {
+          $node->content[$field]['#value'] = token_replace($node->content[$field]['#value'], 'node', $node);
+        }
+      }
+      break;
+  }
+}
+ 
+/**
+ * Form callback to capture submission of the field settings form
+ */
+function tokenize_content_admin_field_submit($form_id, $form_values) {
+  db_query("DELETE FROM {tokenize} WHERE field_name = '%s' AND type_name = '%s'", $form_values['field_name'],  $form_values['type_name']);
+
+  if ($form_values['tokenize'] > 0) {
+    db_query("INSERT INTO {tokenize} (field_name, type_name, method) VALUES ('%s', '%s', %d)", $form_values['field_name'], $form_values['type_name'], $form_values['tokenize']);
+  }
+}
+
+/**
+ * Retrieves information on a field for a given content type (optional).
+ */
+function tokenize_get_settings($field_name = NULL, $type_name = NULL, $reset = FALSE) {
+  $must_cache = FALSE;
+  
+  if (!$reset && $cached = cache_get('tokenize')) {
+    // See if there's cached data. If so, use that. 
+    $data = unserialize($cached->data);
+  }
+  else {
+    $data = array(
+      'by field' => array(),
+      'by type' => array(),
+    );
+
+    $must_cache = TRUE;
+    $qs = db_query("SELECT * FROM {tokenize}") ;
+
+    while ($obj = db_fetch_object($qs)) {
+      $data['by field'][$obj->field_name][$obj->type_name] = $obj->method;
+      $data['by type'][$obj->type_name][$obj->field_name] = $obj->method;
+    }
+  }
+
+  if ($must_cache) {
+    if (!empty($cached)) {
+      cache_clear_all('tokenize', 'cache');
+    }
+    cache_set('tokenize', 'cache', serialize($data), CACHE_PERMANENT);
+  }
+
+  if (empty($field_name) && empty($type_name)) {
+    return $data;
+  }
+  if (empty($field_name) && !empty($type_name)) {
+    return $data['by type'][$type_name];
+  }
+  
+  if (!empty($field_name) && empty($type_name)) {
+    return $data['by_field'][$field_name];
+  }
+  
+  return isset($data['by type'][$type_name][$field_name]) ? $data['by type'][$type_name][$field_name] : NULL;
+  
+}

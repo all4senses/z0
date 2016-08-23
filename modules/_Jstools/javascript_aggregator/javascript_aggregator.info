@@ -1,0 +1,9 @@
+; $Id: javascript_aggregator.info,v 1.1.2.1 2008/12/05 07:47:25 robloach Exp $
+name = Javascript Aggregator
+description = Aggregates and caches JavaScript files to increase performance.
+
+; Information added by drupal.org packaging script on 2010-04-14
+version = "5.x-1.8"
+project = "javascript_aggregator"
+datestamp = "1271241012"
+

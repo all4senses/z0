@@ -1,0 +1,7 @@
+; $Id $ zp_autoimport ver 1.0
+name = "ZP Autoimport"
+description = "Scan ebox for new prices and import it to the shop"
+package = ZP Modules
+;dependencies = `
+
+

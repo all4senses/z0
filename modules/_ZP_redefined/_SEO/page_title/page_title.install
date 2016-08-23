@@ -1,0 +1,135 @@
+<?php
+// $Id: page_title.install,v 1.9.2.4 2009/04/15 12:11:14 njt1982 Exp $
+
+/**
+ * @file
+ * The Page Title install file, which controls the installation and uninstallation (and updates) of the Page Title module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function page_title_install() {
+  $result = FALSE;
+  switch ($GLOBALS['db_type']) {
+    case 'mysqli':
+    case 'mysql':
+      $result = db_query('CREATE TABLE IF NOT EXISTS {page_title} (
+                            nid INT NOT NULL,
+                            page_title VARCHAR(255) NOT NULL,
+                            PRIMARY KEY (nid)
+                          ) /*!40100 DEFAULT CHARACTER SET utf8 */');
+      break;
+
+    case 'pgsql':
+      $result = db_query("CREATE TABLE {page_title} (
+                            nid INT NOT NULL,
+                            page_title VARCHAR(255) NOT NULL,
+                            PRIMARY KEY (nid)
+                          )");
+      break;
+  }
+
+  if ($result) {
+    drupal_set_message(t('Page title module installed successfully.'));
+  }
+  else {
+    drupal_set_message(t('Table installation for the Page title module was unsuccessful. The tables may need to be installed by hand. See the README.txt file for a list of the installation queries.'), 'error');
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function page_title_uninstall() {
+  // Drop the page_title table
+  db_query('DROP TABLE IF EXISTS {page_title}');
+
+  // Drop the '_old' table, if it exists.
+  db_query('DROP TABLE IF EXISTS {page_title_old}');
+
+  // Clear variables
+  variable_del('page_title_default');
+  variable_del('page_title_individual');
+  variable_del('page_title_front');
+  variable_del('page_title_user');
+  variable_del('page_title_user_showfield');
+
+  // Clear the node specific variables
+  $types = node_get_types('names');
+  foreach ($types as $type => $name) {
+    variable_del("page_title_type_{$type}");
+    variable_del("page_title_type_{$type}_showfield");
+  }
+
+  // Clear the vocab specific variables
+  $vocabs = taxonomy_get_vocabularies();
+  foreach ($vocabs as $vid => $vocab) {
+    variable_del("page_title_vocab_{$vid}");
+    variable_del("page_title_vocab_{$vid}_showfield");
+  }
+}
+
+/**
+ * Increases page title in MySQL to 255 characters and modifies the MySQL table type from MYISAM to the user's default type.
+ *
+ * Implementation of hook_update_N().
+ */
+function page_title_update_1() {
+  $items = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysqli':
+    case 'mysql':
+      $items[] = update_sql('ALTER TABLE {page_title} MODIFY COLUMN page_title VARCHAR(255) NOT NULL');
+      $items[] = update_sql('CREATE TEMPORARY TABLE {page_title_temp} AS SELECT * FROM {page_title}');
+      $items[] = update_sql('DROP TABLE {page_title}');
+      $items[] = update_sql('CREATE TABLE {page_title} (
+                               nid INT NOT NULL,
+                               page_title VARCHAR(255) NOT NULL,
+                               PRIMARY KEY (nid)
+                             ) /*!40100 DEFAULT CHARACTER SET utf8 */;');
+      $items[] = update_sql('INSERT INTO {page_title} (nid, page_title)
+                               SELECT nid, page_title FROM {page_title_temp}');
+      $items[] = update_sql('DROP TABLE {page_title_temp}');
+  }
+  return $items;
+}
+
+/**
+ * Changes the page_title column type from TEXT to VARCHAR for PostgreSQL
+ * and adds a PRIMARY KEY on (nid).
+ *
+ * Implementation of hook_update_N().
+ */
+function page_title_update_2() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      db_change_column($ret, 'page_title', 'nid', 'nid', 'int', array('not null' => TRUE));
+      db_change_column($ret, 'page_title', 'page_title', 'page_title', 'varchar(255)', array('not null' => TRUE));
+      $ret[] = update_sql('ALTER TABLE {page_title} ADD PRIMARY KEY (nid)');
+      break;
+  }
+  return $ret;
+}
+
+
+function page_title_update_5203() {
+  $ret = array();
+
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql('CREATE TABLE {page_title_old} AS SELECT * FROM {page_title}');
+      $ret[] = update_sql('DROP TABLE {page_title}');
+      $ret[] = update_sql('CREATE TABLE {page_title} (
+                             type VARCHAR(15) NOT NULL DEFAULT "node",
+                             id INT NOT NULL DEFAULT 0,
+                             page_title VARCHAR(255) NOT NULL,
+                             PRIMARY KEY (type, id)
+                           ) /*!40100 DEFAULT CHARACTER SET utf8 */;');
+      $ret[] = update_sql('INSERT INTO {page_title} (id, page_title) SELECT nid, page_title FROM {page_title_old}');
+  }
+
+  return $ret;
+}

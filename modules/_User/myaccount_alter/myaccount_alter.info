@@ -1,0 +1,9 @@
+; $Id: myaccount_alter.info,v 1.1 2008/02/06 16:28:37 lynn Exp $
+name = "MyAccount_Alter"
+description = "Disable fields on your site's my account page."
+
+; Information added by drupal.org packaging script on 2008-02-16
+version = "5.x-1.2"
+project = "myaccount_alter"
+datestamp = "1203184811"
+

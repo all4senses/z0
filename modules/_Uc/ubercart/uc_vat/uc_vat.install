@@ -1,0 +1,49 @@
+<?php
+// $Id$
+
+/**
+ * @file 
+ * Provides install, updated, and uninstall functions for uc_vat.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function uc_vat_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $q = <<<EOS
+CREATE TABLE {uc_vat} (
+  nid int(11) NOT NULL,
+  vid int(11) NOT NULL,
+  rate TINYINT(4) NOT NULL DEFAULT '0',
+  PRIMARY KEY(nid, vid)
+);
+EOS;
+
+      db_query($q);
+      drupal_set_message(t('You need to <a href="@url">configure the applicable VAT</a>.', 
+        array('@url' => url('admin/store/settings/vat'))));
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function uc_vat_uninstall() {
+  db_query('drop table {uc_vat}');
+
+  // Delete all the uc_vat variables and then clear the variable cache.  
+  db_query("delete from {variable} where name like 'uc_vat_%'");
+  cache_clear_all('variables', 'cache');
+}
+
+/**
+ * Module updates
+ */
+function uc_vat_update_1() {
+  $items = array();
+  $items[] = update_sql("ALTER TABLE {uc_vat} CHANGE reduced rate TINYINT(4) NOT NULL DEFAULT '0'");
+  return $items;
+}

@@ -1,0 +1,11 @@
+name = ZP Multi Reference CCK
+description = ZP version of original module Multireference. Defines a field type for creating multiple node or user reference fields with description fields and many other options.
+dependencies = jstools content nodereference userreference
+; package = CCK
+package = ZP Modules
+
+; Information added by drupal.org packaging script on 2008-04-01
+version = "5.x-1.1"
+project = "multireference"
+datestamp = "1207060216"
+

@@ -1,0 +1,7 @@
+; $Id $ zp_cleaner ver 1.0
+name = "ZP Cleaner"
+description = "Clears user sessions, cache and does other stuff"
+package = ZP Modules
+;dependencies = 
+
+

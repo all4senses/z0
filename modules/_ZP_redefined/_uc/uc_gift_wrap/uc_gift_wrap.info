@@ -1,0 +1,10 @@
+; $Id $
+name = "UC Gift Wrap"
+description = "Gift wrap option during checkout."
+dependencies = uc_store
+
+; Information added by drupal.org packaging script on 2007-12-28
+version = "5.x-1.0"
+project = "uc_gift_wrap"
+datestamp = "1224456101"
+

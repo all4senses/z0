@@ -1,0 +1,5 @@
+; $Id$
+name = Checkout Enhancements
+description = Provides some minor enhancements to the checkout pages.
+dependencies = uc_cart
+package = Ubercart - extra

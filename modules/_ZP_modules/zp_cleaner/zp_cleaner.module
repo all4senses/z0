@@ -1,0 +1,129 @@
+<?php
+// $Id: zp_cleaner.module,v 1.1 
+
+
+function zp_cleaner_menu($may_cache) {
+  $items = array();
+
+  $age = 1; // в часах
+  
+  if (!$may_cache) {
+    $items[] = array(
+      'path' => 'admin/store/zp_cleaner',
+      'title' => t('ZP Cleaner'),
+      //'description' => t('Configure time-based clean up functions.'),
+      //'callback' => 'drupal_get_form',
+      //'callback arguments' => array('cleaner_settings_form'),
+      'access' => user_access('administer site configuration'),
+    );
+    
+    $items[] = array(
+      'path' => 'admin/store/zp_cleaner/clear_all_sessions',
+      'title' => t('Clear All Sessions'),
+      //'description' => t('Configure time-based clean up functions.'),
+      'callback' => 'zp_cleaner_clear_sessions',
+      'callback arguments' => array(0, 0, 1), // возраст сессии в часах, удалять удминские сессии, возвращать на пред. страницу
+      'access' => user_access('administer site configuration'),
+    );
+    
+    $items[] = array(
+      'path' => 'admin/store/zp_cleaner/clear_older_sessions',
+      'title' => t('Clear Sess.older ' . $age . ' hours'),
+      'description' => t('Clear all Sessions older tnan ' . $age . ' hours'),
+      'callback' => 'zp_cleaner_clear_sessions',
+      'callback arguments' => array($age, 0, 1), // возраст сессии в часах (выше в этой функции указан), удалять удминские сессии, возвращать на пред. страницу
+      'access' => user_access('administer site configuration'),
+    );
+    
+    $items[] = array(
+      'path' => 'admin/store/zp_cleaner/clear_all_cache',
+      'title' => t('Clear all caches'),
+      'description' => t('Clear all caches'),
+      'callback' => 'zp_cleaner_clear_cache',
+      //'callback arguments' => array(), 
+      'access' => user_access('administer site configuration'),
+    );
+    
+    $items[] = array(
+      'path' => 'admin/store/zp_cleaner/clear_watchdog',
+      'title' => t('Clear Watchdog'),
+      'description' => t('Clear watchdog'),
+      'callback' => 'zp_cleaner_clear_watchdog',
+      'callback arguments' => array(1), // возвращать на пред. страницу
+      'access' => user_access('administer site configuration'),
+    );
+     
+    
+  }
+  return $items;
+} 
+
+
+
+
+function zp_cleaner_clear_sessions($age = 0, $save_admin_session = 0, $destination = NULL){ // возраст в часах
+	
+	$age_hours = $age;
+	$age = $age*60*60; // переводим возраст в часах в секунды
+	
+	//echo 'time = ' . (time()/60)/60 . ', age = ' . $age . ', age_hours = ' . $age_hours;	
+	//db_query('SELECT uid FROM {sessions} WHERE timestamp < '.(time() - $age));
+	
+        
+	// удаляем все сессии, старше заданного $age
+        /*
+	if($save_admin_session) // сохраняем сессию админа, если нужно
+  		db_query('DELETE FROM {sessions} WHERE user <> 1 AND timestamp < '.(time() - $age));	
+  	else
+  		db_query('DELETE FROM {sessions} WHERE timestamp < '.(time() - $age));
+  	*/
+        
+        db_query('TRUNCATE TABLE {sessions}');
+        
+ 	$count = db_affected_rows();
+    watchdog('ZP Cleaner', t('Cleared @count sessions, older than @age_hours hour.', array('@count' => $count, '@age_hours' => $age_hours)));
+    
+    if($destination)
+    	drupal_goto($_SERVER['HTTP_REFERER']); // возвращаем пользователя на ту страницу, откуда он  вызвал очищение
+}
+
+function zp_cleaner_clear_cache($destination = true){
+	
+	drupal_clear_css_cache();
+ 
+	$core = array('cache', 'cache_content', 'cache_filter', 'cache_menu', 'cache_page', 'cache_views');
+	$alltables = array_merge($core, module_invoke_all('devel_caches'));
+	foreach ($alltables as $table) 
+	{
+  		cache_clear_all('*', $table, true);
+	}
+	
+	watchdog('ZP Cleaner', t('All caches are cleared'));
+	
+	if($destination)
+		drupal_goto($_SERVER['HTTP_REFERER']); // возвращаем пользователя на ту страницу, откуда он  вызвал очищение
+
+}
+
+
+function zp_cleaner_cron() {
+
+	$age = 1; // возраст в часах, удалим все сессии старше стольки часов
+	
+	// удаляем старые сессии, в том числе и админские
+  	zp_cleaner_clear_sessions($age, 0, 0);
+}
+
+
+
+
+function zp_cleaner_clear_watchdog($destination = NULL) {
+
+    // Clear out the watchdog table.
+    db_query("TRUNCATE {watchdog}");
+    watchdog('ZP Cleaner', t('Cleared watchdog.'));
+    
+    if($destination)
+		drupal_goto($_SERVER['HTTP_REFERER']); // возвращаем пользователя на ту страницу, откуда он  вызвал очищение
+    
+}

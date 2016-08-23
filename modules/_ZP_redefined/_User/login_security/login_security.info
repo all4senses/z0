@@ -1,0 +1,9 @@
+; $Id: login_security.info,v 1.1 2007/09/24 21:54:11 ilo Exp $
+name = Login Security
+description = Enable security options in the login flow of the site.
+
+; Information added by drupal.org packaging script on 2008-01-24
+version = "5.x-1.1"
+project = "login_security"
+datestamp = "1201160711"
+

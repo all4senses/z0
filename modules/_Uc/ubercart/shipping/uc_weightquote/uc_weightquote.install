@@ -1,0 +1,67 @@
+<?php
+// $Id: uc_weightquote.install,v 1.4.2.8 2008/07/30 21:16:06 rszrama Exp $
+
+function uc_weightquote_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {uc_weightquote_products} (
+        `vid` mediumint(9) unsigned NOT NULL default 0,
+        `nid` mediumint(9) unsigned NOT NULL default 0,
+        `rate` float NOT NULL default '0',
+        PRIMARY KEY (`vid`)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ;");
+    break;
+    case 'pgsql':
+      db_query("CREATE TABLE {uc_weightquote_products} (
+        vid int_unsigned NOT NULL default 0,
+        nid int_unsigned NOT NULL default 0,
+        rate float NOT NULL default 0,
+        PRIMARY KEY (vid)
+      );");
+    break;
+  }
+}
+
+function uc_weightquote_uninstall() {
+  db_query("DROP TABLE {uc_weightquote_products}");
+  variable_del('uc_weightquote_base_rate');
+  variable_del('uc_weightquote_product_default');
+}
+
+function uc_weightquote_update_1() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} ADD COLUMN vid mediumint(9) unsigned NOT NULL default 0 FIRST");
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} DROP INDEX nid");
+      $result = db_query("SELECT nid, vid FROM {node}");
+      while ($product = db_fetch_object($result)) {
+        db_query("UPDATE {uc_weightquote_products} SET vid = %d WHERE nid = %d", $product->vid, $product->nid);
+      }
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} ADD PRIMARY KEY (vid)");
+    break;
+    case 'pgsql':
+      db_add_column($ret, 'uc_weightquote_products', 'vid', 'integer unsigned', array('not null' => true, 'default' => 0));
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} DROP CONSTRAINT {uc_weightquote_products}_nid_key");
+      $result = db_query("SELECT nid, vid FROM {node}");
+      while ($product = db_fetch_object($result)) {
+        db_query("UPDATE {uc_weightquote_products} SET vid = %d WHERE nid = %d", $product->vid, $product->nid);
+      }
+      $ret[] = update_sql("ALTER TABLE {uc_weightquote_products} ADD PRIMARY KEY (vid)");
+    break;
+  }
+  return $ret;
+}
+
+function uc_weightquote_update_2() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'pgsql':
+      db_change_column($ret, 'uc_weightquote_products', 'vid', 'vid', 'int_unsigned', array('not null' => true, 'default' => 0));
+      db_change_column($ret, 'uc_weightquote_products', 'nid', 'nid', 'int_unsigned', array('not null' => true, 'default' => 0));
+    break;
+  }
+  return $ret;
+}

@@ -1,0 +1,18 @@
+<?php
+// $Id: views_ui_perm.install,v 1.1.2.2 2008/09/03 11:08:17 swentel Exp $
+
+/**
+ * @file
+ * Install file
+ *
+ * @author Kristof De Jaeger - http://drupal.org/user/107403 - http://realize.be
+ * @version this is the drupal 5.x version
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function views_ui_perm_uninstall() {
+  variable_del('views_ui_permissions');
+  db_query("DELETE FROM {system} WHERE name = 'views_ui_perm'");
+}

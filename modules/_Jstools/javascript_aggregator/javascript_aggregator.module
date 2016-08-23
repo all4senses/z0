@@ -1,0 +1,225 @@
+<?php
+// $Id: javascript_aggregator.module,v 1.16.2.16 2010/04/14 10:19:21 derjochenmeyer Exp $
+
+/**
+ * @file
+ * Aggregates Javascript files to increase performance.
+ *
+ * This modules parses the phptemplate $scripts variable for .js files,
+ * extracts them and stores them in a md5 named file under files/js.
+ */
+
+/**
+ * Main function that finds .js files in $scripts.
+ */
+function javascript_aggregator_cache($scripts) {
+  if (variable_get('javascript_aggregator_aggregate_js', 0)) {
+    // Compiling exclude pattern.
+    if ($exclude_pattern = variable_get('javascript_aggregator_exclude_js', FALSE)) {
+      if ( trim($exclude_pattern) != '' ) {
+        $exclude_pattern = strtr($exclude_pattern, array(
+            '\\' => '/',
+            '.' => '\\.',
+          ));
+        $exclude_pattern = preg_split('/\r?\n/', $exclude_pattern, -1, PREG_SPLIT_NO_EMPTY);
+        $exclude_pattern = '~'.implode("$|", $exclude_pattern).'$~';
+      }
+    }
+
+    // One regular expression to extract and remove .js paths and filenames from $scripts variable
+    $pattern = "!(<script type=\"text\/javascript\" src=\")(.*?)(\"(.*?)><\/script>\n)!";
+
+    // Create an array $matches with pieces of $pattern found in $scripts
+    preg_match_all($pattern, $scripts, $matches);
+    // $matches[2] is where paths and filenames are stored
+
+    // Remove aggregated js files from $scripts using the same $pattern.
+    $scripts = preg_replace($pattern, "", $scripts);
+    $scripts_js_files = array();
+		$scripts_js_links = array();
+
+    // Sort through the files and see what is to be aggregated, and what is to be excluded.
+    foreach ($matches[2] as $value) {
+      if ($exclude_pattern && preg_match($exclude_pattern, $value)) {
+        $scripts_js_links[] = $value; // prepares it to add it later after aggregation
+      }
+      else {
+        $scripts_js_files[] = $value;
+      }
+    }
+
+    // Generate a unique filename from the set of JavaScript files.
+    $filename = md5(serialize($scripts_js_files)) .'.js';
+
+    // Create files/js similar to drupal_build_css_cache (common.inc).
+    $jspath = file_create_path('js');
+    file_check_directory($jspath, FILE_CREATE_DIRECTORY);
+    $jsfile = $jspath .'/'. $filename;
+
+    // Create the aggregated file if it doesn't exist.
+    if (!file_exists($jsfile)) {
+      $contents = '';
+
+      // Obtain all JavaScript.
+      foreach ($scripts_js_files as $scripts_js_file) {
+        // Retreve the path without Drupal's base path.
+        $scripts_js_file = substr($scripts_js_file, strlen(base_path()));
+        // Eliminate any query arguments or hash strings from the end of the name.
+        // These could happen because some smart modules try to help us version
+        // their Javascript files (get browsers reload them when we update the
+        // modules, even when the file name stays the same). Since Javascript
+        // aggregator users know they need to clear their JS cache on update,
+        // they will solve this issue manually.
+        $scripts_js_file = preg_replace('!(.+)([\?#].*)!', '\1', $scripts_js_file);
+        if (file_exists($scripts_js_file)) {
+          $data = file_get_contents($scripts_js_file);
+          $contents .= ";\n/* AGGREGATED JS FILE: $scripts_js_file */\n".$data."\n";
+        }
+      }
+
+      // JSMinify the JavaScript.
+      if (variable_get('javascript_aggregator_jsmin', FALSE)) {
+        include_once(drupal_get_path('module', 'javascript_aggregator') .'/jsmin.php');
+        $contents = JSMIN::minify($contents);
+      }
+
+      // GZip the JavaScript if required.
+      $htaccess = $jspath .'/.htaccess';
+      if (variable_get('javascript_aggregator_gzip', FALSE)) {
+
+        // Create the GZip file if it doesn't already exist.
+        if (!file_exists($jsfile .'.gz')) {
+          file_save_data(gzencode($contents, 9), $jsfile .'.gz', FILE_EXISTS_REPLACE);
+        }
+
+        // Make sure the .htaccess file is active to handle GZipped JavaScript files.
+        if (!file_exists($htaccess)) {
+          $htaccess_contents = <<<EOT
+<Files *.js.gz>
+  AddEncoding x-gzip .gz
+  ForceType text/javascript
+</Files>
+<IfModule mod_rewrite.c>
+  RewriteEngine on
+  RewriteCond %{HTTP_USER_AGENT} !".*Safari.*"
+  RewriteCond %{HTTP:Accept-encoding} gzip
+  RewriteCond %{REQUEST_FILENAME}.gz -f
+  RewriteRule ^(.*)\.js $1.js.gz [L,QSA]
+</IfModule>
+EOT;
+          file_save_data($htaccess_contents, $htaccess, FILE_EXISTS_REPLACE);
+        }
+      }
+      else {
+        // Delete .htaccess file so *.gz files do not get served.
+        if (file_exists($htaccess)) {
+          file_delete($htaccess);
+        }
+      }
+
+      // Create the JavaScript file.
+      file_save_data($contents, $jsfile, FILE_EXISTS_REPLACE);
+    }
+
+    // Adds excluded files again to the $scripts variable, making sure the aggregated file is on top.
+    $base_path = variable_get('javascript_aggregator_base_path', NULL);
+    $base_path = $base_path ? $base_path : base_path();
+    array_unshift($scripts_js_links, $base_path . $jsfile);
+    foreach ($scripts_js_links as $add_to_scripts) {
+      $script_links .= "<script type=\"text/javascript\" src=\"$add_to_scripts\"></script>\n";
+    }
+
+    // Reconstruct the scripts variable, making sure to add the aggregated files at the beginning.
+    $scripts = trim($script_links . $scripts);
+  }
+  return $scripts;
+}
+
+/**
+ * Delete all cached JS files.
+ */
+function javascript_aggregator_clear_cache() {
+  $success = file_scan_directory(file_create_path('js'), '.*', array('.', '..', 'CVS'), 'file_delete', FALSE);
+  if ($success) {
+    drupal_set_message(t('Javascript cache cleared.'), $type = 'status');
+  }
+  else {
+    drupal_set_message(t('Javascript cache could not be cleared. Or already empty.'), $type = 'error');
+  }
+  drupal_goto('admin/settings/performance');
+}
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Adds the configuration stuff to admin/settings/performance. Inspired by http://drupal.org/node/149402
+ */
+function javascript_aggregator_form_alter($form_id, &$form) {
+  if ($form_id == 'system_performance_settings') {
+    $directory = file_directory_path();
+    $is_writable = is_dir($directory) && is_writable($directory) && (variable_get('file_downloads', FILE_DOWNLOADS_PUBLIC) == FILE_DOWNLOADS_PUBLIC);
+
+    $form['javascript_aggregation'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Javascript Aggregation'),
+      '#description' => t('<p>The Javascript Aggregator Module aggregates javascript files into a single cached file. This will help to reduce the number of requests made to your webserver on every pageload, reducing server load and average page loading time.</p><p>To enable this feature, make sure you have set up your files directory correctly and your download method is not set to private.</p><p>Click here to <a href="@clearjscache">clear the javascript cache.</a></p><p>NOTICE: If you clear the cache while Javascript Aggregation is enabled, your files/js directory will NOT be empty because a new file is instantly created.</p>', array('@clearjscache' => url('clearjscache'))),
+      '#weight' => 0
+    );
+
+    $form['javascript_aggregation']['javascript_aggregator_aggregate_js'] = array(
+      '#type' => 'radios',
+      '#title' => t('Aggregate JavaScript files'),
+      '#default_value' => variable_get('javascript_aggregator_aggregate_js', 0),
+      '#disabled' => !$is_writable,
+      '#options' => array(t('Disabled'), t('Enabled')),
+      '#description' => t("This option can interfere with module development. It is recommended to only turn this on when your site is complete."),
+    );
+
+    $form['javascript_aggregation']['javascript_aggregator_jsmin'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Minify with JSMin'),
+      '#default_value' => variable_get('javascript_aggregator_jsmin', FALSE),
+      '#description' => t('When enabled, will use the <a href="@jsmin">JSMin</a> library to compress the aggregated JavaScript file.', array('@jsmin' => 'http://code.google.com/p/jsmin-php/')),
+    );
+
+    $form['javascript_aggregation']['javascript_aggregator_gzip'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('GZip JavaScript'),
+      '#default_value' => variable_get('javascript_aggregator_gzip', FALSE),
+      '#description' => t('Once aggregated, optionally <a href="@gzip">GZip</a> the JavaScript to dramatically decrease its size.', array('@gzip' => 'http://en.wikipedia.org/wiki/Gzip')),
+    );
+
+    $form['javascript_aggregation']['javascript_aggregator_exclude_js'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Exclude from js aggregation'),
+      '#default_value' => variable_get('javascript_aggregator_exclude_js', ''),
+      '#disabled' => !$is_writable,
+      '#description' => t('Enter one js file per line that should be excluded from js aggregation. Check your HTML source for paths. TinyMCE Example: <em>/sites/all/modules/tinymce/tinymce/jscripts/tiny_mce/tiny_mce.js</em> Partial paths are also possible, this does the same <em>tiny_mce.js</em>'),
+    );
+
+    $form['javascript_aggregation']['javascript_aggregator_base_path'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Advanced: Base URL for javascript aggregated files'),
+      '#default_value' => variable_get('javascript_aggregator_base_path', ''),
+      '#description' => t('If you would like to serve your JS files from a different server, like one dedicated for static files (usually images and JS files), add its URL here, like <em>http://images.example.com/</em>. Make sure it ends with a slash. Leave empty if you want JS files to be served from the same server and directory as they are created in'),
+    );
+  }
+}
+
+/**
+ * Implementation of hook_menu().
+ *
+ * Adds a callback mapped on the clear_cache function.
+ */
+function javascript_aggregator_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'clearjscache',
+      'callback' => 'javascript_aggregator_clear_cache',
+      'access' => user_access('administer site configuration'),
+      'type' => MENU_CALLBACK
+    );
+  }
+  return $items;
+}

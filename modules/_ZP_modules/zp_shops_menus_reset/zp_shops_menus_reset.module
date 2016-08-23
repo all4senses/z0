@@ -1,0 +1,127 @@
+<?php
+// $Id: zp_shops_menus_reset.module,v 1.1 
+
+
+function zp_shops_menus_reset_menu($may_cache) {
+	
+  $items = array();
+ 
+  if (!$may_cache) {
+    $items[] = array(
+      'path' => 'admin/store/zp_shops_menus_reset',
+      'title' => t('ZP Shops Menus Reset'),
+      //'description' => t('Configure time-based clean up functions.'),
+      //'callback' => 'drupal_get_form',
+      //'callback arguments' => array('cleaner_settings_form'),
+      'access' => user_access('administer site configuration'),
+    );
+    
+    $items[] = array(
+      'path' => 'admin/store/zp_shops_menus_reset/reset_all_shops_menus',
+      'title' => t('Reset all shops menus'),
+      //'description' => t(''),
+      'callback' => 'zp_shops_menus_reset_clear',
+      'callback arguments' => array('all', 1), 
+      'access' => user_access('administer site configuration'),
+    );
+    
+    // следующий блок закомментировать, чтобы убрать из меню список магазинов (и каждый раз обращение в базу за этим списком)
+    if(1)
+    {
+    	$items[] = array(
+    	'path' => 'admin/store/zp_shops_menus_reset/reset_menus_by_shops',
+    	'title' => t('Reset menus by shops'),
+    	//'description' => t(''),
+    	//'callback' => 'zp_shops_menus_reset_clear',
+    	//'callback arguments' => array(), 
+    	'access' => user_access('administer site configuration'),
+    	);
+
+    	$smenus = db_query("SELECT name from {variable} WHERE name LIKE 'shop_smenu_nid%'");
+    	while($smenu = db_fetch_array($smenus))
+    	{
+    		$shop_nid = explode('shop_smenu_nid', $smenu['name']);
+    		$shop_nid = $shop_nid[1];
+    		$shop_title = db_result(db_query("SELECT title from {node} WHERE nid = %d", $shop_nid));
+    		
+    		$items[] = array(
+    		'path' => 'admin/store/zp_shops_menus_reset/reset_menus_by_shops/shop_nid' . $shop_nid,
+    		'title' => t($shop_title),
+    		//'description' => t(''),
+    		//'callback' => 'zp_shops_menus_reset_clear',
+    		//'callback arguments' => array(),
+    		'access' => user_access('administer site configuration'),
+    		);
+
+    		$items[] = array(
+    		'path' => 'admin/store/zp_shops_menus_reset/reset_menus_by_shops/shop_nid' . $shop_nid . '/goto-shop',
+    		'title' => t('Go to this Shop'),
+    		//'description' => t(''),
+    		'callback' => zp_shops_menus_reset_gotoshop,
+    		'callback arguments' => array($shop_nid),
+    		'access' => user_access('administer site configuration'),
+    		);
+
+    		$items[] = array(
+    		'path' => 'admin/store/zp_shops_menus_reset/reset_menus_by_shops/shop_nid' . $shop_nid . '/reset_shop_menu',
+    		'title' => t('Reset menu'),
+    		//'description' => t(''),
+    		'callback' => 'zp_shops_menus_reset_clear',
+    		'callback arguments' => array($shop_nid, 1),
+    		'access' => user_access('administer site configuration'),
+    		);
+    	}
+
+    }
+  }
+  return $items;
+} 
+
+
+
+
+function zp_shops_menus_reset_clear($target = 'all', $destination = 0){
+	
+	if($target == 'all')
+	{
+		$smenus = db_query("SELECT name from {variable} WHERE name LIKE 'shop_smenu_nid%'");
+    	while($smenu = db_fetch_array($smenus))
+    	{
+    		$shop_nid = explode('shop_smenu_nid', $smenu['name']);
+    		variable_del('shop_smenu_nid' . $shop_nid[1]);
+    	}
+	}
+	else if($target)
+	{
+		//echo 'delete shop_smenu_nid' . $target . '<br>';
+		
+		variable_del('shop_smenu_nid' . $target);
+		
+		//db_query("DELETE FROM {variable} WHERE name = '%s'", 'shop_smenu_nid' . $target);
+		//variable_set('shop_smenu_nid' . $target, null);
+		
+	}
+	
+	//возвращаем пользователя на страницу, откуда был вызов 
+	if($destination)
+		drupal_goto($_SERVER['HTTP_REFERER']);
+}
+
+
+
+function zp_shops_menus_reset_gotoshop($shop_nid){
+	
+	drupal_goto('node/' . $shop_nid);
+}
+
+
+
+
+/*
+function zp_shops_menus_reset_cron() {
+
+	
+}
+*/
+
+

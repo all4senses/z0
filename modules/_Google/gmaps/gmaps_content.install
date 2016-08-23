@@ -1,0 +1,195 @@
+<?php
+// $Id: gmaps_content.install,v 1.2 2009/02/24 16:42:15 xmarket Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function gmaps_content_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {gmaps_addresses} (
+        vid int(10) unsigned NOT NULL default '0',
+        nid int(10) unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int(10) unsigned NOT NULL default '0',
+        country char(2) NOT NULL default '' COMMENT 'iso2 code',
+        adminarea varchar(255) NOT NULL default '',
+        subadminarea varchar(255) NOT NULL default '',
+        locality varchar(255) NOT NULL default '',
+        deplocality varchar(255) NOT NULL default '',
+        thoroughfare varchar(255) NOT NULL default '',
+        postalcode varchar(255) NOT NULL default '',
+        privacy tinyint(1) unsigned NOT NULL default '0',
+        PRIMARY KEY (vid, field_name, delta),
+        KEY location (country, locality)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      db_query("CREATE TABLE {gmaps_points} (
+        vid int(10) unsigned NOT NULL default '0',
+        nid int(10) unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int(10) unsigned NOT NULL default '0',
+        privacy varchar(255) NOT NULL default '' COMMENT 'serialized distance',
+        sm_zoom varchar(16) NOT NULL default 'i',
+        sm_size_tid int(10) unsigned NOT NULL default '0',
+        sm_size varchar(16) NOT NULL default '',
+        sm_color_tid int(10) unsigned NOT NULL default '0',
+        sm_color varchar(16) NOT NULL default '',
+        sm_letter char(1) NOT NULL default '',
+        icon_tid int(10) unsigned NOT NULL default '0',
+        icon varchar(16) NOT NULL default '0',
+        zoomrange_tid int(10) unsigned NOT NULL default '0',
+        zoomrange varchar(255) NOT NULL default '' COMMENT 'serialized array',
+        action varchar(16) NOT NULL default '',
+        url varchar(255) NOT NULL default '',
+        PRIMARY KEY (vid, nid, field_name, delta)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      db_query("CREATE TABLE {gmaps_coordinates} (
+        vid int(10) unsigned NOT NULL default '0',
+        nid int(10) unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int(10) unsigned NOT NULL default '0',
+        subdelta int(10) unsigned NOT NULL default '0' COMMENT 'will be used to handle multi point overlays',
+        map_type varchar(255) NOT NULL default 'earth',
+        latitude decimal(20, 15) NOT NULL default '0.000000',
+        longitude decimal(20, 15) NOT NULL default '0.000000',
+        height varchar(255) NOT NULL default '' COMMENT 'serialized distance',
+        x float NOT NULL default '0' COMMENT 'cartesian coordinates for distance handling',
+        y float NOT NULL default '0',
+        z float NOT NULL default '0',
+        height_m decimal(20, 10) NOT NULL default '0' COMMENT 'in meters for filters',
+        PRIMARY KEY (vid, nid, field_name, delta, subdelta),
+        KEY coordinates (map_type, x, y, z)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      db_query("CREATE TABLE {gmaps_marker_content} (
+        vid int(10) unsigned NOT NULL default '0',
+        nid int(10) unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int(10) unsigned NOT NULL default '0',
+        tabid int(10) unsigned NOT NULL default '0' COMMENT 'will be used to handle tabbed info windows',
+        title varchar(64) NOT NULL default '',
+        body longtext NOT NULL default '',
+        format int(10) unsigned NOT NULL default '0',
+        PRIMARY KEY (vid, nid, field_name, delta, tabid),
+        UNIQUE (vid, nid, field_name, delta, title),
+        KEY title (title),
+        KEY body (body (4096))
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      break;
+
+    case 'pgsql':
+      db_query("CREATE TABLE {gmaps_addresses} (
+        vid int_unsigned NOT NULL default '0',
+        nid int_unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int_unsigned NOT NULL default '0',
+        country char(2) NOT NULL default '' COMMENT 'iso2 code',
+        adminarea varchar(255) NOT NULL default '',
+        subadminarea varchar(255) NOT NULL default '',
+        locality varchar(255) NOT NULL default '',
+        deplocality varchar(255) NOT NULL default '',
+        thoroughfare varchar(255) NOT NULL default '',
+        postalcode varchar(255) NOT NULL default '',
+        privacy smallint_unsigned NOT NULL default '0',
+        PRIMARY KEY (vid, field_name, delta)
+      )");
+      db_query("CREATE INDEX {gmaps_addresses}_location_idx ON {gmaps_addresses} (country, locality)");
+
+      db_query("CREATE TABLE {gmaps_points} (
+        vid int_unsigned NOT NULL default '0',
+        nid int_unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int_unsigned NOT NULL default '0',
+        privacy int_unsigned NOT NULL default '0',
+        sm_zoom varchar(16) NOT NULL default 'i',
+        sm_size_tid int_unsigned NOT NULL default '0',
+        sm_size varchar(16) NOT NULL default '',
+        sm_color_tid int_unsigned NOT NULL default '0',
+        sm_color varchar(16) NOT NULL default '',
+        sm_letter char(1) NOT NULL default '',
+        icon_tid int_unsigned NOT NULL default '0',
+        icon varchar(16) NOT NULL default '0',
+        zoomrange_tid int_unsigned NOT NULL default '0',
+        zoomrange varchar(255) NOT NULL default '' COMMENT 'serialized array',
+        action varchar(16) NOT NULL default '',
+        url varchar(255) NOT NULL default '',
+        PRIMARY KEY (vid, nid, field_name, delta)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+
+      db_query("CREATE TABLE {gmaps_coordinates} (
+        vid int_unsigned NOT NULL default '0',
+        nid int_unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int_unsigned NOT NULL default '0',
+        subdelta int_unsigned NOT NULL default '0' COMMENT 'will be used to handle multi point overlays',
+        map_type varchar(255) NOT NULL default 'earth',
+        latitude decimal(20, 15) NOT NULL default '0.000000',
+        longitude decimal(20, 15) NOT NULL default '0.000000',
+        height varchar(255) NOT NULL default '' COMMENT 'serialized distance',
+        x real NOT NULL default '0' COMMENT 'cartesian coordinates for distance handling',
+        y real NOT NULL default '0',
+        z real NOT NULL default '0',
+        height_m decimal(20, 10) NOT NULL default '0' COMMENT 'in meters for filters',
+        PRIMARY KEY (vid, nid, field_name, delta, subdelta)
+      )");
+      db_query("CREATE INDEX {gmaps_coordinates}_coordinates_idx ON {gmaps_coordinates} (map_type, x, y, z)");
+
+      db_query("CREATE TABLE {gmaps_marker_content} (
+        vid int_unsigned NOT NULL default '0',
+        nid int_unsigned NOT NULL default '0',
+        field_name varchar(255) NOT NULL default '',
+        delta int_unsigned NOT NULL default '0',
+        tabid int_unsigned NOT NULL default '0' COMMENT 'will be used to handle tabbed info windows',
+        title varchar(64) NOT NULL default '',
+        body text NOT NULL default '',
+        format int_unsigned NOT NULL default '0',
+        PRIMARY KEY (vid, nid, field_name, delta, tabid),
+        UNIQUE (vid, nid, field_name, delta, title)
+      )");
+      db_query("CREATE INDEX {gmaps_marker_content}_title_idx ON {gmaps_marker_content} (title)");
+      db_query("CREATE INDEX {gmaps_marker_content}_body_idx ON {gmaps_marker_content} (body)");
+
+
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function gmaps_content_uninstall() {
+  global $conf;
+
+  db_query('DROP TABLE {gmaps_addresses}');
+  db_query('DROP TABLE {gmaps_points}');
+  db_query('DROP TABLE {gmaps_coordinates}');
+  db_query('DROP TABLE {gmaps_marker_content}');
+  
+  /*$result = db_query("SELECT name FROM {variable} WHERE name LIKE 'gcg_node_%%'");
+  while ($var = db_fetch_object($result)) {
+    db_query("DELETE FROM {variable} WHERE name = '%s'", $var->name);
+    unset($conf[$var->name]);
+  }
+  cache_clear_all('variables', 'cache');*/
+}
+
+function gmaps_content_update_1() {
+  $ret = array();
+
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {gmaps_addresses} DROP INDEX location, ADD INDEX location (country, adminarea(25), subadminarea(25), locality(25), deplocality(25), postalcode(25), thoroughfare(25))");
+      break;
+    case 'pgsql':
+      $ret[] = update_sql("ALTER TABLE {gmaps_addresses} DROP CONSTRAINT {gmaps_addresses}_location_idx");
+      $ret[] = update_sql("CREATE INDEX {gmaps_addresses}_location_idx ON {gmaps_addresses} (country, substr(adminarea, 1, 25), substr(subadminarea, 1, 25), substr(locality, 1, 25), substr(deplocality, 1, 25), substr(postalcode, 1, 25), substr(thoroughfare, 1, 25))");
+      break;
+  }
+  
+  return $ret;
+}

@@ -1,0 +1,10 @@
+; $Id: workflow_access.info,v 1.1.2.1 2007/04/26 16:02:17 mfredrickson Exp $
+name = Workflow access
+description = Content access control based on workflows and roles
+dependencies = workflow
+package = Workflow
+; Information added by drupal.org packaging script on 2008-07-19
+version = "5.x-2.3"
+project = "workflow"
+datestamp = "1216432514"
+

@@ -1,0 +1,21 @@
+<?php
+
+/**
+ * @file
+ * Install/Uninstall hooks for the JavaScript Aggregator module.
+ */
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function javascript_aggregator_uninstall() {
+  // Clear the cached JavaScript.
+  file_scan_directory(file_create_path('js'), '.*', array('.', '..', 'CVS'), 'file_delete', TRUE);
+  
+  // Delete the variables.
+  variable_del('javascript_aggregator_aggregate_js');
+  variable_del('javascript_aggregator_optimize_js');
+  variable_del('javascript_aggregator_exclude_js');
+  variable_del('javascript_aggregator_jsmin');
+  variable_del('javascript_aggregator_gzip');
+}

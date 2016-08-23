@@ -1,0 +1,31 @@
+<?php
+
+/*
+function zp_opinions_enable() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+    	
+      db_query("CREATE TABLE IF NOT EXISTS {testtable_1} (
+          vid int unsigned NOT NULL default '0',
+          field_name varchar(32) NOT NULL default '',
+          delta int unsigned NOT NULL default '0',
+          field_nid int unsigned NOT NULL default '0',
+          PRIMARY KEY  (vid,field_name,delta)
+        ) /*!40100 DEFAULT CHARACTER SET utf8 */;");
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      break;
+
+    
+  }
+}
+
+*/

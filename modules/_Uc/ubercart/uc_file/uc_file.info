@@ -1,0 +1,11 @@
+; $Id: uc_file.info,v 1.1.2.1 2008/07/29 22:22:43 rszrama Exp $
+name = File Downloads
+description = Allows products to be associated with downloadable files.
+dependencies = uc_product
+package = "Ubercart - core (optional)"
+
+; Information added by drupal.org packaging script on 2009-01-16
+version = "5.x-1.7"
+project = "ubercart"
+datestamp = "1232145342"
+

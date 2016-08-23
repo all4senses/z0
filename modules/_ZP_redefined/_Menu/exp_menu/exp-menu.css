@@ -1,0 +1,6 @@
+ul.sample-menu { padding:0;margin:10px 15px; }
+ul.sample-menu li { padding:2px 0;margin:0;list-style:none; }
+ul.sample-menu li ul { padding:0;margin:0 0 0 15px; }
+ul#my-menu a { padding-left:8px; }
+ul#my-menu a.collapsed { background:url('collapsed.gif') left 6px no-repeat; }
+ul#my-menu a.expanded { background:url('expanded.gif') left 6px no-repeat; }

@@ -1,0 +1,36 @@
+/* $Id: fivecol_20_20_20_20_20.css,v 1.4.6.6 2008/05/23 22:17:37 sdboyer Exp $ */
+
+.panel-5col-20 { 
+/*  overflow: hidden;  */
+}
+
+.panel-5col-20 .panel-col-first { 
+  q_float: left; // will be set on place for spescific class
+  q_width: 20%;  // width will be set on place for spescific class
+}
+
+.panel-5col-20 .panel-col-first .inside { 
+  /margin: 0 .5em 1em 0;
+}
+
+.panel-5col-20 .panel-col { 
+  q_float: left; // will be set on place for spescific class
+  q_width: 20%; // width will be set on place for spescific class
+}
+
+.panel-5col-20 .panel-col .inside { 
+  /margin: 0 .5em 1em .5em;
+}
+
+.panel-5col-20 .panel-col-last { 
+  q_float: left; // will be set on place for spescific class
+  q_width: 20%; // will be set on place for spescific class
+}
+
+.panel-5col-20 .panel-col-last .inside { 
+  /margin: 0 0 1em .5em;
+}
+
+.panel-5col-20 .panel-separator {
+  /margin: 0 0 1em 0;
+}

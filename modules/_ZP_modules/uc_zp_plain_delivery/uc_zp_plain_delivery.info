@@ -1,0 +1,5 @@
+; $Id: uc_zp_plain_delivery.info 1 2009-08-17 04:14:36Z root $
+name = ZP Plain Delivery
+description =  ZP Plain Delivery
+dependencies = uc_quote
+package = ZP Modules

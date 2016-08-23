@@ -1,0 +1,12 @@
+; $Id: panelsblock.info,v 1.1.2.1 2007/06/18 23:06:56 dww Exp $
+name = Panels Block
+description = Enables the presentation of panels in blocks.
+dependencies = tabs panels
+package = "Panels"
+
+
+; Information added by drupal.org packaging script on 2007-06-19
+version = "5.x-1.x-dev"
+project = "panelsblock"
+datestamp = "1182212467"
+

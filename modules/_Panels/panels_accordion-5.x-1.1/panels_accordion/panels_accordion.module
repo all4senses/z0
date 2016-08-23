@@ -1,0 +1,122 @@
+<?php
+// $Id
+/**
+ * implementation of hook_panels_styles
+ */
+function panels_accordion_panels_styles() {
+  return array(
+    'accordion' => array(
+      'title' => t('Accordian'),
+      'description' => t('Apply accordion styles to multiple panes'),
+      'panels implementations' => array(),
+      'render panel' => 'panels_accordion_style_render_panel',
+      'settings form' => 'panels_accordion_style_settings_form',
+    ),
+  );
+}
+
+/**
+ * Panel style render callback.
+ */
+function theme_panels_accordion_style_render_panel($display, $panel_id, $panes, $settings) {
+  $output = '';
+  $style = panels_get_style('accordion');
+  $reverse_action = array('slideDown'=> 'slideUp', 'fadeIn' => 'fadeOut', 'show' => 'hide' );
+
+  drupal_add_js(drupal_get_path('module', 'panels_accordion') . '/js/jquery.cookie.js', 'module');
+  drupal_add_js('$(document).ready(function(){
+    //Hide all submenus
+    $("#panels_accordion-' .$panel_id .' .content").hide();
+    //Get cookie value or set to 0 if not found 
+    var cid = parseInt($.cookie("accordion_cookie"));   
+    if(isNaN(cid))
+    {
+      cid =0;
+    }
+    //show corresponding menu
+     $("#panels_accordion-' .$panel_id .' .content:eq("+cid+")").show();
+    
+    //Loop through all menu header and assign click action to set cookie with correct index number   
+    $("#panels_accordion-' .$panel_id .' span a").each(
+    function(i) {
+        $(this).click(
+            function(e)
+            {
+                var date = new Date();
+                
+                date.setTime(date.getTime() + (60 * 60  * 1000));
+                
+                 $.cookie("accordion_cookie", i.toString(), { path: "/", expires: date });
+            }
+        )
+    });
+             
+    $("#panels_accordion-' .$panel_id .' span a").' .$settings['action']. '(function(){
+      $("#panels_accordion-' .$panel_id .' span a").removeClass("active");
+      $(this).addClass("active");
+      $("#panels_accordion-' .$panel_id .' .content:visible").' .$reverse_action[$settings['effect']]. '("' .$settings['speed'].'");
+      $(this).parent().parent().next().' .$settings['effect']. '("' .$settings['speed'].'").scrollTo( $("#panels_accordion-' .$panel_id .' "), 800 );
+      return false;
+    });
+  });', 'inline');
+
+ 
+  // Render the items of the accordion.
+    $output .= '<div id="panels_accordion-' . $panel_id . '">';
+    $class = 'class="active"';
+  foreach ($panes as $pane_id => $pane) {
+    $pane->subject = '<span><a href="#"' .$class. '>' .strip_tags($pane->title, '<p><h1><h2><h3><strong><img>'). '</a></span>';
+    $pane->title = '<span><a href="#"' .$class. '>' .strip_tags($pane->title, '<p><h1><h2><h3><strong><img>'). '</a></span>';
+    $output .= theme('panels_pane', $pane, $display->content[$pane_id], $display);
+    $class = '';
+  }
+  $output .= '</div>';
+
+  return $output;
+
+}
+
+/**
+ * Settings form for this style
+ */
+function panels_accordion_style_settings_form($style_settings) {
+  // need to see if not(:first) has more alternative
+  /*$form['expanded'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Expanded'),
+    '#default_value' => isset($style_settings['expanded']) ? $style_settings['expanded'] : 'first',
+    '#description' => t('Choose which panel will be expanded by default'),
+  );*/
+  $form['action'] = array(
+    '#type' => 'radios',
+    '#title' => t('Action'),
+    '#options' => array('click' => t('Click'), 'mouseover' => t('Mouse Over')),
+    '#default_value' => isset($style_settings['action']) ? $style_settings['action'] : $style_settings['action'] = 'click',
+    '#description' => t('Choose what event will make the action occur'),
+  );
+  $form['effect'] = array(
+    '#type' => 'radios',
+    '#title' => t('Effect'),
+    '#options' => array('slideDown' => t('Slide Down'), 'fadeIn' => t('Fade In'), 'show' => t('Show')),
+    '#default_value' => isset($style_settings['effect']) ? $style_settings['effect'] : $style_settings['effect'] = 'slideDown',
+    '#description' => t('Choose what effect will occur when focus area is triggered'),
+  );
+  $form['speed'] = array(
+    '#type' => 'radios',
+    '#title' => t('Speed'),
+    '#options' => array('slow' => t('Slow'), 'normal' => t('Normal'), 'fast' => t('Fast')),
+    '#default_value' => isset($style_settings['speed']) ? $style_settings['speed'] : $style_settings['speed'] = 'normal',
+    '#description' => t('Choose the speed at which the effects will occur'),
+  );
+  // need to check for alternative to this method of MouseOver Delays
+  /*
+  $form['delay'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Delay'),
+    '#default_value' => isset($style_settings['delay']) ? $style_settings['delay'] : '1',
+    '#description' => t('OPTIONAL : Set a Delay for the Mouse Over Action'),
+  );
+  */
+
+  return $form;
+}

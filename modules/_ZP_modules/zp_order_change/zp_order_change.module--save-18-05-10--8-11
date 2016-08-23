@@ -1,0 +1,1775 @@
+<?php
+
+// paths for my cart and order nodes
+
+//MY_CART_NODE, MY_CART_CHECKOUT_NODE, MY_CART_REVIEW_NODE, MY_CART_COMPLETE_NODE
+//MY_ORDER_HISTORY_NODE, MY_ORDER_REVIEW_NODE
+
+
+require_once('sites/all/modules/_ZP_modules/zp_node_paths_aliases/zp_node_paths_aliases.inc');
+
+//drupal_set_message("test cart path, MY_CART_NODE = " . MY_CART_NODE, 'error');
+
+
+
+
+
+
+
+
+
+
+
+
+
+// $Id: zp_order_change.module,v 1.14.2.18 2009/01/16 22:12:37 rszrama Exp $
+
+/**
+ * @file
+ * Handles all things concerning Ubercart's shopping cart.
+ *
+ * The Ubercart cart system functions much like the e-commerce cart at its base
+ * level... in fact, most carts do.  This module handles the cart display,
+ * adding items to a cart, and checking out.  The module enables the cart,
+ * products, and checkout to be extensible.
+ */
+
+//require_once('zp_order_change_checkout_pane.inc');
+//require_once('zp_order_change_workflow.inc');
+
+/*******************************************************************************
+ * Hook Functions (Drupal)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_menu().
+ */
+function zp_order_change_menu($may_cache) {
+  $items = array();
+
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/store/settings/zp_order_change',
+      'title' => t('Cart settings'),
+      'description' => t('Configure zp_order_change.'),
+      'callback' => 'zp_order_change_cart_settings_overview',
+      'access' => user_access('administer store'),
+    );
+    $items[] = array(
+      'path' => 'admin/store/settings/zp_order_change/overview',
+      'title' => t('Overview zp_order_change'),
+      'description' => t('View the zp_order_change settings.'),
+      'access' => user_access('administer store'),
+      'weight' => -10,
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+    );
+    $items[] = array(
+      'path' => 'admin/store/settings/zp_order_change/edit',
+      'title' => t('Edit zp_order_change'),
+      'description' => t('Edit the zp_order_change settings.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('zp_order_change_cart_settings_form'),
+      'access' => user_access('administer store'),
+      'weight' => -5,
+      'type' => MENU_LOCAL_TASK,
+    );
+    $items[] = array(
+      'path' => 'admin/store/settings/zp_order_change/edit/basic',
+      'title' => t('zp_order_change settings'),
+      'access' => user_access('administer store'),
+      'description' => t('Edit the basic zp_order_change settings.'),
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'weight' => -10,
+    );
+    $items[] = array(
+      'path' => 'admin/store/settings/zp_order_change/edit/panes',
+      'title' => t('zp_order_change panes'),
+      'description' => t('Edit the pane settings for the zp_order_change view page.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('zp_order_change_cart_panes_form'),
+      'access' => user_access('administer store'),
+      'weight' => -5,
+      'type' => MENU_LOCAL_TASK,
+    );
+
+  return $items;
+}
+
+}
+
+
+/*******************************************************************************
+ * Hook Functions (TAPIr)
+ ******************************************************************************/
+
+/**
+ * Implementation of hook_table_settings().
+ */
+function zp_order_change_table_settings() {
+  $tables[] = array(
+    'id' => 'zp_order_change_view_table',
+    'description' => t("Display information on products in zp_order_change."),
+    'path' => 'admin/store/settings/tables',
+    'access' => 'administer store',
+    'preview' => FALSE,
+  );
+
+  return $tables;
+}
+
+
+
+
+
+/*******************************************************************************
+ * Callback Functions, Forms, and Tables
+ ******************************************************************************/
+
+
+
+
+
+
+
+
+
+
+
+
+// ------------------- эту функцию нужно вызвать, чтобы показать содержимое корзины cart. Вернее, она возвращает темизированный вывод содержимого корзины
+// поэтому вызываем эту функцию на своей ноде, которую и показываем как основную корзину
+
+
+// Displays cart view page with form to adjust cart contents or go to checkout.
+function zp_order_change_view($order_id) {
+  // Failsafe so that this function only works when called with no arguments.
+  // This prevents the accidental wiping of the cart_order session variable.
+  //if ((func_num_args() > 0)) {
+    //return drupal_not_found();
+  //}
+
+  //if (!empty($_SESSION['cart_order'])) {
+   // unset($_SESSION['cart_order']);
+ // }
+
+  $items = zp_order_change_get_contents($order_id);
+
+    
+  if (empty($items)) {
+    return theme('zp_order_change_nosuchorder');
+  }
+
+  // вычислим ид пользователя, чтобы затем применять к нему персональные коэффециенты (доставки, а впоследствии иожет и др.)
+  $user_id = db_result(db_query("SELECT uid FROM {uc_orders} WHERE order_id = %d", $order_id));
+  
+  
+  /* original
+  
+  $panes = zp_order_change_cart_pane_list($items);
+  foreach ($panes as $pane) {
+    if ($pane['enabled']) {
+      $output .= $pane['body'];
+    }
+  }
+*/
+  
+  // my changes
+  
+  // ничего нигде не ищем по хукам, а сразу подставляем в вывод нашу форму с товарами
+  $output .= !is_null($items) ? '<div id="cart-form-pane">'. drupal_get_form('zp_order_change_view_form', $items, $user_id, $order_id) .'</div>': '';
+  
+  // форма добавления нового товара в заказ
+  $output .= '<div id="cart-form-buttons">'. drupal_get_form('zp_order_change_addproduct_form', $user_id, $items[0]) .'</div>'; // передаём один товар из заказа (первый, но вообще нужен любой)
+  
+
+  return $output;
+}
+
+
+/**
+ * Implementation of hook_cart_pane().
+ */
+/*
+function zp_order_change_cart_pane($items) {
+  $panes[] = array(
+    'id' => 'cart_form',
+    'title' => t('Default zp_order_change form'),
+    'enabled' => TRUE,
+    'weight' => 0,
+    'body' => !is_null($items) ? '<div id="cart-form-pane">'. drupal_get_form('zp_order_change_view_form', $items) .'</div>': '',
+  );
+
+  return $panes;
+}
+
+
+
+function zp_order_change_cart_pane_list($items, $action = NULL) {
+  static $panes;
+
+  if (count($panes) > 0 && $action !== 'rebuild') {
+    return $panes;
+  }
+
+  $panes = module_invoke_all('cart_pane', $items);
+  if (!is_array($panes) || count($panes) == 0) {
+    return array();
+  }
+  foreach ($panes as $i => $value) {
+    $panes[$i]['enabled'] = variable_get('uc_cap_'. $panes[$i]['id'] .'_enabled', (!isset($panes[$i]['enabled']) ? TRUE : $panes[$i]['enabled']));
+    $panes[$i]['weight'] = variable_get('uc_cap_'. $panes[$i]['id'] .'_weight', (!isset($panes[$i]['weight']) ? 0 : $panes[$i]['weight']));
+  }
+  usort($panes, 'uc_weight_sort');
+
+  return $panes;
+}
+
+*/
+
+
+// Returns the text displayed for an empty shopping cart.
+function theme_zp_order_change_nosuchorder() {
+  return '<p>'. t('There is no such order.') .'</p>';
+}
+
+
+
+
+
+
+
+
+
+
+/**
+ * Display a page allowing the customer to view the contents of his or her cart.
+ *
+ * Handles simple or complex objects. Some cart items may have a list of products
+ * that they represent. These are displayed but are not able to be changed by the
+ * customer.
+ */
+function zp_order_change_view_form($items = NULL, $user_id = NULL, $order_id = NULL) {
+  $form['items'] = array('#tree' => TRUE);
+
+  $i = 0;
+  foreach ($items as $item) {
+  	
+  	
+  	
+  	
+  	
+// my changes 
+
+// ----------------------------------------------------------------------------------------------------
+  	
+  	
+// моё вмешательство
+
+// тут я добавляю один новый аргумент 'cart_pane' в функцию   module_invoke($item->module, 'cart_display', $item, 'cart_pane');
+// так я смогу в функции 'cart_display' (вернее, uc_product_cart_display) узнать, откуда поступил вызов
+// и так определить, нужно ли давать возможность выбора/ ввода пользователем или нет
+
+// тут я передаю 'cart_pane'. Это значит, что нужно дать возможность выбора пользователю, а не просто в строку перечислить все атрибуты и опции
+
+
+    $display_item = module_invoke($item->module, 'cart_display', $item, 'cart_pane_source', $user_id);
+
+  	// оригинальная версия
+    //$display_item = module_invoke($item->module, 'cart_display', $item);
+    
+   
+    //echo '<PRE>';
+    //print_r($item);
+    //echo '</PRE>';
+    
+    if (!empty($display_item)) {
+      $form['items'][$i] = $display_item;
+      
+      // добавим в товар его номер в таблице с заказами, чтобы потом по этому номеру продукт обновлять или удалять из заказа
+      $form['items'][$i]['order_product_id'] = array(
+      			'#type' => 'hidden',
+      			'#value' => $item->order_product_id,
+    			);
+    			
+      $form['items'][$i]['data_save'] = array(
+      			'#type' => 'hidden',
+      			'#value' => $item->data_save,
+    			);
+    			
+    $form['items'][$i]['cost'] = array(
+      			'#type' => 'hidden',
+      			'#value' => $item->cost,
+    			);
+    			
+      //эта строка наверно уже не нужна, так как картинки у нас формируются по-другому
+      //$form['items'][$i]['image']['#value'] = uc_product_get_picture($display_item['nid']['#value'], 'cart');
+      
+      $i++;
+    }
+  }
+
+  /*
+  if (($page = variable_get('uc_continue_shopping_url', '')) != '<none>' &&
+      variable_get('uc_continue_shopping_type', 'link') == 'button') {
+    $form['continue_shopping'] = array(
+      '#type' => 'submit',
+      '#value' => variable_get('uc_continue_shopping_text', t('Continue shopping')),
+    );
+  }
+  */
+  
+  //$form['update'] = array(
+  $form['update_order_products'] = array(
+    '#type' => 'submit',
+    '#value' => t('Update order products'),
+  );
+
+
+    $form['add_to_order'] = array(
+      '#type' => 'submit',
+      '#value' => t('Add a product to order'),
+    );
+
+    $form['order_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $order_id,
+    );
+
+    $form['user_id'] = array(
+      '#type' => 'hidden',
+      '#value' => $user_id,
+    );
+
+    
+  return $form;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function theme_zp_order_change_view_form($form) {
+	
+  // эта переопределение оригинальной функций theme_uc_cart_view_form из модуля uc_cart
+	
+  $output = '<div id="cart-form-products">'
+          . tapir_get_table('zp_order_change_view_table', $form) .'</div>';
+
+      	//echo '<PRE>';
+      	//print_r($form);
+      	//print_r($form['order_id']['#value']);
+      	//echo '</PRE>';
+      	
+  //$output .= '<div id="continue-shopping-link">' . l('Return to Order View', 'node/' . MY_ORDER_REVIEW_NODE_NUM . '/order/' . $form['order_id']['#value'] .'/view') .'</div><div id="cart-form-buttons">' . drupal_render($form) .'</div>';
+  $output .= '<div id="continue-shopping-link">' . t('Return to ') . l(t('Order View'), 'node/' . MY_ORDER_REVIEW_NODE_NUM . '/order/' . $form['order_id']['#value'] .'/view') . t(' or to ') . l(t('Order History'), 'node/' . MY_ORDER_HISTORY_NODE_NUM) .'</div><div id="cart-form-buttons">' . drupal_render($form) .'</div>';
+  
+  return $output;
+}
+
+
+
+
+
+
+
+
+
+
+function zp_order_change_view_table($op, &$form) {
+  
+	switch ($op) {
+    case 'fields':
+      $fields[] = array('name' => 'remove', 'title' => t('Удалить'),
+                        'weight' => 0, 'enabled' => TRUE, 'locked' => TRUE);
+      $fields[] = array('name' => 'image', 'title' => t(''),
+                        'weight' => 1, 'enabled' => TRUE);
+
+                        
+                        
+// my changes 
+
+
+      // уберём это поле, так как название товара мы ставим в одном поле с опциями (см. следующее поле)
+      //$fields[] = array('name' => 'desc', 'title' => '', 'weight' => 2,
+                        //'enabled' => TRUE);
+   
+      // и добавляем поле, в котором будет помещено название товара, а под ним опции                    
+      $fields[] = array('name' => 'opt', 'title' => t('Товар'), 'weight' => 2,
+                        'enabled' => TRUE);                   
+
+                        
+      // добавляем поле с ценой за единицу, так как в оригинале его почему-то не было                  
+      $fields[] = array('name' => 'price', 'title' => t('Цена'), 'weight' => 3,
+                        'enabled' => TRUE);                  
+                        
+      $fields[] = array('name' => 'qty', 'title' => t('Сколько'), 'weight' => 3,
+                        'enabled' => TRUE);
+   
+      $fields[] = array('name' => 'total', 'title' => t('Сумма'), 'weight' => 4,
+                        'enabled' => TRUE);
+      return $fields;
+
+    case 'data':
+
+// my changes ---------------------
+      
+      // общая стоимость опций	
+      $opt_price_total = 0;	
+      
+      // общая стоимость доставки
+      $dost_price_total = 0;
+      
+      foreach (element_children($form['items']) as $i) 
+       {
+       	 	$nid = $form['items'][$i]['nid']['#value'];
+        	$subtotal += $form['items'][$i]['#total'];
+        	$desc = drupal_render($form['items'][$i]['title']) .'<br />';
+        
+// my changes ---------------------
+        
+        
+        	// вот здесь в первоначальной моей версии цепляются атрибуты, которые пользователь по идее должен иметь возможность изменять... 
+        	// но в таком виде они почему-то не сохраняются, поэтому этот вариант не годится - делаем по-другому
+        	//$desc .= drupal_render($form['items'][$i]['options']);
+
+        	// не уверен, что нужен этот элемент, так как название мы показываем по-другому
+        	// да и поле fields[] с этим desc (см. чуть выше) мы также закомментировали
+        	//$data['desc'][] = array('data' => $desc, 'width' => '100%', 'class' => 'desc');
+
+        	//$data['opt'][] =  array('data' => $form['items'][$i]['opt'] ? drupal_render($form['items'][$i]['opt']) : '', 'class' => 'title-and-opt');
+        	// внесём в поле c опциями и название товара $desc
+        	$data['opt'][] =  array('data' => $form['items'][$i]['opt'] ? $desc . drupal_render($form['items'][$i]['opt']) : $desc, 'class' => 'title-and-opt');
+        
+	        $data['remove'][] = array('data' => drupal_render($form['items'][$i]['remove']), 'align' => 'center', 'class' => 'remove');
+    	    
+	        $data['image'][] = array('data' => drupal_render($form['items'][$i]['image_p']), 'class' => 'image');
+   	    
+    	    
+        	// добавляем поле с ценой за единицу, так как в оригинале его почему-то не было
+        	$data['price'][] = array('data' => $form['items'][$i]['#price'], 'nowrap' => 'nowrap', 'class' => 'price');
+        	//$data['price'][] = array('data' => uc_currency_format($form['items'][$i]['#price']), 'nowrap' => 'nowrap', 'class' => 'price');
+        
+        	//$data['qty'][] = array('data' => $form['items'][$i]['qty'] ? drupal_render($form['items'][$i]['qty']) : '', 'class' => 'qty');
+        	$data['qty'][] = array('data' => $form['items'][$i]['qty'] ? drupal_render($form['items'][$i]['qty']) .  $form['items'][$i]['#sell_measure'] : '', 'class' => 'qty');
+        	$data['total'][] = array('data' => uc_currency_format($form['items'][$i]['#total']), 'nowrap' => 'nowrap', 'class' => 'price');
+        	$data['#attributes'][] = array('valign' => 'top');
+        	
+        	
+        	
+        	$cost_total += $form['items'][$i]['#price'];
+            $opt_price_total += $form['items'][$i]['#opt_price'] * $form['items'][$i]['qty']['#default_value'];
+            $dost_price_total += $form['items'][$i]['#dost_price'] * $form['items'][$i]['qty']['#default_value']; //$form['items'][$i]['#price'] * $form['items'][$i]['#d_factor_otdel'];
+            
+            //$price = $form['items'][$i]['#price'];
+            //drupal_set_message("dost_price_total = $dost_price_total, price = $price", 'error');
+       }
+      
+
+// my changes--------------------------------------------
+
+      // добавляем строки о полной стоимости опций и доставки
+      
+      if($opt_price_total > 0)
+       //$opt_price_total_descr = '<br> <strong>В т.ч. стоимость выбранных дополнений: </strong>' . uc_currency_format($opt_price_total);
+       $opt_price_total_descr = '<br> <strong>В т.ч. стоимость товаров с выбранными выбранными дополнениями: </strong>' . uc_currency_format($subtotal - $dost_price_total);// + $opt_price_total);
+       
+      else  
+        $opt_price_total_descr = '<br> <strong>В т.ч. стоимость товаров без доставки: </strong>' . uc_currency_format($subtotal - $dost_price_total);// + $opt_price_total);
+        
+      $data['#footer'] = array(
+                                 array('data' => '<strong>'. t('Сумма, всего:') .'</strong> '. uc_currency_format($subtotal) 
+                                                  . $opt_price_total_descr
+                                                  //. '<br> <strong>В т.ч. стоимость доставки (' . $form['items'][$i]['#d_factor_otdel'] *100 . '%): </strong>'. uc_currency_format($dost_price_total) , 'colspan' => 6, 'align' => 'right', 'nowrap' => 'nowrap', 'class' => 'subtotal')
+                                                  // не будем показывать в тотале проценты по доставке, так как в корзине могут быть продукты из разных отделов с разными процентами
+                                                  . '<br> <strong>' . t('В т.ч. стоимость доставки:') . '</strong> '. uc_currency_format($dost_price_total) , 'colspan' => 6, 'align' => 'right', 'nowrap' => 'nowrap', 'class' => 'subtotal')
+                                 
+                              );
+      
+      return $data;
+
+    case 'attributes':
+      
+    	$attributes = array('width' => '100%');
+    	//$attributes = array('data' => $form['items'][$i]['qth']['#value'] ? drupal_render($form['items'][$i]['qth']['#value']) : '', 'class' => 'qth');
+      return $attributes;
+  }
+}
+
+
+
+
+
+
+
+
+
+//-------------------------------------------------------------------
+// with my changes
+// меняем ссылки со стандартной корзины на свои ноды для вывода корзины клиента
+
+
+
+function zp_order_change_view_form_submit($form_id, $form_values) {
+	
+  if (isset($_SESSION['cart_order'])) {
+    unset($_SESSION['cart_order']);
+  }
+  switch ($form_values['op']) {
+  	
+  	/*
+    case variable_get('uc_continue_shopping_text', t('Continue shopping')):
+    	
+      	return variable_get('uc_continue_shopping_url', '');
+	*/
+      
+    case t('Update order products'):
+    
+	  	// эта функция и этот вариант выбирается, когда  пользователь нажимает кнопку "обновить" в корзине
+
+      	cache_clear_all();
+      	
+      	//echo '<PRE>';
+      	//print_r($form_values);
+      	//echo '</PRE>';
+
+      	// обновим содержимое заказа
+      	$order_items_changed = zp_order_change_update_item_object((object)$form_values);
+      	
+      	
+      	// посчитаем общую сумму за простую доставку (просто сложим вычисленную стоимость доставки по всем продуктам заказа)
+      	// затем на основе этой суммы будет рассчитана стоимость любого другого типа доставки, а также стоимость надбавки за формирование заказа по телефону
+      	$total_order_plain_dost_price = get_total_order_plain_dost_price($order_items_changed);
+      	
+      	// пересчитываем надбавку за формирование заказа по телефону (если нужно)
+      	//uc_checkout_pane_phoneorder_zp('order_change', $form_values['order_id'], NULL, $form_values['user_id'], $form_values['items']);
+      	
+      	//uc_checkout_pane_phoneorder_zp('order_change', $form_values['order_id'], NULL, $form_values['user_id'], $order_items_changed);
+      	// второй способ пересчёта стоимость формирования заказа по телефону - передаём уже посчитанную общую стоимость простой доставки
+      	uc_checkout_pane_phoneorder_zp('order_change_new', $form_values['order_id'], $total_order_plain_dost_price);
+		
+      	
+      	// пересчитаем стоимость доставки заказа
+      	zp_order_change_delivery_price_update($form_values['order_id'], $total_order_plain_dost_price);
+      	
+		
+      	
+      	
+        // сделаем запись в админских комментариях о произведённых изменениях
+        	
+        global $user;
+        db_query("INSERT INTO {uc_order_admin_comments} (order_id, uid, message, created) VALUES (%d, %d, '%s', %d)", $order_id, $user->uid, 'Содержимое заказа отредактировано администратором.', time());
+        
+      	
+      	drupal_set_message(t('Your order has been updated.'), 'error');
+
+      	return 'node/' . MY_ORDER_EDIT_NODE_NUM . '/change-order/' . $form_values['order_id']; // 'cart';
+      
+      	
+      	
+      
+    case t('Add a product to order'):
+    	
+      	cache_clear_all();
+     	
+      	//zp_order_change_update_item_object((object)$form_values);
+      
+      	
+      	// пересчитываем надбавку за формирование заказа по телефону (если нужно)
+      	uc_checkout_pane_phoneorder_zp('order_change', $form_values['order_id'], NULL, $form_values['user_id']);
+      	
+      	
+      	//return 'node/24'; //'cart/checkout';
+      	//return MY_CART_CHECKOUT_NODE; //'cart/checkout';
+      	return 'node/' . MY_ORDER_EDIT_NODE_NUM . '/change-order/' . $form_values['order_id']; //'cart/checkout';
+      
+  }
+}
+
+
+
+function get_total_order_plain_dost_price($order_products){
+	
+	foreach ($order_products as $product) // items передаётся в параметрах функции
+   		$dost_price_total += $product['data']['#dost_price'] * $product['qty']; // вычисляем общую стоимость простой доставки
+	
+	return $dost_price_total;
+}
+
+
+function zp_order_change_delivery_price_update($order_id, $total_order_plain_dost_price){
+
+	// получим тип доставки (обычная, срочная) заказа
+	$delivery_method = db_result(db_query("SELECT method FROM {uc_order_quotes} WHERE oid = %d", $order_id));
+	
+	
+	// если простая (несрочная) доставка
+	if($delivery_method == 'zp_plain_delivery')
+	{
+		// просто обновляем стоимость доставки в базе, в нескольких таблицах
+		if(!db_query("UPDATE {uc_order_quotes} SET rate = %f WHERE oid = %d", $total_order_plain_dost_price, $order_id))
+			drupal_set_message("Ошибка 1 при обновлении в базе стоимости доставки заказа", "error");
+			
+		if(!db_query("UPDATE {uc_order_line_items} SET amount = %f WHERE order_id = %d", $total_order_plain_dost_price, $order_id))
+			drupal_set_message("Ошибка 2 при обновлении в базе стоимости доставки заказа", "error");
+
+		
+	}
+	else // если метод flatrate
+	if(strpos($delivery_method, 'flatrate') !== FALSE)
+	{
+		// тогда обращаемся в таблицу uc_order_line_items
+		// и выясняем там название конкретного варианта доставки типа flatrate
+		
+		$delivery_method_variant = db_result(db_query("SELECT title FROM {uc_order_line_items} WHERE order_id = %d AND type = '%s'", $order_id, 'shipping'));
+		//теперь из таблицы uc_flatrate_methods выясняем параметры данного варианта доставки
+		$delivery_method_rate = db_result(db_query("SELECT base_rate FROM {uc_flatrate_methods} WHERE title = '%s'", $delivery_method_variant));
+		
+		// теперь вычисляем стоимость данного вида доставки 
+		// путём прибавления к стоимость простой доставки процента от той же простой доставки, указанного в варианте используемого метода
+		$new_delivery_price = $total_order_plain_dost_price + $total_order_plain_dost_price * ($delivery_method_rate/100);
+		
+		// теперь обновляем стоимость доставки в базе, в нескольких таблицах
+		if(!db_query("UPDATE {uc_order_quotes} SET rate = %f WHERE oid = %d", $new_delivery_price, $order_id))
+			drupal_set_message("Ошибка 1 при обновлении в базе стоимости доставки заказа", "error");
+			
+		if(!db_query("UPDATE {uc_order_line_items} SET amount = %f WHERE order_id = %d", $new_delivery_price, $order_id))
+			drupal_set_message("Ошибка 2 при обновлении в базе стоимости доставки заказа", "error");
+	}
+	
+	return;
+}
+
+
+
+/*
+function product_d_factor($nid){
+	
+	
+		
+		// для каждого продукта определим его коэффициент доставки
+
+  	
+ 
+        // вычисляем коэффициент доставки
+        // равный перемноженным коэффициентам страна*город*район*магазин*отдел(ы)*клиент-общий*клиент-по-всей-иерархии-от-отдела-до-страны
+        // выясним всю последовательность до страны, затем тиды страны, города, района и магазина
+  
+
+        //$node_tid = db_result(db_query("SELECT tid from {term_node} WHERE nid = %d", $node->nid)); 
+        $node_tids = taxonomy_node_get_terms_by_vocabulary($product->nid, 1); 
+      	
+        // определим терм ноды продукта
+        foreach($node_tids as $node_tid)
+          $node_tid = $node_tid->tid;
+      	
+      	// определим родителя терма данной ноды. Это будет как раз терм отдела, в котором продаётся этот продукт
+        $node_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $node_tid));
+        $parent_otdel_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $node_tid)); 
+
+		$d_factor_otdel = zp_functions_d_factor_otdel($node_tid, $parent_otdel_nid, $user_id);
+    
+  		$dost_price = $product->price * $product->qty * $d_factor_otdel;	
+  		$dost_price_total += $dost_price;	
+	
+}
+
+*/
+
+
+/*******************************************************************************
+ * Module and Helper Functions
+ ******************************************************************************/
+
+
+
+/**
+ * Updates all the items in a cart object
+ */
+function zp_order_change_update_item_object($order) {
+
+	
+	//echo '<PRE>';
+   	//print_r($order);
+   	//echo '</PRE>';
+
+   	//return;
+   	
+  if (is_object($order)) 
+  {
+    foreach ($order->items as $item) 
+    {
+      
+      if ($item['remove']) 
+      {
+      		
+		// my changes -----------------------------------------------------------
+
+		// моё вмешательство
+		// -------------------------------------------------------------
+		// тут я добавил два передаваемых аргумента в функции module_invoke
+		// вернее, в функцию ($item['module'], 'update_cart_item'), то есть, в uc_product_update_cart_item.
+		// а там в оригинале принимается последним аргументом $cid = NULL (тут он не передавался, поэтому я насильно передаю '0')
+		// и ещё я передаю новый агрумент - $item, чтобы можно было идентифицировать продукт в корзине по его номеру и использовать прочие его параметры
+		// кстати, а, соответственно, в оригинальной функции uc_product_update_cart_item я определяю новый принимаемый аргумент $item
+  
+    	//module_invoke($item['module'], 'update_cart_item', $item['nid'], unserialize($item['data']), 0, 0, $item);
+    	 //                                    $nid,            $data = array(),   $qty, $cid = NULL, $item = NULL
+    	//zp_order_change_update_order_product($item['nid'], unserialize($item['data']), 0, $order->order_id, $item); // последний параметр можно и не передавать
+
+    	zp_order_change_remove_order_product($item['order_product_id']);
+    	
+      	// оригинальная версия
+        //module_invoke($item['module'], 'update_cart_item', $item['nid'], unserialize($item['data']), 0);
+        
+      }
+      else 
+      { 	// если продукт не удаляется, а обновляется....
+      	
+
+			/*      	
+
+			// не будем пока тут изменять данные, так как далее (в функции uc_product_update_cart_item) их понадобится сравнить с предыдущими (по ним будет определяться продукт, так как одинаковые продукты могут иметь разные атрибуты)
+
+      		$data = unserialize($item['data']);
+	
+		    if(is_array($item['opt'])) // если определён массив с изменяемыми атрибутами, получим их со страницы, изменённые пользователем
+		    {
+		      foreach($item['opt'] as $attr => $option)	 // для каждого атрибута товара
+	    	   {
+	      		 // найдём в базе номер атрибута по его названию 
+	      	 	$aid = db_result(db_query("SELECT aid FROM {uc_attributes} WHERE name = '%s'", $attr)); 
+	      	 	// занесём новые данные атрибута в массив данных продукта
+	      	 	$data['attributes'][$aid] = $option;	      	
+	       	}
+	    	}
+ 
+			*/	       	
+	    
+      		//module_invoke($item['module'], 'update_cart_item', $item['nid'], unserialize($item['data']), $item['qty'], 0, $item);
+        
+			//                                      $nid,       $data = array(),           $qty,       $cid = NULL, $item = NULL
+    		$items_changed[] = zp_order_change_update_order_product($item['nid'], unserialize($item['data']), $item['qty'], $order->order_id, $item);
+	
+      		// оригинальная версия
+      		//module_invoke($item['module'], 'update_cart_item', $item['nid'], unserialize($item['data']), $item['qty']);
+      		
+      	} // end of else
+      	
+    } // end of  foreach ($order->items as $item) 
+  	
+    
+    return $items_changed; // возвращаем массив изменённых объектов для дальнейшей коррекции необходимых параметров заказа
+      
+  } // end of if (is_object($order)) 
+  
+  return 0;
+  
+}
+
+
+
+
+
+
+
+function zp_order_change_remove_order_product($order_product_id, $order_id = NULL) {	
+	
+	
+   if(!db_query("DELETE FROM {uc_order_products} WHERE order_product_id = %d", $order_product_id))
+      	drupal_set_message("Ошибка при удалении товара из заказа", "error");
+	
+}
+
+
+
+
+
+// my changes моя новая функция по обновлению товара в заказе --------------------------------------------------------------
+
+function zp_order_change_update_order_product($nid, $data = array(), $qty, $order_id = NULL, $item = NULL) {	
+	
+	//echo 'xxx';
+	
+  if (!$nid) return NULL;
+  //$cid = !(is_null($cid) || empty($cid)) ? $cid : uc_cart_get_id();
+  
+  // если количество - дробное (например, это вес в кг, который может быть дробным), но в нём содержится не точка, а запятая, меняем запятую на точку
+  if(strpos($qty, ',') !== FALSE)
+  	$qty = str_replace(',', '.', $qty);
+
+  	// если это не кг, то не разрешаем дробные значения количества 
+	// - до единицы превращаем всё в единицу, после единицы - приводим к целому числу
+
+  	/*
+  	if(!( 
+		($data['sell_measure'][0] == 'к' OR $data['sell_measure'][0] == 'К') 
+		AND 
+		($data['sell_measure'][1] == 'г' OR $data['sell_measure'][1] == 'Г')
+  		)
+  	  )
+  	  */
+  	
+  	if(strncmp($data['sell_measure'], 'кг', 2) != 0) // если это не кг
+  	{
+  		if($qty > 0 AND $qty < 1)
+  			$qty = 1;
+  		else 
+  			$qty = (int) $qty;
+  	}
+  	
+		
+  if ($qty <= 0) {
+    //uc_cart_remove_item($nid, $cid, $data); // нужно ещё написать свою функцию удаления
+    zp_order_change_remove_order_product($item['order_product_id']);
+  }
+  else  // $qty >= 1
+  {
+
+  	 	// переопределим новое значение $data продукта, используя новые (изменённые пользователем) атрибуты
+        $data_new = $data;
+        
+
+        //print '<PRE>';
+        //print_r($item);
+        //print '</PRE>';
+        
+	    if(is_array($item['opt'])) // если определён массив с изменяемыми атрибутами, получим их со страницы, изменённые пользователем
+	    {
+	      //foreach($item['opt'] as $attr => $option)	 // для каждого атрибута товара
+	      foreach($item['opt'] as $attribute_name => $option)	 // для каждого атрибута товара
+	       {
+	      	 
+	       	 // по номеру опции oid ($option в данном случае) найдём номер атрибута
+	       	 // для того, чтобы при одинаковых названиях атрибутов с разными типами выбирался правильный
+	       	 //$aid = db_result(db_query("SELECT aid FROM {uc_attribute} WHERE name = '%s'", $attr)); 
+	       	 
+	       	 $nid_aids = db_query("SELECT aid, default_option, display FROM {uc_product_attributes} WHERE nid = %d", $item['nid']); 
+	       	 
+	       	 while($nid_aid = db_fetch_array($nid_aids))
+	       	 {
+	       	 	$attr = db_fetch_array(db_query("SELECT aid, name, display FROM {uc_attributes} WHERE aid = %d", $nid_aid['aid'])); 
+       		
+	       	 	if($attr['name'] == $attribute_name)
+	       	 	 break;
+	       	 }
+	       	 
+	       	 //$attr = db_fetch_array(db_query("SELECT aid, display FROM {uc_attributes} WHERE aid = %d", $nid_aid)); 
+	       	 
+	       	 /*
+	       	 // найдём в базе номер атрибута по его названию 
+	      	 $attr = db_fetch_array(db_query("SELECT aid, display FROM {uc_attributes} WHERE name = '%s'", $attr)); 
+	      	 //db_result(db_query("SELECT aid FROM {uc_attributes} WHERE name = '%s'", $attr)); 
+	      	 
+	      	 */
+	      	 
+	      	 // занесём новые данные атрибута в массив данных продукта
+	      	 if($attr['display'] == 0) // если это текстовый элемент, то просто вносим новое значение в базу
+	      	   $data_new['attributes'][$attr['aid']] = $option;	      	
+	      	 else //if($attr['display'] == 1) // если это элемент списка, то нам надо преобразовать название выбранного элемента в его числовое значение по базе для этой опции атрибута
+	      	 {
+	      	  	$oid = db_result(db_query("SELECT oid FROM {uc_attribute_options} WHERE name = '%s' AND aid = %d", $option, $attr['aid'])); 
+	      	 	$data_new['attributes'][$attr['aid']] = $oid;
+	      	 }
+	       }
+	    }
+
+	     	 
+	    //print '<PRE>';
+        //print_r($data);
+        //print_r($data_new);
+        //print '</PRE>';
+	    
+        
+        // эти поляне сохраняются в заказе
+        //$item->module = $item->data['module'];
+        //$item->options = array();
+        
+        // вернуть формат массива data в формат заказа (обратная ковертация, перед этим конвертировали из формата заказа в формат корзины)
+        
+		//print '<PRE>';
+        //print_r($item);
+        //print '</PRE>';
+        
+        //print '<PRE>';
+        //print_r($data_new);
+        //print '</PRE>';
+        
+        $data_new = zp_functions_renew_product_data_to_order_format($data_new, $nid);
+        
+        //print '<PRE>';
+        //print_r($data_new);
+        //print '</PRE>';
+        
+		// почему-то это поле осталось, оно нужно только при возвращении из заказа в корзину для сохранения номера
+		// а в самом заказе его хранить не нужно
+		// а может и не помешает
+        // unset($data_new['r_order_id']); 
+		
+        
+        //$item->data_save
+        
+		$data_save = unserialize($item['data_save']);
+		
+		//print '<PRE>';
+        //print_r($data_save);
+        //print '</PRE>';
+		
+		$data_save['attributes'] = $data_new['attributes'];
+		
+		//print '<PRE>';
+        //print_r($data_save);
+        //print '</PRE>';
+		
+		$data_save['#opt_price'] = $data_new['new_options_total_price'];
+		
+		//print '<PRE>';
+        //print_r($data_save);
+        //print '</PRE>';
+        
+		
+		$new_price_with_new_options = $item['cost'] + $data_save['#opt_price']; // вычисляем новую стоимость доставки
+		$data_save['#dost_price'] = $new_price_with_new_options * $data_save['#d_factor']; // обновляем стоимость доставки товара с выбранными дополнениями
+		
+		//echo $data_save['#dost_price'];
+		
+		$data_new = $data_save;
+		
+        $item['data'] = $data_new; 
+		
+        //print '<PRE>';
+        //print_r($data_new );
+        //print '</PRE>';
+        
+        
+        //print '<PRE>';
+        //print_r($data_new);
+        //print_r($item);
+        //print '</PRE>';
+
+        
+        if(!db_query("UPDATE {uc_order_products} SET qty = %f, data = '%s' WHERE order_product_id = %d", $qty, serialize($data_new), $item['order_product_id']))
+        	drupal_set_message("Ошибка при изменении товара в заказе", "error");
+        
+        	
+        
+        
+  	    // оригинальная версия
+        //db_query("UPDATE {uc_cart_products} SET qty = %d, changed = %d WHERE nid = %d AND cart_id = '%s' AND data = '%s'", $qty, time(), $nid, $cid, serialize($data));
+    
+
+    
+    
+    
+    //cache_clear_all();
+       
+    } // end of else... when $qty >= 1
+	cache_clear_all();
+  // Rebuild the items hash
+  //uc_cart_get_contents(NULL, 'rebuild');
+  
+  return $item; // возвращаем изменённый объект для накопления в массивек изменённых элементов для дальнейшей коррекции необходимых параметров заказа
+}
+
+
+
+
+
+
+
+
+
+
+
+
+// вернуть формат массива data в из формата корзины в формат заказа
+
+function zp_functions_renew_product_data_to_order_format($data, $nid){
+	
+	
+/*  
+
+// формат атрибутов в заказе слегка отличается от стандартного формата атрибутов в корзине
+
+// стандартный формат поля data корзины
+
+Array
+(
+    [attributes] => Array
+        (
+            [1] => Нет
+            [2] => 3
+        )
+
+    [model] => 
+    [shippable] => 1
+    [module] => uc_product
+)
+
+
+// изменённый мною формат поля data корзины
+
+Array
+(
+    [attributes] => Array
+        (
+            [Ваши пожелания к товару (укажите)] => Нет
+            [Подарочная упаковка (выберите)] => Обёртка
+        )
+
+    [model] => 
+    [shippable] => 1
+    [module] => uc_product
+    [#opt_price] => 3
+    [#dost_price] => 7.8
+)
+
+
+*/ 
+
+    //print '<PRE>';
+    //print_r($data);
+    //print '</PRE>';
+    
+
+	foreach ($data['attributes'] as $old_attribute => $old_option) 
+	{
+		$new_attribute = db_fetch_object(db_query("SELECT name, display from {uc_attributes} WHERE aid = %d", $old_attribute));
+		//$new_attribute = db_fetch_object(db_query("SELECT name, display from {uc_product_attributes} WHERE aid = %d", $old_attribute));
+		
+		
+		
+		//echo 'new_attribute = ' . $new_attribute;
+		if($new_attribute->display == 0) // если атрибут - текстовое поле, то опцию (значение) берём без изменений
+		{
+			$new_option = $old_option;
+			//$new_option_price = db_result(db_query("SELECT price from {uc_attribute_options} WHERE aid = %d AND oid = %d", $old_attribute, $old_option));
+			
+			if($new_attribute->name == 'Ваши пожелания к товару (укажите)')
+			{
+				$new_option_price = db_result(db_query("SELECT price from {uc_attribute_options} WHERE aid = %d", $old_attribute));
+			}
+			else 
+			{
+				$new_option_id = db_result(db_query("SELECT oid from {uc_attribute_options} WHERE aid = %d", $old_attribute));
+				$new_option_price = db_result(db_query("SELECT price from {uc_product_options} WHERE nid = %d AND oid = %d", $nid, $new_option_id));
+			}
+		}
+		else
+		{ 
+			//$new_option = db_result(db_query("SELECT name from {uc_attribute_options} WHERE aid = %d AND oid = %d", $old_attribute, $old_option));
+			
+			//$new_option = db_fetch_object(db_query("SELECT name, price from {uc_attribute_options} WHERE aid = %d AND oid = %d", $old_attribute, $old_option));
+			$new_option = db_result(db_query("SELECT name from {uc_attribute_options} WHERE oid = %d", $old_option));
+
+			$new_option_price = db_result(db_query("SELECT price from {uc_product_options} WHERE nid = %d AND oid = %d", $nid, $old_option));
+			
+			//print '<PRE>';
+    		//print_r($new_option);
+    		//print '</PRE>';
+			
+    		//$new_option_price = $new_option->price;
+			//$new_option = $new_option->name;
+		}
+
+		//echo 'new_option = ' . $new_option;
+		
+		$data_order_attrs[$new_attribute->name] = $new_option; // создаём новую пару в новом формате
+		$data['new_options_total_price'] += $new_option_price;
+	}
+	
+	$data['attributes'] = $data_order_attrs;
+	
+	//print '<PRE>';
+    //print_r($data);
+    //print '</PRE>';
+	
+	return $data;
+		
+}
+
+
+
+
+
+
+
+
+/**
+ * Return the unique cart_id of the user, sid for anonymous and uid for logged in users.
+ */
+function zp_order_change_get_id() {
+  global $user;
+  if ($user->uid) {
+    return $user->uid;
+  }
+  elseif ($sid = session_id()) {
+    return $sid;
+  }
+  // What to do if neither of these work? -RS
+}
+
+
+
+/**
+ * Grab the items in a shopping cart for a user.
+ *
+ * If $cid is not passed in, this function uses the uid of the person currently
+ * accessing this function.
+ */
+//function zp_order_change_get_contents($cid = NULL, $action = NULL) {
+function zp_order_change_get_contents($oid = NULL, $action = NULL) {
+  static $items = array();
+  //$cid = $cid ? $cid : zp_order_change_get_id();
+
+  //if ($action == 'rebuild') {
+    //$items = array();
+  //}
+
+  //if (!isset($items[$cid])) {
+  if (!isset($items[$oid])) {
+    //$items[$cid] = array();
+    $items[$oid] = array();
+    //$result = db_query("SELECT c.*, n.title, n.vid FROM {node} n INNER JOIN {uc_cart_products} c ON n.nid = c.nid WHERE c.cart_id = '%s'", $cid);
+    $result = db_query("SELECT c.*, n.title, n.vid FROM {node} n INNER JOIN {uc_order_products} c ON n.nid = c.nid WHERE c.order_id = '%s'", $oid);
+
+    while ($item = db_fetch_object($result)) {
+
+    	
+    	// сейчас формат атрибутов в заказе слегка отличается от стандартного формата атрибутов в корзине
+   	    // поэтому при возврате в корзину формат нужно изменить на стандартный   
+   	    
+   	    $item->data_save = $item->data;
+   	    $item->data = serialize(zp_functions_renew_product_data(unserialize($item->data), $item->nid));
+    	
+   	   // не знаю, для чего это нужно
+   	   //может и зря закомментировал :)
+   	   
+      //for ($i = 0; $i < count($items[$cid]); $i++) {
+      for ($i = 0; $i < count($items[$oid]); $i++) {
+        //if ($items[$cid][$i]->nid == $item->nid && $items[$cid][$i]->data == $item->data) {
+        if ($items[$oid][$i]->nid == $item->nid && $items[$oid][$i]->data == $item->data) {
+          //$items[$cid][$i]->qty += $item->qty;
+          $items[$oid][$i]->qty += $item->qty;
+          continue 2;
+        }
+      }
+      
+      
+      $product = node_load($item->nid);
+      //$item->cost = $product->cost;
+      
+      //$item->price = $product->sell_price;
+      $item->price = $item->cost;
+      
+      //$item->weight = $product->weight;
+      $item->data = unserialize($item->data);
+      $item->module = $item->data['module'];
+      $item->options = array();
+      //$item->model = $product->model;
+
+      // Invoke hook_cart_item() with $op = 'load' in enabled modules.
+      foreach (module_implements('cart_item') as $module) {
+        $func = $module .'_cart_item';
+        $func('load', $item);
+      }
+
+      //$items[$cid][] = $item;
+      $items[$oid][] = $item;
+      
+
+    }
+  }
+
+  //return $items[$cid];
+  return $items[$oid];
+}
+
+/**
+ * Adds an item to a user's cart.
+ */
+function zp_order_change_add_item($nid, $qty = 1, $data = NULL, $cid = NULL, $msg = TRUE, $check_redirect = TRUE) {
+	
+global $user;	
+	
+	
+  if (isset($_SESSION['cart_order'])) {
+    unset($_SESSION['cart_order']);
+  }
+
+  $cid = $cid ? $cid : zp_order_change_get_id();
+  $node = node_load($nid);
+
+  
+  
+// my changes -------------------------------------------------------
+
+       
+// если количество - дробное (например, это вес в кг, который может быть дробным), но в нём содержится не точка, а запятая, меняем запятую на точку
+  if(strpos($qty, ',') !== FALSE)
+  	$qty = str_replace(',', '.', $qty);
+  	
+
+
+  	
+$flag_may_add = 0; // если флаг равен 1, то можно добавлять продукт в корзину, иначе - нельзя
+
+//найти тид продукта
+$p_tid = db_result(db_query("SELECT tid FROM {term_node} WHERE nid = %d", $nid));
+
+//drupal_set_message(" 1---c_shop_tid = $c_shop_tid, c_shop_tid_name = $c_shop_tid_name", 'error');
+
+// загружаем сессионную переменную корзины
+if(!$c_shop_tids = $_SESSION['c_shop_tids']) // если не определена сессионная переменная
+ {
+
+ 	//drupal_set_message(" 2---c_shop_tid = $c_shop_tid, c_shop_tid_name = $c_shop_tid_name", 'error');
+ 	
+ 	// значит либо корзина пустая, либо просто за эту сессию ешё ничего не добавлялось	
+    
+    // проверим один продукт из корзины
+ 	
+    if(!($c_nid = db_result(db_query("SELECT nid FROM {zp_order_change_products} WHERE cart_id = %d", $cid))))   // т.е. если корзина пуста
+      {
+    	
+     	//drupal_set_message(" 3---cid = $cid, c_nid = $c_nid, c_shop_tid = $c_shop_tid, c_shop_tid_name = $c_shop_tid_name", 'error');
+     	
+     	// если корзина пустая
+    	// значит разрешаем добавление продукта, 
+    	$flag_may_add = 1;
+    	
+    	// а также сохраняем в сессионной переменной все тиды продукта до магазина
+     
+ 	   	// задаём массив тидов продукта и первым элементом делаем терм самого продукта
+        $linage_p_tids = array($p_tid);
+        
+        $count = 1;
+        while(($p_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $p_tid))) != 0)
+         {
+           $linage_p_tids[] = $p_tid;
+           $count++;
+         } 
+
+         
+        // определим данные по текущему магазину
+		$c_shop_tids = zp_functions_shop_info($linage_p_tids[$count-4], $user->uid); 
+
+		
+		$_SESSION['c_shop_tids'] = $c_shop_tids;
+		  
+
+    	
+    } // end of if(!($c_nid = db_result(db_query("SELECT nid FROM {zp_order_change_products} WHERE cart_id = %d", $cid)))) // т.е. если корзина пуста
+   else 
+   {  // если корзина не пуста, а сессионная переменная ещё не определена, 
+   	  // сначала определим сессионную переменную
+   	  
+   	  // найдём тиды магазина в корзине, т.е. восстановим сессионную переменную для этой сессии
+   	 
+   	    //drupal_set_message(" 4---cid = $cid, c_nid = $c_nid, c_shop_tid = $c_shop_tid, c_shop_tid_name = $c_shop_tid_name", 'error');
+     	
+        //найти тид продукта корзины
+        $c_tid = db_result(db_query("SELECT tid FROM {term_node} WHERE nid = %d", $c_nid));
+    	
+    	// а также найдём и сохраняем в сессионной переменной все тиды продукта корзины до магазина
+     
+ 	   	// задаём массив тидов продукта и первым элементом делаем терм самого продукта
+        $linage_c_tids = array($c_tid);
+        
+        $count = 1;
+        while(($c_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $c_tid))) != 0)
+         {
+           $linage_c_tids[] = $c_tid;
+           $count++;
+         } 
+        
+        // для примерного понимания... 
+        //$item_shop_tid = $linage_tids[$count-4]; // вариант город-район-магазин. 
+        //$item_rajon_tid = $linage_tids[$count-3]; // Третьим элементом в этом варианте становится район
+        //$item_city_tid = $linage_tids[$count-2]; // при любом варианте город будет вторым элементом после страны
+        //$item_country_tid = $linage_tids[$count-1];
+
+        // определим данные по текущему магазину
+		$c_shop_tids = zp_functions_shop_info($linage_c_tids[$count-4], $user->uid);
+        
+   	 
+		// сохраним тиды продукта корзины в сессионной переменной
+   	    $_SESSION['c_shop_tids'] = $c_shop_tids;
+   	    
+   	    
+   	    
+    }
+ } // end of if(!$c_shop_tids) // если не определённая сессионная переменная
+ 	
+// теперь у нас определена сессионная переменная
+// и возможны два варианта 
+// - либо корзина пуста и тогда в сессионной переменной уже сохранены тиды добавляемого продукта и добавление продукта разрешено
+// - либо корзина не пуста и пока неизвестно, можно ли добавить продукт
+
+
+
+//drupal_set_message(" 5---cid = $cid, c_nid = $c_nid, c_shop_tid = $c_shop_tid, c_shop_tid_name = $c_shop_tid_name", 'error');
+
+
+if(!$flag_may_add) // если добавление продукта пока не разрешено, определим, совпадают ли магазины корзины (сессионной переменной) и добавляемого продкта
+ {
+ 	if(in_array($p_tid, $c_shop_tids))
+ 	  $flag_may_add = 1;
+ 	else 
+ 	{
+ 		// сохраним первый тид продукта в массиве тидов продукта
+ 	  	$linage_p_tids[] = $p_tid;
+ 	  	// теперь будем до тех пор определять родителя тида продукта, пока есть тиды или пока тид не будет найдет в сессионной переменной
+ 		//$count = 1;
+ 	  	while(($p_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $p_tid))) != 0)
+         {
+           
+           if(in_array($p_tid, $c_shop_tids)) // если находится тид продукта среди тидов корзины, значит добавляемый продукт в одном магазине с продуктами корзины
+            {
+           	  // значит добавляем все найденные тиды продукта (кроме последнего, так как он уже есть в сессионной переменной) в сессионную переменную
+              foreach($linage_p_tids as $linage_p_tid)  
+           	    $c_shop_tids[] = $linage_p_tid;
+           	  
+           	  // сохраняем всю новую последовательности тидов в сессионной переменной
+           	  $_SESSION['c_shop_tids'] = $c_shop_tids;
+           	  
+           	  // разрешаем добавить этот продукт в корзину
+           	  $flag_may_add = 1;
+           	  // прекращаем поиск тидов продукта, выходим из цикла
+           	  break;
+            }
+            
+           $linage_p_tids[] = $p_tid;
+           //$count++; 
+         } // end of while(($p_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $p_tid))) != 0)
+ 	  	
+ 	  	
+ 	} // end of else... если тид самого продукта (а не его отделов) не находится в массиве тидов корзины
+ 
+ } // end of if(!$flag_may_add)
+ 
+
+ if(!$flag_may_add) // если к этому моменту флаг не равен 1, значит добавлять этот продукт в корзину нельзя
+ {
+ 	// сообщаем об этом пользователю
+ 	//echo 'xxxxxxxx';
+ 	//popups_add_popups(array('#mylink', '#mylink2'=>array('width'=>'200px')));  
+ 	drupal_set_message("В Вашей корзине уже находятся продукты из другого магазина (" . $c_shop_tids['shop_name'] .") <br> Очистите корзину или выберите продукты из того же магазина.", 'error');
+ 	 	
+ 	// и выходим из функции
+ 	 //drupal_goto('<a href="test.html" rel="lightmodal">aaa</a>');
+ 	//return '<a href="D:\\WebServers\\home\\zapokupkami.com\\www\\zp_import_data\\test.html" rel="lightmodal">aaa</a>';// uc_referer_uri();
+ 	//return '<a href="' . base_path() . path_to_theme() . 'test.html" rel="lightmodal">aaa</a>';// uc_referer_uri();
+ 	
+ 	return;
+ }
+ 
+ // если программа дошла до этой точки, значит добавление продукта разрешено 
+ // и программа продолжает выполняться, как обычно...
+ 
+ 
+
+// -----------------------------------------------------------
+  
+
+
+
+
+
+  
+  if (is_null($data)) {
+    $data = array('module' => 'uc_product');
+  }
+  if (!isset($data['module'])) {
+    $data['module'] = 'uc_product';
+  }
+
+  if (!in_array($node->type, module_invoke_all('product_types'))) {
+    drupal_set_message(t('@title is not a product. Unable to add to cart.', array('@title' => $node->title)), 'error');
+    return;
+  }
+
+
+  
+  $result = module_invoke_all('add_to_cart', $nid, $qty, $data);
+  if (is_array($result) && !empty($result)) {
+    foreach ($result as $row) {
+      if ($row['success'] === FALSE) {
+        if (isset($row['message']) && !empty($row['message'])) {
+          $message = $row['message'];
+        }
+        else {
+          $message = t('Sorry, that item is not available for purchase at this time.');
+        }
+        if ($row['silent'] === TRUE) {
+          if ($check_redirect) {
+            if (isset($_GET['destination'])) {
+              drupal_goto();
+            }
+
+            
+            
+// my changes -------------------------------------------------------------            
+            
+            
+            //$redirect = variable_get('uc_add_item_redirect', 'cart');
+            //$redirect = variable_get('uc_add_item_redirect', 'node/23');
+            $redirect = variable_get('uc_add_item_redirect', MY_CART_NODE);
+            
+
+            
+            
+            
+            
+            if ($redirect != '<none>') {
+              $_SESSION['last_url'] = uc_referer_uri();
+              return $redirect;
+            }
+            else {
+              return uc_referer_uri();
+            }
+          }
+        }
+        else {
+          drupal_set_message($message, 'error');
+        }
+        return;
+      }
+    }
+  }
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  // добавляем свои необходимые дополнительные данные в товар в корзине
+  
+  
+  $data['sell_measure'] = db_result(db_query("SELECT field_sell_measure_value from {content_field_sell_measure} WHERE nid = %d", $node->nid));
+  
+  	
+  
+  //echo '<PRE>';
+  //print_r($item->title);
+  //echo '</PRE>';
+    
+    
+  // сохраним в товаре в  корзине сразу и шаблон для названий картинок и кол-во картинок
+
+  $photo_data = explode(';', $node->field_prodtype_pic_src_n_num[0]['value']); 
+  //$photo_data = explode(';', db_result(db_query("SELECT field_prodtype_pic_src_n_num_value from {content_field_prodtype_pic_src_n_num} WHERE nid = %d", $node->nid)));
+   		//$photo_data[0] - type of product
+   		//$photo_data[1] - source of pics
+   		//$photo_data[2] - num of pics 
+    
+  $photo_base_path = base_path() . 'files/p/' . $photo_data[0] . '/';
+   		
+   		switch ($photo_data[1]) //$photo_data[1] - source of pics
+   		{
+   			
+   			/*
+   			
+   			// если бы не загружали всю ноду, пришлось бы подгружать данные из базы, а так в ноде всё уже есть, поэтому этот блок закомментируем
+   			
+   			case '1': // 1 = источник названия картинок - штрих-код производителя
+   				$zp_bar_proizv = db_result(db_query("SELECT field_zp_bar_proizv_value from {content_field_zp_bar_proizv} WHERE nid = %d", $node->nid));	
+   				$proizv_id = explode(';', db_result(db_query("SELECT field_proizv_value from {content_field_proizv} WHERE nid = %d", $node->nid))); // считаем, что если источником картинок является производитель, то данная переменная заполнена (т.е. для товара указан ид и название производителя)
+	     		$proizv_id = trim($proizv_id[0]);
+	     		$photo_base_name = $photo_base_path . 'b' . $proizv_id . '-' . $zp_bar_proizv ; //'bm = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bm0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '2': // 2 = источник названия картинок - штрих-код поставщика
+   				$zp_bar_postav = db_result(db_query("SELECT field_zp_bar_postav_value from {content_field_zp_bar_postav} WHERE nid = %d", $node->nid));	
+   				$postav_id = explode(';', db_result(db_query("SELECT field_postav_value from {content_field_postav} WHERE nid = %d", $node->nid))); // считаем, что если источником картинок является поставщик, то данная переменная заполнена (т.е. для товара указан ид и название производителя)
+	     		$postav_id = trim($postav_id[0]);
+   			
+   				$photo_base_name = $photo_base_path . 'b' . $postav_id . '-' . $zp_bar_postav; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   				break;
+   				
+			case '3': //3 = источник названия картинок - штрих-код магазина
+				$zp_bar_shop = db_result(db_query("SELECT field_zp_bar_shop_value from {content_field_zp_bar_shop} WHERE nid = %d", $node->nid));	
+			
+   				$photo_base_name = $photo_base_path  . 'b' . substr($item->model, 0, 8) . '-' . $zp_bar_shop; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				break;
+   				
+   			case '0': // 1 = источник названия картинок - штрих-код мировой
+   			default:
+   				$zp_bar_world = db_result(db_query("SELECT field_zp_bar_world_value from {content_field_zp_bar_world} WHERE nid = %d", $node->nid));	
+   				
+   				$photo_base_name = $photo_base_path . $zp_bar_world; 
+   				break;
+   			*/	
+   				
+   			
+   				
+   				
+   				
+   			case '1': // 1 = источник названия картинок - штрих-код производителя
+   				$proizv_id = explode(';', $node->field_proizv[0]['value']); // считаем, что если источником картинок является поставщик, то данная переменная заполнена (т.е. для товара указан ид и название производителя)
+	     		$proizv_id = trim($proizv_id[0]);
+	     		
+  				//$photo_base_name = $photo_base_path . 'b' . $proizv_id . '-' . $node->field_zp_bar_proizv[0]['value']; //'bm = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bm0034-2298094850938-1.jpg
+  				$photo_base_name = 'b' . $proizv_id . '-' . $node->field_zp_bar_proizv[0]['value']; //'bm = bar of manufacturer', вернее, внутренний номер производителя имеет вид m0034, т.е. название картинки имеет вид типа bm0034-2298094850938-1.jpg
+   				break;
+   				
+   			case '2': // 2 = источник названия картинок - штрих-код поставщика
+   				$postav_id = explode(';', $node->field_postav[0]['view']); // считаем, что если источником картинок является поставщик, то данная переменная заполнена (т.е. для товара указан ид и название поставщика)
+     			$postav_id = trim($postav_id[0]);
+     		
+   			 	//$photo_base_name = $photo_base_path . 'b' . $postav_id . '-' . $node->field_zp_bar_postav[0]['value']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   			 	$photo_base_name = 'b' . $postav_id . '-' . $node->field_zp_bar_postav[0]['value']; //'bc = bar of caterer', вернее, внутренний номер поставшика имеет вид c0034, т.е. название картинки имеет вид типа bc0034-2298094850938-1.jpg
+   				break;
+   				
+			case '3': //3 = источник названия картинок - штрих-код магазина
+   				//$photo_base_name = $photo_base_path  . 'b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['value']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				$photo_base_name = 'b' . substr($node->model, 0, 8) . '-' . $node->field_zp_bar_shop[0]['value']; // bsh = bar of shop, вернее, в качестве номера магазина берём zp номер, т.е. получается картинка имеет название bz010014980-21394300900-1.jpg
+   				break;
+   				
+   			case '0': // 1 = источник названия картинок - штрих-код мировой
+   			default:
+   				//$photo_base_name = $photo_base_path . $node->field_zp_bar_world[0]['value']; 
+   				$photo_base_name = $node->field_zp_bar_world[0]['value']; 
+   				break;	
+   				
+   				
+   				
+   		}
+   		
+  $data['photo_base_path'] = $photo_base_path;
+  $data['photo_base_name'] = $photo_base_name;
+  $data['photo_num'] = $photo_data[2];
+  
+  
+
+  
+  
+  $item = db_fetch_object(db_query("SELECT * FROM {zp_order_change_products} WHERE cart_id = '%s' AND nid = %d AND data = '%s'", $cid, $node->nid, serialize($data)));
+
+  // If the item isn't in the cart yet, add it.
+  if (is_null($item) || $item === FALSE) 
+  {
+    
+  
+//db_query("INSERT INTO {zp_order_change_products} (cart_id, nid, qty, changed, data) VALUES ('%s', %d, %d, %d, '%s')", $cid, $node->nid, $qty, time(), serialize($data));  
+  db_query("INSERT INTO {zp_order_change_products} (cart_id, nid, qty, changed, data) VALUES ('%s', %d, %f, %d, '%s')", $cid, $node->nid, $qty, time(), serialize($data));
+    if ($msg) {
+
+
+
+
+
+
+// my changes -------------------------------------------------------------
+
+
+
+
+        //drupal_set_message(t('<strong>@product-title</strong> added to <a href="!url">your shopping cart</a>.', array('@product-title' => $node->title, '!url' => url('cart'))));
+        //drupal_set_message(t('<strong>@product-title</strong> added to <a href="!url">your shopping cart</a>.', array('@product-title' => $node->title, '!url' => url('node/23')))); //url('cart'))));
+        drupal_set_message(t('<strong>@product-title</strong> added to <a href="!url">your shopping cart</a>.', array('@product-title' => $node->title, '!url' => url(MY_CART_NODE)))); //url('cart'))));
+        
+        
+    }
+  }
+  else {
+    // Update the item instead.
+    if ($msg) {
+      drupal_set_message(t('Your item(s) have been updated.'));
+    }
+    $qty += $item->qty;
+    module_invoke($data['module'], 'update_cart_item', $node->nid, $data, min($qty, 999999), $cid);
+  }
+
+  cache_clear_all();
+
+  if ($check_redirect) {
+  	
+//---------
+  	
+    if (isset($_GET['destination'])) {
+          drupal_goto();
+    }
+
+
+    
+    
+    
+    
+    
+ // my changes -------------------------------------------------------------   
+    
+    
+    
+    //$redirect = variable_get('uc_add_item_redirect', 'cart');
+    //$redirect = variable_get('uc_add_item_redirect', 'node/23');
+    $redirect = variable_get('uc_add_item_redirect', MY_CART_NODE);
+    
+    
+    
+    if ($redirect != '<none>') {
+      $_SESSION['last_url'] = uc_referer_uri();
+      return $redirect;
+    }
+    else {
+      return uc_referer_uri();
+    }
+  }
+} // end of function zp_order_change_add_item($nid, $qty = 1, $data = NULL, $cid = NULL, $msg = TRUE, $check_redirect = TRUE)
+
+
+
+
+
+
+/**
+ * Remove an item from the cart
+ */
+/*
+function zp_order_change_remove_item($nid, $cid = NULL, $data = array()) {
+  if (empty($nid)) {
+    return;
+  }
+
+  $cart_id = !(is_null($cid) || empty($cid)) ? $cid : zp_order_change_get_id();
+  db_query("DELETE FROM {zp_order_change_products} WHERE cart_id = '%s' AND nid = %d AND data = '%s'", $cart_id, $nid, serialize($data));
+  cache_clear_all();
+}
+
+*/
+
+/**
+ * Empties a cart of its contents.
+ */
+/*
+function zp_order_change_empty($cart_id) {
+  if (is_null($cart_id) || empty($cart_id)) {
+    return;
+  }
+
+  db_query("DELETE FROM {zp_order_change_products} WHERE cart_id = '%s'", $cart_id);
+}
+
+*/
+
+
+
+ 
+function zp_order_change_addproduct_form($user_id, $order_product) {
+
+//  $per_item = 1; //variable_get('zp_block_toggle_per_item', 1);
+  //$charge = '';//2; // variable_get('zp_block_toggle_charge', 3.00);
+
+  /*
+  $form['per_item'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Charge per item rather than per order'),
+    '#default_value' => 0,//$per_item,
+    '#weight' => '1'
+  );
+  */
+  
+  /*
+  $opinion_info = array(
+  	'target_table' => $target_table,
+  	'p_bw' => $p_bw,
+  	'pr_id' => $pr_id,
+  	'uid' => $uid,
+  	'uname' => $uname,
+  	`shop_id` => $shop_id,
+    `shop_name` => $shop_name,
+    `seller_id` => $seller_id,
+    `seller_name` => $seller_name,
+  );
+  */
+  
+  
+  $form['user_id'] = array(
+    '#type' => 'hidden',
+    //'#title' => t('Charge per item rather than per order'),
+    '#value' => $order_id, //0,//$per_item,
+    '#weight' => '1'
+  );
+  
+  $form['order_product'] = array(
+    '#type' => 'hidden',
+    //'#title' => t('Charge per item rather than per order'),
+    '#value' => $order_product, //0,//$per_item,
+    '#weight' => '1'
+  );
+  
+  $form['new_product_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter inner ZP artikul of a product'),
+    '#default_value' => '', //$opinion_info['p_bw'] . ' ' . $opinion_info['target_table'] . ' ' . $opinion_info['uid'] . ' ' . $opinion_info['uname'] . ' ' . $opinion_info['shop_id'] . ' ' . $opinion_info['shop_name'] . ' ' . $opinion_info['shop_address'],
+    '#weight' => '2'
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Add a new product'),
+    '#weight' => '3'
+  );
+  return $form;
+}
+
+
+
+
+function zp_order_change_addproduct_form_validate($form_id, &$form_state, &$form) 
+{
+
+
+
+
+}
+
+
+
+function zp_order_change_addproduct_form_submit($form_id, &$form_state, $form = NULL) 
+{	
+
+	if($form_state['new_product_id'] AND trim($form_state['new_product_id']) != '')
+	{
+			//echo '<PRE>';
+			//print_r($form_state['order_product']);
+			//echo '</PRE>';
+			
+			//$order_product = $form_state['order_product'];
+			
+			//echo '<PRE>';
+			//print_r($order_product);
+			//echo '</PRE>';
+			
+			
+			if(!($nid = db_result(db_query("SELECT nid FROM {uc_products} WHERE model = '%s'", $form_state['new_product_id']))))
+			{
+				drupal_set_message("К сожалению, в базе нет товара с ID " . $form_state['new_product_id'], "error");	
+			}
+			else 
+			{
+				$title = db_result(db_query("SELECT title FROM {node} WHERE nid = %d", $nid));
+				drupal_set_message('Вы выбрали товар с ID ' . $form_state['new_product_id'] . ' под названием ' . $title);	
+				//zp_order_change_add_item($nid, 1, NULL, $form_state['order_product']->order_id);
+			}
+			
+          	//return 'node/' . MY_ORDER_EDIT_NODE_NUM . '/change-order/' . $form_state['order_product']->order_id; 
+          	return 'node/' . MY_ORDER_EDIT_NODE_NUM . '/change-order/' . $form_state['order_product']->order_id; 
+          	//return;
+	}
+
+
+
+}

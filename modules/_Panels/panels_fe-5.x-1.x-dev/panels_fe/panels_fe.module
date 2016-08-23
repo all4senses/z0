@@ -1,0 +1,256 @@
+<?php
+// $Id: panels_fe.module,v 1.1.2.1 2008/05/25 00:40:58 gordon Exp $
+
+/**
+ * @file: panels_fe.module
+ */
+
+/**
+ * Implementation of hook_panels_contexts()
+ */
+function panels_fe_panels_contexts() {
+  $args['form'] = array(
+    'title' => t('Field Elements'),
+    'description' => t('A form object.'),
+    'context' => 'panels_fe_context_create_form',
+    'settings form' => 'panels_fe_context_settings_form',
+    'settings form validate' => 'panels_fe_context_settings_form_validate',
+  );
+  return $args;
+}
+
+/**
+ * Implementation of hook_panels_styles()
+ */
+function panels_fe_panels_styles() {
+  return array(
+    'inline' => array(
+      'title' => t('Inline'),
+      'description' => t('The inline panels style will render all Panes inline.'),
+      'render panel' => 'panels_inline_style_render_panel',
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_panels_content_types()
+ */
+function panels_fe_panels_content_types() {
+  $items['form_content'] = array(
+    'title' => t('Form Content'),
+    'content_types' => 'panels_fe_content_types_elements',
+    'render callback' => 'panels_fe_element_render',
+    'add callback' => 'panels_fe_element_form',
+    'edit callback' => 'panels_fe_element_form',
+    'title callback' => 'panels_fe_element_title',
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_panels_pre_render()
+ */
+function panels_fe_panels_pre_render($display) {
+  global $panels_fe;
+  if (!empty($panels_fe)) {
+    if (preg_match('/\<form.*?\>/i', $panels_fe['output'], $matches)) {
+      return $matches[0];
+    }
+  }
+}
+
+/**
+ * Implementation of hook_panels_post_render()
+ */
+function panels_fe_panels_post_render($display) {
+  global $panels_fe;
+
+  if (!empty($panels_fe)) {
+    return preg_replace('/\<form.*?\>/i', '', $panels_fe['output']);
+  }
+}
+
+function panels_fe_context_create_form($empty, $data = NULL, $conf = FALSE) {
+  global $panels_fe;
+  $keywords = array('form-elements');
+  if ($conf) {
+    $keywords[] = 'form-'. $data['panels_fe_id'];
+  }
+
+  $context = new panels_context($keywords);
+
+  if ($conf) {
+    $context->form_id = $data['panels_fe_id'];
+    $args = array($context->form_id);
+    $panels_fe = array('form_id' => $data['panels_fe_id']);
+
+    // TODO: Work out helpers to get additional args for forms
+
+    $form = call_user_func_array('drupal_retrieve_form', $args);
+
+    if ($form !== FALSE) {
+      $redirect = drupal_process_form($context->form_id, $form);
+
+      if ($redirect) {
+        drupal_redirect_form($form, $redirect);
+      }
+      $form = panels_fe_start_extract($form);
+      $panels_fe['output'] = drupal_render_form($context->form_id, $form);
+    }
+  }
+  return $context;
+}
+
+function panels_fe_context_settings_form($conf, $external = FALSE) {
+  $form['panels_fe_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Form Id'),
+    '#default_value' => $conf['panels_fe_id'],
+  );
+
+  return $form;
+}
+
+function panels_fe_context_settings_form_validate($form, $form_values) {
+  if (empty($form_values['panels_fe_id'])) {
+    form_set_error('panels_fe_id', t('%title is a required form', array('%title' => $form['panels_fe_id']['title'])));
+  }
+  else if (!function_exists($form_values['panels_fe_id'])) {
+    form_set_error('panels_fe_id', t('%form_id is not a valid form', array('%form' => $form_values['panels_fe_id'])));
+  }
+}
+
+function panels_fe_content_types_elements() {
+  global $panels_fe;
+  if (!empty($panels_fe)) {
+    $content = array();
+    foreach (array_keys($panels_fe['elements']) as $key) {
+      $content[$form_id .'['. $key .']'] = array(
+        'title' => panels_fe_build_title($panels_fe['elements'][$key]),
+        'icon' => 'icon_node.png',
+        'path' => panels_get_path('content_types/node'),
+        'description' => t('The content of the referenced form.'),
+        'required context' => new panels_required_context(t('Form Element'), 'form-'. $panels_fe['form_id']),
+        'category' => array(t('Form elements'), -9), 
+      );
+    }
+    return $content;
+  }
+}
+
+function panels_fe_element_render($conf, $panel_args, $context) {
+  global $panels_fe;
+  if (!empty($panels_fe)) {
+    $block = new stdClass;
+    $block->content = $panels_fe['fields'][$conf['element_id']];
+    return $block;
+  }
+}
+
+function panels_fe_element_form($id, $parents, $conf = array()) {
+  $form = array();
+  preg_match('/(.*)\[(.*)]/i', $id, $matches);
+  $form_id = $matches[1];
+  $key = $matches[2];
+  
+  $form['element_form_id'] = array(
+    '#type' => 'value',
+    '#value' => $form_id,
+  );
+  $form['element_id'] = array(
+    '#type' => 'value',
+    '#value' => $key,
+  );
+  
+  return $form;
+}
+
+function theme_panels_inline_style_render_panel($display, $panel_id, $panes, $settings) {
+  $output = '<div class="container-inline">';
+
+  foreach ($panes as $pane_id => $content) {
+    // Add the separator if we've already displayed a pane.
+    $output .= theme('panels_pane', $content, $display->content[$pane_id], $display); 
+  }
+
+  $output.= '</div>';
+
+  return $output;
+}
+
+function panels_fe_element_title($conf, $context) {
+  global $panels_fe;
+  if (empty($panels_fe)) {
+    $title = 'field['. $conf['element_id'] .']';
+  }
+  else {
+    $title = panels_fe_build_title($panels_fe['elements'][$conf['element_id']]);
+  }
+  return t('Field element @title', array('@title' => $title));
+}
+
+function panels_fe_start_extract($elements) {
+  if (isset($elements['#theme'])) {
+    $elements['#type_orig'] = isset($elements['#type']) ? $elements['#type'] : 'markup';
+    $elements['#theme_orig'] = $elements['#theme'];
+    $elements['#theme'] = 'panels_fe_capture_element';
+  }
+  else {
+    if (isset($elements['#type']) && !in_array($elements['#type'], array('hidden', 'form', 'value', 'token'))) {
+      $elements['#type_orig'] = isset($elements['#type']) ? $elements['#type'] : 'markup';
+      $elements['#theme'] = 'panels_fe_capture_element';
+    }
+    else {
+      foreach (element_children($elements) as $key) {
+        $elements[$key] = panels_fe_start_extract($elements[$key]);
+      }
+    }
+  }
+
+  return $elements;
+}
+
+function theme_panels_fe_capture_element($element) {
+  global $panels_fe;
+
+  $element['#type'] = $element['#type_orig'];
+  if (isset($element['#theme_orig'])) {
+    $element['#theme'] = $element['#theme_orig'];
+  }
+  else {
+    unset($element['#theme']);
+  }
+  unset($element['#type_orig'], $element['#theme_orig'], $element['#theme_used'], $element['#printed']);
+
+  $output = drupal_render($element);
+
+  $panels_fe['elements'][implode('][', $element['#parents'])] = $element;
+  $panels_fe['fields'][implode('][', $element['#parents'])] = $output;
+  return ' ';
+}
+
+function panels_fe_build_title($element) {
+  $title = '';
+
+  if (isset($element['#type']) && in_array($element['#type'], array('button', 'submit')) && isset($element['#value'])) {
+    $title.= $element['#value'];
+  }
+  elseif (isset($element['#title'])) {
+    $title.= $element['#title'];
+  }
+
+  if (isset($element['#type']) && in_array($element['#type'], array('fieldset'))) {
+    $title.= ' fieldset';
+  }
+  elseif (isset($element['#type']) && in_array($element['#type'], array('button', 'submit'))) {
+    $title.= ' button';
+  }
+  else {
+    $title.= ' field';
+  }
+
+  $title.= '['. implode('][', $element['#parents']) .']';
+  return trim($title);
+}
+

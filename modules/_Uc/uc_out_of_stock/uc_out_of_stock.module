@@ -1,0 +1,129 @@
+<?php
+// $Id: uc_out_of_stock.module,v 1.2.2.9 2009/06/01 14:34:39 hanoii Exp $
+
+define ('UC_OUT_OF_STOCK_DEFAULT_HTML', t('<span style="color: red;">Out of stock</span>'));
+
+function uc_out_of_stock_form_alter($form_id, &$form) {
+  $forms = array('uc_product_add_to_cart_form', 'uc_catalog_buy_it_now_form');
+  foreach ($forms as $id) {
+    if ( substr($form_id, 0, strlen($id)) == $id ) {
+      drupal_add_js(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.js');
+      drupal_add_css(drupal_get_path('module', 'uc_out_of_stock') . '/uc_out_of_stock.css');
+    }
+  }
+}
+
+function uc_out_of_stock_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+
+  }
+  else {
+    $items[] = array(
+      'path' => 'admin/store/settings/uc_out_of_stock',
+      'title' => t('Out of Stock Settings'),
+      'access' => user_access('administer store'),
+      'description' => t('Configure out of stock settings.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('uc_out_of_stock_settings'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+
+    $items[] = array(
+      'path' => 'uc_out_of_stock/query',
+      'title' => 'stock query',
+      'callback' => 'uc_out_of_stock_query',
+      'access' => true,
+      'type' => MENU_CALLBACK,
+    );
+  }
+
+  return $items;
+}
+
+function uc_out_of_stock_query() {
+  $attrs = array();
+  $response = array();
+
+  $nid = $_POST['nid'];
+  foreach ( $_POST as $key => $value ) {
+    if ( substr($key, 0, 4) == 'attr' ) {
+      $attrs[substr($key, 4)] = $value;
+    }
+  }
+
+  // Query main sku is true by default, if some attribute combination is found,
+  // it will be set to FALSE
+  // If the combination was not found, and all attributes were indeed selected, we are assuming that some
+  // combination shares an SKU with the actual product, thus, the product have to be queried as well.
+  $query_main_sku = TRUE;
+  if (module_exists('uc_attribute')) {
+    // if attributes module exists, and product has attributes first search for attributes
+    $post_attrs = count($attrs);
+    $sql = "SELECT %s FROM {uc_product_adjustments} upa LEFT JOIN {uc_product_stock} ups ON ups.sku = upa.model WHERE upa.nid = %d";
+    $db_attrs = db_result(db_query($sql, 'COUNT(*)', $nid));
+    if ($post_attrs && $db_attrs > 0) {
+      $result = db_query($sql, '*', $nid);
+      while ($row = db_fetch_object($result)) {
+        $combination = unserialize($row->combination);
+        if ( $combination == $attrs ) {
+          // Because a combination is found, don't look for the main SKU
+          $query_main_sku = FALSE;
+          // Only check if active
+          if ($row->active) {
+            $response['stock'] = $row->stock;
+            if ( $row->stock <= 0 ) {
+              $response['html'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+            }
+          }
+        }
+      }
+    }
+    else {
+      // If there are attributes for the product, but no attributes were sent, do nothing
+      // as it's probably coming from the catalog table list view and we can't
+      // disable the add to cart button for products with attributes
+      if ($post_attrs == 0 && $db_attrs > 0) {
+        $query_main_sku = FALSE;
+      }
+    }
+  }
+
+  if ($query_main_sku) {
+    // seach for main product
+    $result = db_query("SELECT * FROM {uc_products} up LEFT JOIN {uc_product_stock} ups ON ups.sku = up.model WHERE up.nid = %d AND ups.active = 1", $nid);
+    while ($row = db_fetch_object($result)) {
+      $response['stock'] = $row->stock;
+      if ( $row->stock <= 0 ) {
+        $response['html'] = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+      }
+    }
+  }
+
+  // if there is some response, print it
+  if (count($response)){
+    print implode('|', $response);
+  }
+}
+
+function uc_out_of_stock_settings() {
+  $text = check_markup(variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML), variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), FALSE);
+  $description = '<div class="description">This is the value below rendered as you would expect to see it</div>';
+  $text = '<div style="border: 1px solid lightgrey; padding: 10px;">' . $text . '</div>' . $description;
+
+  $form['uc_out_of_stock_demo'] = array(
+    '#type' => 'markup',
+    '#value' => $text,
+  );
+
+  $form['uc_out_of_stock_text'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Out of stock replacement HTML'),
+    '#default_value' => variable_get('uc_out_of_stock_text', UC_OUT_OF_STOCK_DEFAULT_HTML),
+    '#description' => t('The HTML that will replace the Add To Cart button if no stock is available.'),
+  );
+
+  $form['uc_out_of_stock_format'] = filter_form(variable_get('uc_out_of_stock_format', FILTER_FORMAT_DEFAULT), NULL, array('uc_out_of_stock_format'));
+
+  return system_settings_form($form);
+}

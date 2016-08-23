@@ -1,0 +1,11 @@
+; $Id: uc_stock_notify.info,v 1.1 2008/12/13 15:23:25 longwave Exp $
+name = Stock Notify
+description = Notify customers when products come back into stock
+dependencies = uc_stock
+package = "Ubercart - extra"
+
+; Information added by drupal.org packaging script on 2009-01-23
+version = "5.x-1.0"
+project = "uc_stock_notify"
+datestamp = "1232715940"
+

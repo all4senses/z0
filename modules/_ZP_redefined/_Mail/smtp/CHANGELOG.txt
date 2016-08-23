@@ -1,0 +1,15 @@
+// $Id: CHANGELOG.txt,v 1.1.2.3 2008/06/18 15:53:16 oadaeh Exp $
+
+2008-06-18 Jason Flatt drupal@oadaeh.net
+  * smtp.module: Added another check for an edge case of enabling Mime Mail.
+    Changed the default (un-enabled) on/off value to be off rather than on.
+
+2008-06-17 Jason Flatt drupal@oadaeh.net
+  * smtp.module: Changed how SMTP checks for Mime Mail being installed and
+    enabled (http://drupal.org/node/271626).
+
+2008-06-16 Jason Flatt drupal@oadaeh.net
+  * smtp.module: Added support for integration with the Mime Mail module
+    (http://drupal.org/project/mimemail) integration. Code submitted by Jason
+    Millard (http://drupal.org/user/104416) with modifications from Attila
+    Beregszászi (http://drupal.org/user/32875) and myself.

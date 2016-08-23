@@ -1,0 +1,11 @@
+; $Id: uc_multi_stock.info,v 1.1 2008/09/02 21:51:25 talbone Exp $
+name = stock manager with attributes
+description = stock manager for ubercart, taking into account the product attributes.
+dependencies =  uc_stock
+package = Ubercart - extra
+
+; Information added by drupal.org packaging script on 2009-05-28
+version = "5.x-1.1"
+project = "uc_multi_stock"
+datestamp = "1243528907"
+

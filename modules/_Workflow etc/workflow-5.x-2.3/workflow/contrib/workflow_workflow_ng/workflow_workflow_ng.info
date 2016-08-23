@@ -1,0 +1,10 @@
+; $Id: workflow_workflow_ng.info,v 0
+name = Workflow - Workflow NG Integration
+description = Fire workflow_ng events on workflow state changes
+dependencies = workflow workflow_ng
+package = Workflow
+; Information added by drupal.org packaging script on 2008-07-19
+version = "5.x-2.3"
+project = "workflow"
+datestamp = "1216432514"
+

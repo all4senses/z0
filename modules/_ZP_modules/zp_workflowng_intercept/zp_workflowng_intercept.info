@@ -1,0 +1,11 @@
+; $Id $
+name = "ZP Workflowng Intercept"
+description = "Intercepts Workflow-ng events. Hack of Workflow-ng module is needed."
+;dependencies = workflow_ng
+package = ZP Modules
+
+; Information added by drupal.org packaging script on 2007-12-28
+version = "5.x-1.0"
+project = "ZP modules"
+datestamp = "1224456101"
+

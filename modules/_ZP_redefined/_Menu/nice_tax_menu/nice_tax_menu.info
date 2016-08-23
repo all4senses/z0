@@ -1,0 +1,8 @@
+name = "Nice Taxonomy Menu"
+description = "description = CSS/jQuery drop-down, drop-right and drop-left menus in blocks"
+dependancies = block
+; Information added by drupal.org packaging script on 2009-03-01
+version = "5.x-1.0"
+project = "nice_tax_menu"
+datestamp = "1235892334"
+

@@ -1,0 +1,115 @@
+// проверяем, есть ли уже такой продукт в базе
+// должно быть совпадение по SKU-Gorod-Magazin-Otdel 
+// так как при отличии любого параметра продукт можно считать не идентичным
+// например, продукт с таким SKU и таким отделом может находиться в другом городе и другом магазине
+
+
+                //обнуляем переменную $sovpadenie
+                //если после всех проверок она окажется =1, значит совпадение нейдено
+                $sovpadenie = 0;
+
+                //если в базе есть продукты с таким же SKU
+                //получаем список таких продуктов
+                if(($results = db_query("SELECT vid FROM {uc_products} WHERE model = '%s'", $row['SKU'])) > 0)
+                 {
+
+                  //в базе продуктов может содержаться несколько ревизий, 
+		  //но нас интересуют только активные (которые указаны в базе node) ревизии продукта
+		  //перебираем все ревизии из списка и далее проверяем только активные
+                  while($result = db_fetch_object($results))
+                    {
+                     //проверяем, активная ли ревизия
+                     if(($nid = db_result(db_query("SELECT nid FROM {node} WHERE vid = '%s'", $result->vid))) > 0)
+                       {
+                         //в активной ревизии проверяем на совпадение категорий Gorod, Magazin, Otdel данным из файла
+
+                         //если есть вообще такой город, выясняем его tid
+                         // vid=2 - это номер словаря с городами и отделами, может иметь и другой номер в другой инсталляции
+                         if(($tid_gorod=db_result(db_query("SELECT tid FROM {term_data} WHERE name = '%s' AND vid = 2", $row['Gorod']))) > 0) 
+                          //если такой город есть, имеет ли наш продукт такую категорию (в этом ли городе продукт)?
+		       	     if((db_result(db_query("SELECT tid FROM {term_node} WHERE nid = '%s' AND tid = '%s'", $nid, $tid_gorod))) > 0)
+		       	        //так, город совпал... сопадёт ли магазин?
+                                // проверяем, есть ли магазин (или несколько с одинаковыми именами) 
+		       	         if(($results2 = db_query("SELECT tid FROM {term_data} WHERE name = '%s' AND vid = 2", $row['Magazin'])) > 0)
+		       	            //магазин (магазины) существует (или есть несколько с одинаковыми названиями, например, в разных городах), 
+                                    //теперь надо определить tid магазина в нашем городе
+                                    //перебираем все магазины с указанным названием и находим тот, который находится в нашем городе
+                                    // то есть, родителем нашего магазина должен быть наш город
+                                    while($result2 = db_fetch_object($results2))
+                                      {
+                                        if(($tid_magazin = db_result(db_query("SELECT tid FROM {term_hierarchy} WHERE tid = '%s' AND parent = '%s'", $result2->tid, $tid_gorod))) > 0))
+                                          { 
+		        	      	    //магазин совпал, т.е. есть такой магазин в нашем списке, который находится в нашем городе
+                                            //значит выясняем, совпадает ли отдел?
+		       		      	    //для этого получаем список всех отделов с названием Otdel (которое указано в файле)
+		       		      	    //и выбираем из них тот, у которого родителем является найденный магазин $tid_magazin
+		       
+		       		      	    // для начала проверяем, есть ли вообще такие отделы и получаем их список, если их несколько с одинаковыми названиями
+                                            if(($results3 = db_result(db_query("SELECT tid FROM {term_data} WHERE name = '%s' AND vid = 2", $row['Otdel']))) > 0)
+                                                // такой отдел (или несколько отделов) существуют
+                                                {
+                                                  
+                                                   // есть ли среди них отдел, который находится в нашем магазине?
+                                                   while($result3 = db_fetch_object($results3))
+                                                    {
+                                                     if(($tid_otdel = db_result(db_query("SELECT tid FROM {term_hierarchy} WHERE tid = '%s' AND parent = '%s'", $result3->tid, $tid_magazin))) > 0))
+                                                       {
+                                                         //и отдел совпал
+                                                         //значит имеем полное совпадение
+                                                         //значит продукт из файла уже имеется в базе
+                                                         //осталось решить, заменять, делать новую ревизию или вообще не менять
+
+                                                         $sovpadenie = 1; // полное совпадение найдено
+
+                                                         break; // прерываем цикл перебора отделов, так как отдел найден и вообще полное совпадение найдено
+                                                       }
+
+                                                    } // while($result3  перебор всех отделов
+
+		        		       	}   
+
+                                            break; //прерываем цикл перебора магазинов, так как магазин найден
+
+                                          } //if(($tid_magazin... магазин совпал, т.е. есть такой магазин в нашем списке
+
+                                      } //while($result2... перебираем все магазины с указанным названием
+
+                         break; //прерываем цикл перебора ревизий, так как активная ревизия найдена
+
+                       } //if(($nid = db_result... // проверка активной ревизии     
+
+
+                    }   while($result ... перебор всех ревизий
+
+
+// Проверка закончена. Теперь если $sovpadenie = 1, то такой продукт в базе найден
+
+                  if($sovpadenie != 1) 
+
+		  // если определено поле Zamena в файле для очередного продукта, то использовать её значение для переменной uc_importer_handle_duplicates (что делать с дубликатами)
+
+                  if(!empty($form_values['Zamena']) || $form_values['Zamena'] == 0)
+		     variable_set('uc_importer_handle_duplicates', $form_values['handle_duplicates']);
+		  else
+		    {
+	               switch ($form_values['Zamena'])
+			{
+			 case 1:
+		             variable_set('uc_importer_handle_duplicates', UC_IMPORTER_DO_NOTHING);
+
+			 case 2:
+		             variable_set('uc_importer_handle_duplicates', UC_IMPORTER_REPLACE);
+
+			 case 3:
+		             variable_set('uc_importer_handle_duplicates', UC_IMPORTER_NEW_REVISION);
+			 }
+		     } 
+
+                  drupal_set_message("A product with SKU = $sku exists! nid = $nid", 'error');
+		  continue;
+                  
+		 } // проверка, есть ли в базе продукты с указанным SKU
+		 else
+		 {
+
+  	          }

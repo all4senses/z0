@@ -1,0 +1,54 @@
+/* $Id$ */
+
+#gtct_pane {
+	border: 1px solid #D2E6F3;
+	height: 70px;
+	overflow: auto;
+	padding: 5px;
+	margin: 0 0 10px 0;
+}
+
+#grp_pane {
+	border: 1px solid #D2E6F3;
+	height: 70px;
+	overflow: auto;
+	padding: 5px;
+	margin: 0 0 10px 0;
+}
+
+#gtct_options span {
+	/*font-weight: bold;*/
+}
+
+ul.tabNavigation {
+    list-style: none;
+    margin: 10px 0 0 0;
+    padding: 0;
+}
+
+ul.tabNavigation li {
+    display: inline;
+    background: none;
+    margin: 0px;
+    padding: 0px;
+}
+
+ul.tabNavigation li a {
+    padding: 4px 7px 4px 7px;
+    border: 1px solid #D2E6F3;
+    border-bottom: 0px;
+    color: #000;
+    text-decoration: none;
+}
+
+ul.tabNavigation li a.selected,
+ul.tabNavigation li a:hover {
+  border: 1px solid #D2E6F3;  
+  border-bottom: 0px;
+	background-color: #D2E6F3;
+  color: #000;
+}
+
+ul.tabNavigation li a:focus {
+	outline: 0;
+}

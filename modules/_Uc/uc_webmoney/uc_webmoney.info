@@ -1,0 +1,11 @@
+; $Id: uc_webmoney.info,v 1.1.2.1 2008/05/23 14:46:12 gor Exp $
+name = Webmoney
+description = Webmoney payment gateway.
+dependencies = uc_payment
+package = "Ubercart - payment"
+
+; Information added by drupal.org packaging script on 2008-06-13
+version = "5.x-1.1"
+project = "uc_webmoney"
+datestamp = "1213346719"
+

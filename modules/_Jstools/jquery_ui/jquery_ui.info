@@ -1,0 +1,12 @@
+; $Id: jquery_ui.info,v 1.1.2.2 2008/08/01 15:06:36 sun Exp $
+name = jQuery UI
+description = Provides the jQuery UI plug-in to other Drupal modules.
+package = User Interface
+
+dependencies = jquery_update
+
+; Information added by drupal.org packaging script on 2009-06-21
+version = "5.x-1.1"
+project = "jquery_ui"
+datestamp = "1245556234"
+

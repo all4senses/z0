@@ -1,0 +1,11 @@
+; $Id $
+name = "Tag Tool"
+description = Tagtools for user and edit interface.
+dependencies = taxonomy
+version = VERSION
+
+; Information added by drupal.org packaging script on 2008-10-07
+version = "5.x-1.2"
+project = "tagtool"
+datestamp = "1223390422"
+

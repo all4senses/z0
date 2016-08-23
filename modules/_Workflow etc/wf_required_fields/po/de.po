@@ -1,0 +1,44 @@
+# GERMAN translation of wf_required_fields
+# Copyright (c) 2007 Oswald Jaskolla <oswald@jaskolla.net>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: wf_required_fields 0.7\n"
+"POT-Creation-Date: 2007-11-02 18:53+0100\n"
+"PO-Revision-Date: 2007-11-05 12:29+0100\n"
+"Last-Translator: Oswald Jaskolla <oswald@jaskolla.net>\n"
+"Language-Team: GERMAN <oswald@jaskolla.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+
+msgid "Workflow Required Fields"
+msgstr "Zustandsabhängige Pflichtfelder"
+
+msgid "Sets CCK fields to \"required\" depending on the workflow state of the node"
+msgstr "Macht aus CCK-Feldern Pflichtfelder in Abhängigkeit des Zustandes des Dokuments im Arbeitsablauf"
+
+msgid "Choose the content types that you want to have state dependant required fields. For each such content type and each state, configure the fields that you want to be required."
+msgstr "Wählen Sie die Inhaltstypen in denen Sie zustandsabhängige Pflichtfelder haben. Geben Sie für jeden dieser Inhaltstypen und jeden Zustand an, welche Felder ausgefüllt sein müssen."
+
+msgid "Content Types"
+msgstr "Inhaltstypen"
+
+msgid "Select the content types that you want to use this module with. Then save this page and add required fields to the content types in one of the next sections. If you do not see your type here, it is because it has now workflow associated."
+msgstr "Wählen Sie die Inhaltstypen, die Sie mit diesem Modul verwenden möchten. Speichern Sie dann diese Seite und in einem der nächsten Abschnitte können Sie diese Inhaltstypen dann konfigurieren. Falls ein von Ihnen verwendeter Inhaltstyp hier nicht aufgelistet ist, dann weil ihm kein Arbeitsablauf zugeordnet ist."
+
+msgid "You have not configured any content types to use a workflow. You can use this module only with content types that are configured to use a workflow."
+msgstr "Sie haben keine Inhaltstypen, denen ein Arbeitsablauf zugeordnet ist. Sie können dieses Modul nur mit Inhaltstypen verwenden, die einem Arbeitsbalauf zugeordnet sind."
+
+msgid "For each state, select the fields that you want to make a required field."
+msgstr "Wählen Sie für jeden Zustand die Felder aus, die in diesem Zustand Pflichtfelder sein sollen."
+
+msgid "Field"
+msgstr "Feld"
+
+msgid "State"
+msgstr "Zustand"
+
+msgid "Cannot promote \"!title\" to state %state. The following fields are empty: !list"
+msgstr "\"!title\" kann nicht in den Zustand %state Überführt werden, da die folgenden Felder leer sind: !list"

@@ -1,0 +1,12 @@
+; $Id: views_savefilter.info,v 1.1.2.4 2007/05/29 20:37:11 avf Exp $
+name = Save filter
+description = "Saves Views exposed filter values"
+dependencies = views
+package = Views
+
+
+; Information added by drupal.org packaging script on 2008-04-15
+version = "5.x-1.x-dev"
+project = "views_savefilter"
+datestamp = "1208218642"
+

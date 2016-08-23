@@ -1,0 +1,586 @@
+<?php // $Id: nice_tax_menu.module,v 1.1.2.1 2009/03/01 07:20:55 jenlampton Exp $
+
+/**
+ * Implemention of hook_menu().
+ */
+function nice_tax_menu_menu($may_cache) {
+  if (!$may_cache) {
+    // Add JavaScript, if enabled.
+    if (variable_get('nice_tax_menu_ie', 1) == 1) {
+      drupal_add_js(drupal_get_path('module', 'nice_tax_menu') .'/nice_tax_menu.js');
+    }
+
+    // Add main CSS functionality.
+    drupal_add_css(drupal_get_path('module', 'nice_tax_menu') .'/nice_tax_menu.css');
+    // Add custom CSS layout if specified.
+    if ($custom = variable_get('nice_tax_menu_custom_css', '')) {
+      drupal_add_css($custom);
+    }
+    // Fall back to default layout.
+    else {
+      drupal_add_css(drupal_get_path('module', 'nice_tax_menu') .'/nice_tax_menu_default.css');
+    }
+  }
+  else {
+    $items[] = array(
+      'path' => 'admin/settings/nice_tax_menu',
+      'title' => t('Taxonomy Drop-Down'),
+      'description' => t('Configure Taxonomy Drop-Down Menus.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('nice_tax_menu_admin_settings'),
+      'access' => user_access('administer site configuration'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+
+  return $items;
+}
+
+/**
+ * Settings form as implemented by hook_menu
+ */
+function nice_tax_menu_admin_settings() {
+  $form['nice_tax_menu_number'] = array(
+    '#type' => 'select',
+    '#title' => t('Number of Taxonomy Drop-Down Menus'),
+    '#description' => t('The total number of independent Taxonomy Drop-Down menus (blocks) you want.'),
+    '#default_value' => variable_get('nice_tax_menu_number', '2'),
+    '#options' => drupal_map_assoc(array(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)),
+  );
+  $form['nice_tax_menu_ie'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable IE support'),
+    '#description' => t('This will add necessary JavaScript for Taxonomy Drop-Down to work properly in Internet Explorer.'),
+    '#default_value' => variable_get('nice_menus_ie', 1),
+  );
+
+  return system_settings_form($form);
+}
+
+function nice_tax_menu_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0] = array('info' => t('Taxonomy Drop-Down'),
+      'weight' => 0, 'enabled' => 0);
+    return $blocks;
+  }
+  else if ($op == 'configure' && $delta == 0) {
+    $vocabs = taxonomy_get_vocabularies();
+    $options = array();
+    foreach ($vocabs as $vocab){
+      $options[$vocab->vid] = $vocab->name;
+    }
+    $form['vocab'] = array(
+      '#type' => 'select',
+      '#title' => t('Drop-Down Vocabulary'),
+      '#default_value' => variable_get('nice_tax_menu_vocab', 1),
+      '#options' => $options,
+    );
+    $form['type'] = array(
+      '#type' => 'select',
+      '#title' => t('Drop-Down Type'),
+      '#default_value' => variable_get('nice_tax_menu_type', 'right'),
+      '#options' => array('left'=>'left','right'=>'right','down'=>'down'),
+    );
+    return $form;
+  }
+  else if ($op == 'save' && $delta == 0) {
+    variable_set('nice_tax_menu_vocab', $edit['vocab']);
+    variable_set('nice_tax_menu_type', $edit['type']);
+  }
+  else if ($op == 'view') {
+    switch($delta) {
+      case 0:
+        $block = array('subject' => t('Taxonomy Drop-Down'),
+          'content' => nice_tax_menu_block_content());
+        break;
+    }
+    return $block;
+  }
+}
+
+
+function nice_tax_menu_block_content(){
+  $vid = variable_get('nice_tax_menu_vocab', 1);
+  $items = nice_tax_menu_build_items($vid);
+  $output = '<div id="ddmenu">';
+  $output .= theme('nice_tax_menu', $items, array('class' => 'ddmenu'));
+  $output .= '</div>';
+  return $output;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//-------------------------------------------------------------------
+
+// my ������������ ���� �������
+
+
+
+
+function nice_tax_menu_build_items($vid, $myflag = 0, $mydepth = 0, $upper_items = 0, $node = 0, $set_parent_tid = -1, $via_views = 1)
+{
+
+//(1, 0, 1, 0, 0, -1);	
+    
+    //$node_type = $node->type;
+    //$node_title = $node->title;
+    //$node_nid = $node->nid;
+    //drupal_set_message("Argument node in tax: node_type = $node_type, node_nid = $node_nid, node_title = $node_title, set_parent_tid = $set_parent_tid, myflag = $myflag", 'error');	
+	
+	
+if(!isset($node) AND $set_parent_tid < 0)
+  {
+   if(!(arg(0) =='node' AND is_numeric(arg(1))))
+     return 0; 
+   $node = node_load($node_nid);
+  }
+
+$parent_tid = 0;
+
+if($myflag AND $set_parent_tid < 0)
+ { 
+// if(arg(0) =='node' AND arg(1)) 
+//  {
+
+   //$arg0 = arg(0);
+   //$arg1 = arg(1);
+   //drupal_set_message("arg0 = $arg0, arg1 = $arg1", 'error');
+
+   //$node = node_load($node_nid);
+
+   $current_node_tid = taxonomy_node_get_terms_by_vocabulary($node->nid, $vid);
+   foreach($current_node_tid as $node_tid)
+    $node_tid = $node_tid->tid;
+   //drupal_set_message("-----node_tid = $node_tid", 'error');
+
+ 
+         // ���� � ���� ��� ����� (��� �������� �����, ��������), �� ���������� � ���� ���� ������ ����� � ���� ������
+         if(!taxonomy_get_children($node_tid, $vid))
+          {        
+            //drupal_set_message("No children", 'error');
+
+           $parent_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $node_tid));
+           //$parent_node = db_result(db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $parent_tid));
+          } 
+         else      
+           $parent_tid = $node_tid;
+
+
+   $parent_tid_save = $parent_tid; // ����� ����� ������������
+
+   if($myflag == 'shop') //���������� ��������,������� � �������� ��������,�����('department')����� ������ ���������� �������� ������
+    {
+
+      //drupal_set_message("It's a shop", 'error');
+
+      $linage_tids = array();
+      $linage_tids[] = $node_tid;
+ 
+      $count = 0;
+      while(($node_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $node_tid))) != 0)
+       {
+         $linage_tids[] = $node_tid;
+         $count++;
+       } 
+
+      //foreach($linage_tids as $lin_tid)
+       //drupal_set_message("-lin_tid = $lin_tid, count = $count", 'error');
+
+      if($count < 2) return;
+
+       $parent_tid = $linage_tids[$count-2];
+     }
+
+  //}  //end of if(arg(0) =='node' AND arg(1)) 
+
+}
+
+if($set_parent_tid >=0)
+ $parent_tid = $set_parent_tid;
+
+
+$tree = taxonomy_get_tree($vid, $parent_tid);
+
+  $items = array();
+
+  // generate the menu items
+  foreach ($tree as $term){
+  	
+  	$items_nodes = array();
+    $nodes_of_term = array();
+  	if ($term->depth == 0) {
+
+      $result = db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $term->tid);
+      while($n = db_fetch_object($result))
+      {
+      	
+   //print '<pre>';
+   //print_r($n);
+   //print '</pre>';
+   
+         $nodes_of_term[] = $n->nid;
+         
+         //$node_nid = $n->nid;
+         //$node_title = $n->title; 
+         //$term_nam = $term->name;
+         //drupal_set_message("test: term_name = $term_nam, node_nid = $node_nid, node_title = $node_title ", 'error');
+      }  
+
+foreach($nodes_of_term as $n)
+;
+   //drupal_set_message("-----n = $n", 'error');      
+
+      //$n0 = $nodes_of_term[0];     
+   //$n1 = $nodes_of_term[1]; 
+   //$k = $term->name; 
+   
+      if(!$nodes_of_term[0]) // if no nodes with this term
+       {
+       	//drupal_set_message("!nodes_of_term[0]----kid->name = $k, n0 = $n0, n1 = $n1", 'error');
+         $items[$term->tid] = array(
+         'data' => t($term->name),
+         //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+         'children' => ($mydepth == 1) ? array() : nice_tax_menu_add_kids($term->tid, $vid, $mydepth, $linage_tids, $via_views),
+         );
+       }
+      else
+       {
+        if(!$nodes_of_term[1]) // if only one node with this term
+         {
+
+         	if(!$via_views) //!$views_node)
+         	 {
+         		
+         	  foreach($nodes_of_term as $node)
+         	   {
+         		$node_name = db_result(db_query("SELECT title from {node} WHERE nid  = '%s'", $node));
+         	   	$items_nodes[$term->tid . $node] = array(
+         		'data' => l($node_name, 'node/'.$node),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => array(),
+         		);
+         		
+         	   }
+         	    $items[$term->tid] = array(
+               'data' => t($term->name),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => $items_nodes,
+                );
+           	
+         	  }
+         	else  
+         	{
+         	
+            //drupal_set_message("Children are", 'error');
+              //drupal_set_message("!nodes_of_term[1]----kid->name = $k, n0 = $n0, n1 = $n1", 'error');
+              $items[$term->tid] = array(
+               'data' => l($term->name, 'node/'.$nodes_of_term[0]),
+               //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+               'children' => ($mydepth == 1) ? array() : nice_tax_menu_add_kids($term->tid, $vid, $mydepth, $linage_tids, $via_views),
+               );
+               
+         	}  
+         } 
+        else  // ���� � ���� ����� ��������� ����� (��� ������ � ����� ������ � �����-�� ������ ��� ���������), ���������� ������ �� ���� ������, ����������� ��� ���� (������)
+         {
+
+         	
+         	
+         	if(!$via_views) //!$views_node)
+         	 {
+         		
+         	  foreach($nodes_of_term as $node)
+         	   {
+         		$node_name = db_result(db_query("SELECT title from {node} WHERE nid  = '%s'", $node));
+         	   	$items_nodes[$term->tid . $node] = array(
+         		'data' => l($node_name, 'node/'.$node),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => array(),
+         		);
+         		
+         	   }
+         	    $items[$term->tid] = array(
+               'data' => t($term->name),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => $items_nodes,
+                );
+           	
+         	  }
+         	else  
+         	{
+            	//drupal_set_message("else (several exists)----kid->name = $k, n0 = $n0, n1 = $n1", 'error');
+         	   //����� �������� �������� �����
+           
+               //� ����� ����, ����������� � ����� �����, ����� �������� ������������ �����, ���������� ������� ����
+               //$parent_node = db_result(db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $linage_tids[array_search($term->tid, $linage_tids)]-1));           
+               $parent_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $term->tid));
+               $parent_node = db_result(db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $parent_tid));
+           
+             
+
+               $items[$term->tid] = array(
+               'data' => l($term->name, 'node/'.$parent_node. '/tf/'. $term->tid),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => ($mydepth == 1) ? array() : nice_tax_menu_add_kids($term->tid, $vid, $mydepth, $linage_tids, $via_views),
+           );
+           
+         	}
+         }
+       }
+    }   
+  } 
+
+
+if($upper_items)
+ {
+    
+   if($linage_tids)
+     $parent_tid = $linage_tids[1];
+    else
+     $parent_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $parent_tid_save));
+
+   //drupal_set_message("!parent_tid = $parent_tid", 'error');
+
+         
+  if($parent_tid != 0)
+   {
+
+     $parent_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $parent_tid));
+     
+     $parent_tid_name = 'Up!';
+     //$parent_tid_name = db_result(db_query("SELECT name from {term_data} WHERE tid  = '%s'", $parent_tid));
+
+
+
+     $items['upper_items'] = array(
+          'data' => l($parent_tid_name, 'node/'.$parent_nid),
+          'children' => array(),
+           );
+   }
+
+ }
+  
+  return $items;
+}
+
+
+
+
+
+
+
+
+
+/* 
+ * Recussively add child items
+ */
+function nice_tax_menu_add_kids($tid, $vid, $mydepth = 0, $linage_tids = array(), $via_views = 1){
+  //print_r($item);exit;
+  // get children
+  $kids = taxonomy_get_children($tid, $vid);
+  
+  
+  foreach ($kids as $kid){
+
+  $items_nodes = array();
+  $nodes_of_term = array();
+
+      $result = db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $kid->tid);
+      while($n = db_fetch_object($result))
+         $nodes_of_term[] = $n->nid;
+
+foreach($nodes_of_term as $n)
+;
+   //drupal_set_message("-----n = $n", 'error'); 
+   //$n0 = $nodes_of_term[0];     
+   //$n1 = $nodes_of_term[1]; 
+   //$k = $kid->name;    
+         
+      if(!$nodes_of_term[0]) // ���� ��� ������������ � ����� ����� �����, �� ���������� � ���� ������
+       {
+         //drupal_set_message("!nodes_of_term[0]----kid->name = $k, n0 = $n0, n1 = $n1", 'error');
+       	
+       	 $children[$kid->tid] = array(
+         'data' => t($kid->name),
+         'children' => ($mydepth == 2) ? array() : nice_tax_menu_add_kids($kid->tid, $vid, $mydepth, $linage_tids, $via_views),
+         );
+       }
+      else
+       {
+        if(!$nodes_of_term[1]) // ���� ���� ������ ���� ���� � ����� ������, ���������� �� �� ������
+         {
+
+
+         
+         	if(!$via_views) //!$views_node)
+         	 {
+         		
+         	  foreach($nodes_of_term as $node)
+         	   {
+         		$node_name = db_result(db_query("SELECT title from {node} WHERE nid  = '%s'", $node));
+         	   	$items_nodes[$term->tid . $node] = array(
+         		'data' => l($node_name, 'node/'.$node),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => array(),
+         		);
+         		
+         	   }
+         	    $children[$kid->tid] = array(
+               'data' => t($kid->name),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => $items_nodes,
+                );
+           	
+         	  }
+         	else  
+         	{	
+         	
+         	
+         	
+               //drupal_set_message("!nodes_of_term[1]-----kid->name = $k, n0 = $n0, n1 = $n1", 'error'); 	
+               $children[$kid->tid] = array(
+               'data' => l($kid->name, 'node/'.$nodes_of_term[0]),
+                'children' =>  ($mydepth == 2) ? array() : nice_tax_menu_add_kids($kid->tid, $vid, $mydepth, $linage_tids, $via_views),
+                );
+          
+         	}
+          
+         } 
+        else  // ���� � ���� ����� ��������� ����� (��� ������ � ����� ������ � �����-�� ������ ��� ���������), ���������� ������ �� ���� ������, ����������� ��� ���� (������)
+         {
+
+         	
+         		
+         	if(!$via_views) //!$views_node)
+         	 {
+         		
+         	  foreach($nodes_of_term as $node)
+         	   {
+         		$node_name = db_result(db_query("SELECT title from {node} WHERE nid  = '%s'", $node));
+         	   	$items_nodes[$term->tid . $node] = array(
+         		'data' => l($node_name, 'node/'.$node),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => array(),
+         		);
+         		
+         	   }
+         	    $items[$kid->tid] = array(
+               'data' => t($kid->name),
+                //'children' => nice_tax_menu_add_kids($term->tid, $vid, $mydepth),
+                'children' => $items_nodes,
+                );
+           	
+         	  }
+         	else  
+         	{
+         	   //drupal_set_message("else (several exists)----kid->name = $k, n0 = $n0, n1 = $n1", 'error');
+         	   //����� �������� �������� �����
+           
+               //� ����� ����, ����������� � ����� �����, ����� �������� ������������ �����, ���������� ������� ����
+               //$parent_node = db_result(db_query("SELECT nid from {term_node} WHERE tid  = '%s'", $linage_tids[array_search($term->tid, $linage_tids)]-1));           
+               $parent_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = %d", $kid->tid));
+               //drupal_set_message("parent_tid = $parent_tid", 'error');
+               $parent_node = db_result(db_query("SELECT nid from {term_node} WHERE tid  = %d", $parent_tid));
+               //drupal_set_message("parent_node = $parent_node", 'error');
+               $children[$kid->tid] = array(
+              'data' => l($kid->name, 'node/'.$parent_node . '/tf/'. $kid->tid),
+              'children' =>  ($mydepth == 2) ? array() : nice_tax_menu_add_kids($kid->tid, $vid, $mydepth, $linage_tids, $via_views),
+               );
+           
+         	}
+         }
+       }
+	
+    
+/*  
+    //print_r($item['children']);exit;
+    // add children to list
+    
+        $children[$kid->tid] = array(
+        'data' => l($kid->name, 'taxonomy/term/'.$kid->tid),
+        'children' => nice_tax_menu_add_kids($kid->tid, $vid),
+    );    
+
+*/  
+
+    
+  }
+  return $children;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+ * theme functions 
+ */
+function theme_nice_tax_menu($items = array(), $attributes = array('class' => 'ddmenu')){
+  if ($type = variable_get('nice_tax_menu_type', 'right')){
+    $attributes['class'] .= ' ddmenu-' . $type;
+  }
+  $output = '';
+  if (!empty($items)) {
+
+if($items['upper_items'])
+  {
+   $upper_items = $items['upper_items'];
+   array_splice($items, -1, 1);
+  }
+
+    $output .= "<ul" . drupal_attributes($attributes) . '>';
+    foreach ($items as $item) {
+      $attributes = array();
+      $children = array();
+      if (is_array($item)) {
+        foreach ($item as $key => $value) {
+          if ($key == 'data') {
+            $data = $value;
+          }
+          elseif ($key == 'children') {
+            $children = $value;
+          }
+        }
+      }
+      else {
+        $data = $item;
+      }
+      if (count($children) > 0) {
+        $data .= theme('nice_tax_menu', $children, $attributes); // Render nested list
+        $attributes['class'] .= ' menuparent';
+      }
+      $output .= '<li' . drupal_attributes($attributes) . '>'. $data .'</li>';
+    }
+    $output .= "</ul>";
+  }
+
+if($upper_items)
+ $output = '<li class = "upper_items">'. $upper_items['data'] .'</li>' . $output;
+
+
+  return $output;
+}

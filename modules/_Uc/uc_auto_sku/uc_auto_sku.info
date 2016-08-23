@@ -1,0 +1,5 @@
+; $Id$
+name = Auto SKU. 
+description = Allow create SKU automaticaly.
+dependencies = uc_product token
+package = Ubercart - other

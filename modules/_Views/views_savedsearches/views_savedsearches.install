@@ -1,0 +1,33 @@
+<?php
+// $Id: views_savedsearches.install,v 1.1.2.1 2007/09/05 10:14:42 wimleers Exp $
+
+/**
+ * Implementation of hook_install().
+ */
+function views_savedsearches_install() {
+
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {views_savedsearches} (
+          sid int(10) unsigned NOT NULL default '0',
+          uid int(10) unsigned NOT NULL default '0',
+          vid int(10) unsigned NOT NULL default '0',
+          name varchar(30) NOT NULL,
+          filters longtext,
+          PRIMARY KEY (sid),
+          KEY uid (uid),
+          KEY vid (vid)
+        ) /*!40100 DEFAULT CHARACTER SET utf8 */ ");
+      break;
+    case 'pgsql':
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function views_savedsearches_uninstall() {
+  db_query("DROP TABLE {views_savedsearches}");
+}

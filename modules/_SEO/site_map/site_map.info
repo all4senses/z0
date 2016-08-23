@@ -1,0 +1,9 @@
+; $Id: site_map.info,v 1.1.2.2 2007/06/16 10:11:20 frjo Exp $
+name = Site map
+description = Display a site map.
+
+; Information added by drupal.org packaging script on 2008-02-08
+version = "5.x-1.2"
+project = "site_map"
+datestamp = "1202456108"
+

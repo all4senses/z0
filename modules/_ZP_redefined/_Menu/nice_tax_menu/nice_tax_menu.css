@@ -1,0 +1,108 @@
+/* $Id:  */
+
+/* Below should fix menu being a few pixels away in some themes, and menus disappearing behind other stuff. */
+.block-taxonomy_ddmenu {
+  line-height: normal;
+  z-index: 10;
+}
+
+ul.ddmenu,
+ul.ddmenu ul {
+  z-index: 5;
+  position: relative;
+}
+
+ul.ddmenu li {
+  position: relative;
+}
+
+ul.ddmenu a {
+  display: block;
+}
+
+ul.ddmenu ul {
+  position: absolute;
+  visibility: hidden;
+}
+
+ul.ddmenu li.over ul {
+  visibility: visible;
+}
+
+ul.ddmenu ul li {
+  display: block;
+}
+
+ul.ddmenu:after {
+  content: ".";
+  display: block;
+  height: 0;
+  clear: both;
+  visibility: hidden;
+}
+
+/* Show submenus when over their parents. */
+ul.ddmenu li:hover ul,
+ul.ddmenu li.menuparent li:hover ul,
+ul.ddmenu li.menuparent li.menuparent li:hover ul,
+ul.ddmenu li.menuparent li.menuparent li.menuparent li:hover ul,
+ul.ddmenu li.menuparent li.menuparent li.menuparent li.menuparent li:hover ul,
+ul.ddmenu li.menuparent li.menuparent li.menuparent li.menuparent li.menuparent li:hover ul,
+
+ul.ddmenu li.over ul,
+ul.ddmenu li.menuparent li.over ul,
+ul.ddmenu li.menuparent li.menuparent li.over ul,
+ul.ddmenu li.menuparent li.menuparent li.menuparent li.over ul,
+ul.ddmenu li.menuparent li.menuparent li.menuparent li.menuparent li.over ul,
+ul.ddmenu li.menuparent li.menuparent li.menuparent li.menuparent li.menuparent li.over ul
+{
+  visibility: visible;
+}
+
+/* Hide sub-menus initially. */
+ul.ddmenu li:hover ul ul,
+ul.ddmenu li:hover ul ul ul,
+ul.ddmenu li:hover li:hover ul ul,
+ul.ddmenu li:hover li:hover ul ul ul,
+ul.ddmenu li:hover li:hover li:hover ul ul,
+ul.ddmenu li:hover li:hover li:hover ul ul ul,
+ul.ddmenu li:hover li:hover li:hover li:hover ul ul,
+ul.ddmenu li:hover li:hover li:hover li:hover ul ul ul,
+ul.ddmenu li:hover li:hover li:hover li:hover li:hover ul ul,
+ul.ddmenu li:hover li:hover li:hover li:hover li:hover ul ul ul,
+
+ul.ddmenu li.over ul ul,
+ul.ddmenu li.over ul ul ul,
+ul.ddmenu li.over li.over ul ul,
+ul.ddmenu li.over li.over ul ul ul,
+ul.ddmenu li.over li.over li.over ul ul,
+ul.ddmenu li.over li.over li.over ul ul ul,
+ul.ddmenu li.over li.over li.over li.over ul ul,
+ul.ddmenu li.over li.over li.over li.over ul ul ul,
+ul.ddmenu li.over li.over li.over li.over li.over ul ul,
+ul.ddmenu li.over li.over li.over li.over li.over ul ul ul
+{
+  visibility: hidden;
+}
+
+/***************
+ IE 6 Fixes
+***************/
+
+/* Iframe to fix z-index bug when menu hovers over <select> fields. */
+ul.ddmenu li.menuparent ul {
+	overflow: visible !important;
+	/* overflow: hidden; */
+}
+
+ul.ddmenu li.menuparent ul iframe {
+	display: none;
+	display/**/: block;
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: -1;
+	filter: mask();
+	width: 20px;
+	height: 20px;
+}

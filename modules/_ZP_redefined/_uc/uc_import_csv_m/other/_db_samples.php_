@@ -1,0 +1,42 @@
+
+
+			    //db_next_id('{node}_nid');
+
+                            //$aid = db_result(db_query("SELECT aid FROM {uc_attributes} WHERE name = '%s'", $attribute->name));
+			    //$result = db_query("SELECT tid FROM {term_data} WHERE name = '%s'", $name);
+            		    //$tid = db_next_id('{term_data}_tid');
+                	    //db_query("INSERT IGNORE INTO {term_hierarchy} (tid, parent) VALUES (%d, %d)", $id_map['categories'][(string)$category_data->id], $id_map['categories'][(string)$category_data->parent]);
+		            //db_query("INSERT INTO {term_data} (tid, vid, name, description) VALUES (%d, %d, '%s', '%s')", $tid, variable_get('uc_catalog_vid', 0), (string)$category_data->name, (string)$category_data->description);
+		            //$product->nid = $nid = db_next_id('{node}_nid');
+		            //$fid = db_next_id('{files}_fid');
+        	            //db_query("INSERT INTO {term_hierarchy} (tid, parent) VALUES (%d, %d)", $tid, '0');
+			    //$result = db_query("SELECT pcid FROM {uc_product_classes} WHERE pcid = '%s'", $class->pcid);
+		            //db_query("DELETE FROM {uc_product_options} WHERE nid = %d", $product->nid);
+			    //db_query("UPDATE {uc_cart_products} SET qty = %d, changed = %d WHERE nid = %d AND cart_id = '%s' AND data = '%s'", $qty, time(), $nid, $cid, serialize($data));
+
+			    //db_query("UPDATE $attr_table SET ordering = %d, required = %d, display = %d WHERE aid = %d AND $id = $sql_type", $attribute['ordering'], $attribute['required'], $attribute['display'], $aid, $form_values['id']);
+
+/*
+      $ret[] = update_sql("CREATE TABLE {uc_payment_cod} (
+        order_id mediumint(9) NOT NULL,
+        delivery_month smallint(6) NOT NULL,
+        delivery_day smallint(6) NOT NULL,
+        delivery_year smallint(6) NOT NULL,
+        PRIMARY KEY  (order_id)
+      )  "); //!40100 DEFAULT CHARACTER SET UTF8
+
+*/
+			    //$max_id = db_result(db_query("SELECT MAX(receipt_id) FROM {uc_payment_receipts}"));
+			    //$ret[] = update_sql("ALTER TABLE {uc_order_statuses} ADD locked TINYINT NOT NULL DEFAULT '0'");
+			    //$ret[] = update_sql("DELETE FROM {uc_order_statuses} WHERE order_status_id LIKE '_'");
+			    //db_query("UPDATE {uc_recurring_users} SET next_charge = %d, remaining_intervals = remaining_intervals - 1, charged_intervals = charged_intervals + 1 WHERE rfid = %d", $next_charge, $fee['rfid']);
+			    //db_query("UPDATE {uc_flatrate_methods} SET title = '%s', label = '%s', base_rate = %f, product_rate = %f WHERE mid = %d",
+
+  // Do actual search query
+  $result = db_query_range("SELECT * FROM temp_search_results r INNER JOIN {node} n ON r.sid = n.nid INNER JOIN {term_node} tn ON tn.nid = n.nid WHERE tn.tid = %d", $tid, 0, 10);
+  return activesearch_results_items($result, $keys);
+
+    $sql = "SELECT n.nid, n.title, p.field_name, p.active, n.created, SUM(". implode(' + ', $votes) .") AS votes, ". $question ." AS question FROM {node} n INNER JOIN {pollfield} p ON n.nid = p.nid INNER JOIN ". implode(" INNER JOIN ", $tables) ." WHERE n.status = 1 AND n.moderate = 0 GROUP BY n.nid, n.title, p.field_name, p.active, n.created ORDER BY n.created DESC";
+  $sql = db_rewrite_sql($sql);
+
+    $result = db_query("SELECT COUNT(*) AS number FROM {node} WHERE type = '%s'", $class_id);

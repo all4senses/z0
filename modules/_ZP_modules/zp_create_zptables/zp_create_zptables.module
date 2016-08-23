@@ -1,0 +1,77 @@
+<?php
+
+
+/*
+
+function zp_create_zptables_perm() {
+  return array('manage zp_create_zp_tables permission');
+}
+
+
+
+function zp_create_zptables_menu() {
+
+      $items[] = array(
+      'path' => 'admin/settings/zp_create_zptables',
+      'title' => t('zp_create_zptables'),
+      'description' => t('zp_create_zptables descr'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('zp_create_zptables_form'),
+      'access' => user_access('manage zp_create_zptables permission'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+
+
+  return $items;
+}
+
+
+ 
+function zp_create_zptables_form() {
+
+  $per_item = 1; //variable_get('zp_block_toggle_per_item', 1);
+  $charge = 2; // variable_get('zp_block_toggle_charge', 3.00);
+
+  $form['per_item'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Charge per item rather than per order'),
+    '#default_value' => 0,//$per_item,
+    '#weight' => '1'
+  );
+  $form['charge'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Price per ZP Messenger'),
+    '#default_value' => $charge,
+    '#weight' => '2'
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#weight' => '3'
+  );
+  return $form;
+}
+
+
+
+
+
+function zp_create_zptables_form_validate($form_id, &$form_state, &$form) {
+
+
+
+
+}
+
+
+
+function zp_create_zptables_form_submit($form_id, &$form_state, $form = NULL) {	
+
+
+
+
+}
+
+
+
+*/

@@ -1,0 +1,152 @@
+/* $Id: sunrise.css,v 1.3 2008/04/06 23:08:27 agentken Exp $ */
+
+/**
+ * @file
+ * An optional orange-yellow style.
+ *
+ * @ingroup mysite_plugins
+ */
+
+/**
+ * Standard style options for MySite
+ */
+
+span.mysite-header {
+  background: url(../icons/backing.png);
+  padding: 4px;
+  background-color: #fc3;
+  border: 1px solid #963;
+  font: bold 1.1em verdana, arial, sans-serif;
+  margin: 0;
+  display: block;
+}
+
+div.mysite-content {
+  padding: 12px 8px 12px 8px;
+  border-left: 1px solid #963;
+  border-right: 1px solid #963;
+}
+
+div.mysite-footer {
+  clear: both;
+  background: url(../icons/backing.png);
+  background-color: #fed;
+  border: 1px solid #963;
+  height: 25px;
+}
+
+div.mysite-footer-left {
+  float: left;
+  padding: 2px 4px 0px 4px;
+}
+
+div.mysite-footer-left a {
+  text-decoration: underline;
+  font-size: 0.9em;
+}
+
+div.mysite-footer-right {
+  text-align: right;
+  padding: 4px 4px 0px 4px;
+}
+
+/**
+ * Interface helpers
+ */
+
+div.mysite-helper {
+  background-color: #fff;
+  padding: 10px 0 10px 0;
+  border: 2px dashed #c93;
+}
+
+div.mysite-active {
+  background-color: #fed;
+}
+
+div.mysite-hover {
+  background-color: #dfd;
+}
+
+/**
+ * sunrise customizations
+ */
+
+span.mysite-header, span.mysite-header a {
+  color: #930;
+  text-decoration: underline;
+}
+
+div.mysite-content h2 {
+  color: #c63;
+  font-size: 16px;
+  margin: 0 0 4px 0;
+}
+
+div.mysite-content h3 {
+  width: 300px;
+  padding-left: 4px;
+  color: #c63;
+  font-size: 14px;
+  border-bottom: 1px solid #c63;
+  border-left: 3px solid #c63;
+}
+
+div.mysite-content a, div.mysite-footer a {
+  color: #c63;
+}
+
+div.mysite-content img {
+  float: left;
+  margin: 0 10px 16px 0;
+}
+
+/**
+ *  Define the style selector on the edit page
+ */
+
+#mysite-sunrise-edit {
+  text-align: left;
+  width: 200px;
+  background-color: #fff;
+  margin: 0 0 30px 24px;
+  font-family: arial, sans-serif;
+  border: 1px solid #963;
+}
+
+#mysite-sunrise-edit span {
+  background: url(../icons/menu-expanded.png) 0px 60% no-repeat;
+  padding: 0 10px 0 0;
+}
+
+#mysite-sunrise-edit h2 {
+  background-image: url(../icons/backing.png);
+  color: #930;
+  padding: 4px;
+  background-color: #fc3;
+  border-bottom: 1px solid #000;
+  font: bold 1.1em verdana, arial, sans-serif;
+  margin: 0;
+  display: block;
+}
+
+#mysite-sunrise-edit a {
+  font: 15px arial;
+  text-decoration: underline;
+  color: #c63;
+}
+
+#mysite-sunrise-edit p {
+  padding: 0 8px 0 8px;
+  color: #000;
+}
+
+#mysite-sunrise-edit div {
+  background-image: url(../icons/backing.png);
+  background-color: #fed;
+  border-top: 1px solid #963;
+  padding: 4px;
+  color: #930;
+  font-size: 0.9em;
+  text-decoration: underline;
+}

@@ -1,0 +1,7 @@
+; $Id$
+name = Import CSV m
+project = "import_csv_m"
+description = My new interface to import product information via CSV.
+package = Ubercart - extra
+version = "0.1 alpha m"
+dependencies = uc_product content cck_taxonomy_ssu pathauto uc_attribute

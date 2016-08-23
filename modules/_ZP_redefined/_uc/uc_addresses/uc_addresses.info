@@ -1,0 +1,11 @@
+; $Id: uc_addresses.info,v 1.1.2.3 2008/08/26 03:49:27 freixas Exp $
+name = Addresses
+description = "ZP Redefined. Allows users to manage a set of addresses that can be referenced when placing an order."
+dependencies = uc_order uc_store
+package = "Ubercart - extra"
+
+; Information added by drupal.org packaging script on 2008-09-15
+version = "5.x-2.0-rc2"
+project = "uc_addresses"
+datestamp = "1221447323"
+

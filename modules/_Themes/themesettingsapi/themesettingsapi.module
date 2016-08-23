@@ -1,0 +1,41 @@
+<?php
+// $Id: themesettingsapi.module,v 1.1.6.8 2007/12/14 00:00:47 johnalbin Exp $
+
+/**
+ * @file
+ * Implements the custom theme settings API from Drupal 6.
+ *
+ * To add theme-specific settings to the themes/settings form, add a
+ * ENGINE_settings() or THEME_settings() function to the template.php file
+ * (for PHPTemplate themes) or to a THEME.theme file.
+ *
+ * See system_theme_settings() for the standard theme settings API in Drupal 5.
+ *
+ * @author John Albin Wilkins (JohnAlbin) <john at albin dot net>
+ * @link http://www.albin.net
+ */
+
+/**
+ * Implementation of hook_menu().
+ *
+ * We check the path inside HOOK_menu to maintain compatibility with the i18n
+ * module. Note that arg() is not available in HOOK_init() for cached pages.
+ */
+function themesettingsapi_menu($may_cache) {
+  if (!$may_cache) {
+
+    // Conditionally load on admin/build/themes/settings/* and admin/settings/admin
+    if (arg(0) == 'admin'
+        && (arg(4) != '' && arg(2) == 'themes' && arg(3) == 'settings' && arg(1) == 'build'
+            || arg(2) == 'admin' && arg(1) == 'settings')) {
+      include_once('./'. drupal_get_path('module', 'themesettingsapi') .'/themesettingsapi.admin.inc');
+    }
+
+    // Conditionally load the admin theme on node/add/* and node/*/edit
+    if (variable_get('node_admin_theme', '0') && arg(0) == 'node' && (arg(1) == 'add' || arg(2) == 'edit')) {
+      global $custom_theme;
+      $custom_theme = variable_get('admin_theme', '0');
+      drupal_add_css(drupal_get_path('module', 'system') .'/admin.css', 'module');
+    }
+  }
+}

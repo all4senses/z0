@@ -1,0 +1,61 @@
+/* $Id */
+.address-container .form-item label, .latlon-coordinate-container .form-item label {
+  float: left;
+  width: 12em;
+}
+
+.address-container .form-item, .latlon-coordinate-container .form-item {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+.latlon-coordinate-container .form-item label {
+  width: 6em;
+}
+
+.distance-container .form-item .form-text, .address-container .form-item .form-text,
+.latlon-coordinate-container .form-item .form-text, .gaddress-search-container .form-item .form-text {
+  display: inline;
+  width: auto;
+}
+
+.gaddress-search-container .form-item, .distance-container .form-item {
+  display: inline;
+}
+
+.gaddress-search-container .form-button {
+  margin: 0px 0.5em;
+}
+
+.gaddress-search-options-container {
+  margin-left: 1em;
+}
+
+.gaddress-search-options-container .form-item {
+  margin-top: 0;
+  margin-bottom: 0.5em;
+}
+
+.gaddress-geocoder-search-result {
+  position: absolute;
+  border: 1px solid;
+  overflow: hidden;
+  z-index: 100;
+}
+.gaddress-geocoder-search-result ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.gaddress-geocoder-search-result li {
+  background: #fff;
+  color: #000;
+  white-space: pre;
+  cursor: default;
+  padding: 2px;
+  margin: 0;
+}
+.gaddress-geocoder-search-result li.selected {
+  background: #0072b9;
+  color: #fff;
+}

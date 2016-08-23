@@ -1,0 +1,248 @@
+# $Id$
+#
+# Dutch translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  uc_legalaspects.module: n/a
+#  uc_legalaspects.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2008-08-17 21:22+0200\n"
+"PO-Revision-Date: 2008-08-17 21:22+0200\n"
+"Last-Translator: Fred Klopper <fred@klopper.nl>\n"
+"Language-Team: Dutch <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=0; plural=;\n"
+
+#: uc_legalaspects.module:16
+msgid "Legal aspects pane"
+msgstr "Voorwaarden paneel"
+
+#: uc_legalaspects.module:17
+msgid "Global terms and conditions, revocation rights settings."
+msgstr "Algemene leveringsvoorwaarden en recht van retour instellingen."
+
+#: uc_legalaspects.module:25;92;237;546
+msgid "General terms and conditions"
+msgstr "Algemene leveringsvoorwaarden"
+
+#: uc_legalaspects.module:26;33
+msgid "View global terms and conditions."
+msgstr "Bekijk algemene leveringsvoorwaarden."
+
+#: uc_legalaspects.module:32;46
+msgid "Print view"
+msgstr "Afdrukvoorbeeld"
+
+#: uc_legalaspects.module:39;93;180;284;319;553;568
+msgid "Revocation rights"
+msgstr "Recht van retour"
+
+#: uc_legalaspects.module:40;47
+msgid "View revocation rights."
+msgstr "Bekijk recht van retour"
+
+#: uc_legalaspects.module:70
+msgid "Legal aspects"
+msgstr "Voorwaarden"
+
+#: uc_legalaspects.module:71
+msgid "Please confirm if you agree with the legal aspects that aply on all our deliveries."
+msgstr "Bevestig alstublieft of u akkoord gaat met de voorwaarden."
+
+#: uc_legalaspects.module:132;135
+msgid "general terms and conditions"
+msgstr "algemene leveringsvoorwaarden"
+
+#: uc_legalaspects.module:140;560
+msgid "General Terms and Conditions"
+msgstr "Algemene leveringsvoorwaarden"
+
+#: uc_legalaspects.module:141
+msgid "I agree with the !gtc"
+msgstr "Ik ga akkoord met de !gtc"
+
+#: uc_legalaspects.module:150
+msgid "Download the GTCT here"
+msgstr "Download hier de algemene leveringsvoorwaarden"
+
+#: uc_legalaspects.module:160
+msgid "Print view of GTCT"
+msgstr "Bekijk de algemene leveringsvoorwaarden"
+
+#: uc_legalaspects.module:172;175
+msgid "revocation rights"
+msgstr "recht van retour"
+
+#: uc_legalaspects.module:181
+msgid "I agree with the !grp"
+msgstr "Ik ga akkoord met de !grp"
+
+#: uc_legalaspects.module:189
+msgid "Download the revocation rights here"
+msgstr "Download hier de retourneringsvoorwaarden"
+
+#: uc_legalaspects.module:199
+msgid "Print view of revocation rights"
+msgstr "Bekijk de retourneringsvoorwaarden"
+
+#: uc_legalaspects.module:243
+msgid "You've uploaded the file: !filename You can delete or override it."
+msgstr "U heeft het bestand !filename ge-upload. U kunt deze verwijderen of overschrijven."
+
+#: uc_legalaspects.module:247;294
+msgid "There's no file"
+msgstr "Het bestand bestaat niet"
+
+#: uc_legalaspects.module:251
+msgid "GTCT-File Status"
+msgstr "Algemene leveringsvoorwaarden bestandsstatus"
+
+#: uc_legalaspects.module:258
+msgid "Delete GTCT-File"
+msgstr "Verwijder het algemene leveringsvoorwaarden bestand"
+
+#: uc_legalaspects.module:259
+msgid "Check this if you want to delete your GTCT-File."
+msgstr "Vink aan om het algemene leveringsvoorwaarden bestand te verwijderen."
+
+#: uc_legalaspects.module:265
+msgid "Upload GTCT-File"
+msgstr "Algemene leveringsvoorwaarden bestand uploaden"
+
+#: uc_legalaspects.module:267
+msgid "A file (e.g. a PDF) with the gtct. Overrides existing file if available"
+msgstr "Een bestand (bijv. een PDF) met de algemene leveringsvoorwaarden. Indien er al een bestand bestaat wordt deze overschreven."
+
+#: uc_legalaspects.module:272
+msgid "Terms and conditions"
+msgstr "Algemene leveringsvoorwaarden"
+
+#: uc_legalaspects.module:274
+msgid "Enter the global terms and conditions that aply to your store."
+msgstr "Geef de weer te geven algemene leveringsvoorwaarden op."
+
+#: uc_legalaspects.module:298
+msgid "GRP-File Status"
+msgstr "Retourneringsvoorwaarden bestandsstatus"
+
+#: uc_legalaspects.module:305
+msgid "Delete GRP-File"
+msgstr "Verwijder het retourneringsvoorwaarden bestand"
+
+#: uc_legalaspects.module:306
+msgid "Check this if you want to delete your GRP-File."
+msgstr "Vink aan om het retourneringsvoorwaarden bestand te verwijderen."
+
+#: uc_legalaspects.module:312
+msgid "Upload GRP-File"
+msgstr "Retourneringsvoorwaarden bestand uploaden"
+
+#: uc_legalaspects.module:314
+msgid "A file (e.g. a PDF) with the grp. Overrides existing file if available"
+msgstr "Een bestand (bijv. een PDF) met de retourneringsvoorwaarden. Indien er al een bestand bestaat wordt deze overschreven."
+
+#: uc_legalaspects.module:321
+msgid "Enter the revocation rights that aply to your store."
+msgstr "Geef de weer te geven retourneringsvoorwaarden op."
+
+#: uc_legalaspects.module:331
+msgid "Pane display options"
+msgstr "Paneelweergave opties"
+
+#: uc_legalaspects.module:338
+msgid "General terms and conditions display options"
+msgstr "Algemene leveringsvoorwaarden weergave-opties"
+
+#: uc_legalaspects.module:345;380
+msgid "Show Popuplink"
+msgstr "Pop-up link weergeven"
+
+#: uc_legalaspects.module:346
+msgid "Check this if you want the GTCT displayed in a popup."
+msgstr "Vink aan om de algemene leveringsvoorwaarden in een pop-up weer te geven."
+
+#: uc_legalaspects.module:352;387
+msgid "Show Printlink"
+msgstr "Afdruk link weergeven"
+
+#: uc_legalaspects.module:353;388
+msgid "Check this if you want a print-link available"
+msgstr "Vink aan om een afdruk link weer te geven."
+
+#: uc_legalaspects.module:359
+msgid "Show GTCT in Pane"
+msgstr "Algemene leveringsvoorwaarden weergeven in paneel"
+
+#: uc_legalaspects.module:360
+msgid "Check this if you want the GTCT-Text displayed directly in the checkout pane."
+msgstr "Vink aan om de tekst met de algemene leveringsvoorwaarden direct weer te geven in het voorwaarden paneel."
+
+#: uc_legalaspects.module:366;401
+msgid "Show required Checkbox"
+msgstr "Verplicht checkbox weergeven"
+
+#: uc_legalaspects.module:367
+msgid "Check this if you want the Customer to aply the GTCT at checkout."
+msgstr "Vink aan om de algemene leveringsvoorwaarden aan het afreken paneel toe te voegen."
+
+#: uc_legalaspects.module:373
+msgid "Revocation rights display options"
+msgstr "Retourneringsvoorwaarden weergave-opties"
+
+#: uc_legalaspects.module:381
+msgid "Check this if you want the revocation rights displayed in a popup."
+msgstr "Vink aan om de retourneringsvoorwaarden in een pop-up weer te geven."
+
+#: uc_legalaspects.module:394
+msgid "Show revocation rights in pane"
+msgstr "Retourneringsvoorwaarden weergeven in paneel"
+
+#: uc_legalaspects.module:395
+msgid "Check this if you want the revocation rights text displayed directly in the checkout pane."
+msgstr "Vink aan om de tekst met de retourneringsvoorwaarden direct weer te geven in het voorwaarden paneel."
+
+#: uc_legalaspects.module:402
+msgid "Check this if you want the Customer to aply the revocation rights at checkout."
+msgstr "Vink aan om de retourneringsvoorwaarden aan het afreken paneel toe te voegen."
+
+#: uc_legalaspects.module:408
+msgid "Submit"
+msgstr "Bewaren"
+
+#: uc_legalaspects.module:439;451
+msgid "File successfully deleted (!file)"
+msgstr "Bestand is met succes verwijderd (!file)"
+
+#: uc_legalaspects.module:442;467
+msgid "File successfully uploaded to @path"
+msgstr "Bestand is met succes ge-upload naar @path"
+
+#: uc_legalaspects.module:563
+msgid "You can download the GTCT here"
+msgstr "U kunt de algemene leveringsvoorwaarden hier downloaden"
+
+#: uc_legalaspects.module:571
+msgid "You can download the revocation rights here"
+msgstr "U kunt de retourneringsvoorwaarden hier downloaden"
+
+#: uc_legalaspects.module:0
+msgid "uc_legalaspects"
+msgstr "uc_legalaspects"
+
+#: uc_legalaspects.info:0
+msgid "Legal aspects checkout pane"
+msgstr "Voorwaarden afreken paneel"
+
+#: uc_legalaspects.info:0
+msgid "Adds a pane for agreeing terms and conditions and/or revocation rights using a checkbox."
+msgstr "Voegt een paneel toe met algemene leverings- en/of retourneringsvoorwaarden d.m.v. een checkbox."
+
+#: uc_legalaspects.info:0
+msgid "Ubercart - core (optional)"
+msgstr "Ubercart - core (optional)"

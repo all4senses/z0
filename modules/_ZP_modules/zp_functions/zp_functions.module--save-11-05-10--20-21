@@ -1,0 +1,897 @@
+<?php  	           
+
+
+
+
+
+ public_html/sites/all/modules/_ZP_modules/zp_shops_menus_reset/zp_shops_menus_reset.info                               Не удалось загрузить файл zp_shops_menus_reset.info (неизвестная причина).
+файл         public_html/sites/all/modules/_ZP_modules/zp_delivery_time/zp_delivery_time_.install                                   Не удалось загрузить файл zp_delivery_time_.install (неизвестная причина).
+файл         public_html/sites/all/modules/_ZP_modules/zp_order_change/images/cart_empty.gif                                        Не удалось загрузить файл cart_empty.gif (неизвестная причина).
+Среда выполнения: 225 с, перенесено: файлов: 91, 6,284 МБ
+         
+
+
+
+
+// группируем магазины по районам для second menu города
+function zp_functions_shops_by_rajons($items)
+{
+	foreach($items as $type_tid => $type)
+    {
+    	if(is_array($type['children']))
+    	{
+    		foreach ($type['children'] as $stid => $shop)
+    		{
+    			
+    			$rajon_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid = %d", $stid));
+    	 				
+    			if(!$rajons[$rajon_tid]['data'])
+    			{
+    				//$rajons[$rajon_tid]['data'] = db_result(db_query("SELECT name from {term_data} WHERE tid = %d", $rajon_tid));
+    				$rname = db_result(db_query("SELECT name from {term_data} WHERE tid = %d", $rajon_tid));
+    				$rnid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $rajon_tid));
+    				$rajons[$rajon_tid]['data'] = l($rname, 'node/' . $rnid);
+    			}
+    	 				
+    			$rajons[$rajon_tid]['children'][$stid]['data'] = $shop['data'];
+    			$rajons[$rajon_tid]['children'][$stid]['children'] = array();
+    	 				
+    			//$data = $rajons[$rajon_tid]['data'];
+    			//drupal_set_message('tid = ' . $stid . ', data = ' . $data . ', rajon = ' . $rajon_name, 'error');
+    		}
+    	 			 	
+    		//unset($items[$type_tid]['children']);
+    	 	$items[$type_tid]['children'] = $rajons;
+    	}
+    	else 
+    		unset($items[$type_tid]); // убираем пункт меню типа магазина, если в этом типе нет магазинов	
+    }
+	
+	return $items;
+}
+
+
+
+
+
+
+function zp_functions_shop_info($argument_shop_tid, $user_id)
+{
+	
+     
+// зададим переменные для логотипа, адреса и прочих данных магазина
+// будем сохранять в сессии данные (вернее, данные по файлам логотипов, по адресу маназина и т.д.) для всех просмотренных магазинов, в название данных в сессии будем вставлять тид магазина, 
+// таким образом, не придётся каждый раз заново рассчитывать данные по магазину, если они уже были однажды определёны
+
+	if(!($cur_shop_info = $_SESSION[$argument_shop_tid . '_shop_info'])) // если данные ещё не были рассчитаны, рассчитаем их и зададим соответствующие переменные сессии и для файла шаблона
+    //$cur_shop_info = $_SESSION[$argument_shop_tid . '_shop_info'];
+    {
+         	
+          	//drupal_set_message("cur_shop_info = $cur_shop_info", 'error');
+          	
+          	// выясним ноду магазина по её тиду
+      	    $argument_shop_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $argument_shop_tid));
+      	    
+      	    //определим внутренний ZP артикул магазина
+      	    $cur_shop_info['shop_id'] = db_result(db_query("SELECT field_zp_art_place_value from {content_field_zp_art_place} WHERE nid = %d", $argument_shop_nid));
+      	    
+      	    //определим название магазина
+      	    $cur_shop_info['shop_name'] = db_result(db_query("SELECT title from {node} WHERE nid = %d", $argument_shop_nid));
+      	    
+      	    //echo 'nid = ' . $node->nid . '<br>';
+      	    //echo 'argument_shop_nid = ' . $argument_shop_nid . '<br>';
+      	    
+      	    
+          	// данные по логотипу для шапки
+          	
+          	// если для элемента задано копирование логотипов из другого элемента 
+  			// (логотипы есть только у магазинов и отделов)
+  			// в данном случае копируется логотип магазина для меню
+  			$source_artikul_zp = db_result(db_query("SELECT field_source_of_logo_value FROM {content_field_source_of_logo} WHERE nid = %d", $argument_shop_nid));
+          	if
+          	(
+          		($source_artikul_zp AND $source_artikul_zp != '' AND $source_artikul_zp != ' ')
+          			AND
+          		$source_nid = db_result(db_query("SELECT nid FROM {content_field_zp_art_place} WHERE field_zp_art_place_value = '%s'", $source_artikul_zp))
+          	)
+      		{
+    			//echo 'source_artikul_zp = ' . $source_artikul_zp . '<br>';
+    			//echo 'source_nid = ' . $source_nid . '<br>';
+
+				// загружаем логотип магазина для меню из элемента-источника
+				$results = db_fetch_array(db_query("SELECT field_logo_upmenu_fid, field_logo_upmenu_title, field_logo_upmenu_alt FROM {content_type_c_shop} WHERE nid = %d", $source_nid));
+      		}
+      		else // иначе используем собственный логотип этого элемента
+      		{
+          		$results = db_fetch_array(db_query("SELECT field_logo_upmenu_fid, field_logo_upmenu_title, field_logo_upmenu_alt from {content_type_c_shop} WHERE nid = %d", $argument_shop_nid));
+     		}
+     		 
+          	$cur_shop_info['logo_path'] = db_result(db_query("SELECT filepath from {files} WHERE fid = %d", $results['field_logo_upmenu_fid']));
+          	
+        	$cur_shop_info['logo_alt'] = $results['field_logo_upmenu_alt'];
+          	$cur_shop_info['logo_title'] = $results['field_logo_upmenu_title'];
+           
+            $cur_shop_info['shop_nid'] = $argument_shop_nid;
+            $cur_shop_info['shop_tid'] = $argument_shop_tid;
+			$cur_shop_info['shop_address'] = db_result(db_query("SELECT field_place_address_value from {content_field_place_address} WHERE nid  = %d", $argument_shop_nid));
+
+            //print '<PRE>';
+            //print_r($user);
+            //print '</PRE>';
+            
+            $data = zp_shop_min_sum($argument_shop_nid, $user_id);
+            $cur_shop_info['shop_min_sum'] = $data['final_min_sum'];
+            
+            
+            // оставляем в переменной, которая затем будет сохранена в сессионной переменной для этого магазина
+			// только тиды, начиная с текущего магазина (отбрасываем район, город, страну)
+			// вообще не знаю, нужны ли они там
+			//for($i = 0; $i <= $count - 4; $i++)
+		  		//$cur_shop_info[] = $data['linage_c_tids'][$i];
+            
+            
+            //$cur_shop_info['shop_min_sum'] = zp_shop_min_sum($c_nid, $user->uid);//$argument_shop_nid);
+
+            
+          	//echo '1 cur_shop_info[logo_path] = ' . $cur_shop_info['logo_path'] . '<br>';
+          	
+          	//$cur_shop_info['shop_address'] = $results['field_shop_address_value'];
+          	$cur_shop_info['shop_address'] = db_result(db_query("SELECT field_place_address_value from {content_field_place_address} WHERE nid = %d", $argument_shop_nid));
+          	
+            $_SESSION[$argument_shop_tid . '_shop_info'] = $cur_shop_info;
+	}         
+	
+	return $cur_shop_info;	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// генерация нового заказа с зарезервированным номером, указанным аргументом $r_order_id
+
+function zp_function_order_new_reserved_id($uid = 0, $order, $r_order_id, $state = 'in_checkout') {
+  
+  //$order = new stdClass();
+
+  if ($uid > 0) {
+    $user = user_load(array('uid' => $uid));
+    $email = $user->mail;
+  }
+
+  //$order->order_id = db_next_id('{uc_orders}_order_id');
+  $order->order_id = $r_order_id;
+  
+  $order->uid = $uid;
+  $order->order_status = uc_order_state_default($state);
+  $order->primary_email = $email;
+
+  
+  if(!db_result(db_query("SELECT order_id from {uc_orders} WHERE order_id = %d", $order->order_id)))
+  {
+  	db_query("INSERT INTO {uc_orders} (order_id, uid, order_status, order_total, "
+          ."primary_email, delivery_first_name, delivery_last_name, delivery_phone, "
+          ."delivery_company, delivery_street1, delivery_street2, delivery_city, "
+          ."delivery_zone, delivery_postal_code, delivery_country, billing_first_name, "
+          ."billing_last_name, billing_phone, billing_company, billing_street1, "
+          ."billing_street2, billing_city, billing_zone, billing_postal_code, "
+          ."billing_country, payment_method, data, created, modified) VALUES "
+          ."(%d, %d, '%s', 0, '%s', '', '', '', '', '', '', '', 0, '', 0, '', "
+          ."'', '', '', '', '', '', 0, 0, 0, '', '', %d, %d)", $order->order_id,
+           $uid, $order->order_status, $email, time(), time());
+
+  	module_invoke_all('order', 'new', $order, NULL);
+  }
+
+  return $order;
+}
+
+
+
+
+
+
+
+
+
+
+function zp_functions_d_factor_otdel($node_tid, $parent_otdel_nid, $user_id)
+{
+	// определение коэффициента доставки для конкретного юзера и конкретного отдела (с учётом коэф. доставки всех его родительских отделов) 
+ 	   
+	if(!$user_id)
+	{
+		global $user;
+		$user_id = $user->uid;
+	}
+	
+	//echo 'node_tid = ' . $node_tid . ', parent_otdel_nid = ' . $parent_otdel_nid . ', user_id = ' . $user_id . '<br>';
+	
+	if(!($d_factor_otdel = $_SESSION['df' . $parent_otdel_nid]))
+ 	{
+ 	   	 	
+ 	   	 	
+ 	   	//drupal_set_message("p-");	
+ 	   	 	
+ 	   	// esli factor dlia otdela eshio ne opredelen, opredeliaem ego (polnostiu copiruem block iz modulia uc_cart.module)
+ 	   	// задаём массив и первым элементом делаем терм первого отдела, в котором продаётся этот продукт
+        $linage_tids = array($node_tid);
+        
+      	//$linage_tids[] = $node_tid;
+        //$save_node_tid = $node_tid;
+        
+        $count = 1;
+        while(($node_tid = db_result(db_query("SELECT parent from {term_hierarchy} WHERE tid  = '%s'", $node_tid))) != 0)
+         {
+           $linage_tids[] = $node_tid;
+           $count++;
+         } 
+
+        
+        // для примерного понимания... 
+        //$item_shop_tid = $linage_tids[$count-4]; // вариант город-район-магазин. 
+        //$item_rajon_tid = $linage_tids[$count-3]; // Третьим элементом в этом варианте становится район
+        //$item_city_tid = $linage_tids[$count-2]; // при любом варианте город будет вторым элементом после страны
+        //$item_country_tid = $linage_tids[$count-1];
+
+        
+        for($i = 0; $i <= $count-1; $i++) 
+        {
+          // начинаем со второго элемента, предполагая, что вторым элементом идёт отдел, в котором находится продукт, потом следуют родительские отделы (если есть), затем магазин, район, город, страна... Страна = $count-1
+          // формируем массив нодов с коэфффициентами доставки
+          $d_f_nids[$i] = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$i])); 
+          
+          $d_f_nid_titles[$i] = db_result(db_query("SELECT title from {node} WHERE nid = %d", $d_f_nids[$i])); 
+          
+          // поле с фактором стоимости доставки во всех типах нод называется d_factor
+          // соответственно, когда таких полей несколько (одинаковые в разных типах нодов), эти значения хранятся в таблице content_field_d_factor
+          // а значение этой переменной содержится в поле field_d_factor_value таблицы которое можно вычислить по номеру ноды nid
+          // формируем массив с коэффициентами стоимости доставки
+          $d_f_vals[$i] = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $d_f_nids[$i])); 
+        }
+        
+        // найдём номер ноды скрытой инфы пользователя
+        // считаем, что работаем с текущим пользователем, поэтому и берём ид текущего
+        // в принципе, можно потом сделать сложнее - определить пользователя текущей корзины и работать с ним (если админские права позволяю).
+        //global $user;
+  		$user_hi_nid = db_result(db_query("SELECT nid from {node} WHERE title = '%s'", 'u' . $user_id . '-hi')); 
+  		
+  		//drupal_set_message("user_hi_nid = $user_hi_nid");
+  		
+  		//$user_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $user_hi_nid));
+  		// дополняем массив с коэффициентами стоимости доствки общим коэффициентом конкретного клиента
+  		$d_f_vals[++$i] = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $user_hi_nid));
+  		
+
+  		
+  		// определим для конкретного клиента отличные от единицы коэффициенты для любимых магазинов, отделов и т.д. , в которых находится этот продукт 
+		// и затем добавим их в список коэффициентов для этого продукта (отдела, в котором содержится этот продукт, вообще-то)
+		
+		// структура сохранённой сессионной переменной для конкретного юзера
+		// по идее, она формируется при формировании меню пользователя
+
+/*		
+		$_SESSION['user_shops_data']
+		$user_shops_data[$shop_tid] = array(
+                    't_name' => $result->r_text,
+                    //'tid' => $shop_tid, // tid выносим в ключ массива ($user_shops_data[$shop_tid])
+                    'nid' => $result->r_id,
+                    'price_factor' => $result->description,
+                    ); 
+*/		
+		
+		$user_shops_data = $_SESSION['user_shops_data'];		
+		
+		foreach($user_shops_data as $user_shops)
+		{
+		   //$n = $user_shops['nid'];
+		   //$t = $user_shops['t_name'];
+		   //$f = $user_shops['price_factor'];
+		   //drupal_set_message("before df_user n = $n, t = $t, f = $f");
+		    
+		   if(in_array($user_shops['nid'], $d_f_nids))
+		   {
+		   	$d_f_vals[++$i] = $user_shops['price_factor'];	
+		    
+		    //$n = $user_shops['nid'];
+		    //$t = $user_shops['t_name'];
+		    //$f = $user_shops['price_factor'];
+		    //drupal_set_message("after df_user n = $n, t = $t, f = $f");
+		   } 
+		}
+
+		
+		
+/*  		
+  		foreach($linage_tids as $key => $value)
+  		   drupal_set_message("linage_tids key = $key, val = $value");
+  		 
+  		
+  		foreach($d_f_nids as $key => $value)
+  		 drupal_set_message("p----d_f_nid key = $key, val = $value");
+  		 
+  		foreach($d_f_nid_titles as $key => $value)
+  		 drupal_set_message("p----d_f_nid_title key = $key, val = $value");
+  		
+  		foreach($d_f_vals as $key => $value)
+  		 drupal_set_message("p----df key = $key, val = $value");
+*/  		
+
+
+        // перемножаем все коэффициенты и получаем финальный коэффициент
+        $final_d_f = 1; 
+  		foreach($d_f_vals as $d_f_val)
+  		 $final_d_f *= $d_f_val;
+  		 
+  		//drupal_set_message(" p--------final_d_f = $final_d_f"); 
+  		//drupal_set_message("p-------------------------------------------------------");
+  		
+/*        
+        // найдём номера нодов
+        $country_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-1])); 
+        $city_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-2])); 
+        $rajon_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-3])); 
+        $shop_nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $linage_tids[$count-4])); 
+        
+        // country_d_factor
+        $country_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $country_nid)); 
+  		$city_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $city_nid)); 
+  		$rajon_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $rajon_nid)); 
+  		$shop_d_f = db_result(db_query("SELECT field_d_factor_value from {content_field_d_factor} WHERE nid = %d", $shop_nid)); 
+*/
+  		
+  		
+  		
+
+        //получим из базы значение процента, который определяет стоимость доставки по умолчанию
+        //стоимость доставки товара по умолчанию равна стоимости товара, умноженной на процент по умолчанию 
+        //и затем умноженной на только что посчитанный финальный коэффициент доставки
+        
+        // процент доставки по умолчанию берётся с поля типа d_percents (поле field_d_percents_value в таблице content_type_zp_default_set)
+        
+        // в этом поле значение содержится в виде процента. Поэтому чтобы получить коэффициент, делим это значение на 100.
+        
+        //$zp_default_set = array();
+        
+        // загружаем из базы массив с переменными по умолчанию
+        $zp_default_set = $_SESSION['zp_default_set'];
+        
+        // если массив пока не определён или в нём не определён параметр nid (номер ноды с параметрами по умолчанию),
+        // находим параметр nid и добавляем его в массив
+        if(!$zp_default_set OR !$zp_default_set['nid'])
+          $zp_default_set['nid'] = db_result(db_query("SELECT nid from {node} WHERE type = '%s'", 'zp_default_set'));
+        // делим значение процента доставки на 100 и получаем коэффициент
+        if(!$zp_default_set['d_f'])
+        {
+          // добавляем пустую строку к числу, тем самым преобразуя это число в строку, чтобы поменьше знаков сохранять в базе (без этого сохраняло 20 знаков после запятой почему-то, даже с функцией round)
+  		  // заодно округляем до 2 знаков после запятой
+          $zp_default_set['d_f'] = round(db_result(db_query("SELECT field_d_percents_value from {content_type_zp_default_set} WHERE nid = %d", $zp_default_set['nid'])) / 100, 2) . '';
+          // сохраняем значение коэффициента доставки по умолчанию в базе (чтобы заново не вычислять для каждого продукта)
+          $_SESSION['zp_default_set'] = $zp_default_set;
+        }	
+        
+        // окончательный коэффициент доставки равен коэффициенту по умолчанию $zp_default_set['d_f'], 
+        // умноженному на перемноженные все остальные коэффициенты доставки для данного юзера $final_d_f 
+        // заодно округляем до 2 знаков после запятой
+        $d_factor_otdel = round($final_d_f * $zp_default_set['d_f'], 2) . '';
+        
+        // сохраним коэффициент доставки для данного отдела в сессионной переменной
+        $_SESSION['df' . $parent_otdel_nid] = $d_factor_otdel;
+ 	   	 	
+ 	   	 	
+	} // end of if(!($d_factor_otdel = $_SESSION['df' . $parent_otdel_nid]))   
+
+	// teper' u nas opredel`n factor dostavki $d_factor_otdel dlia otdela
+ 	   	 
+
+	return $d_factor_otdel;
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function zp_functions_continue_shopping_link()
+{
+	
+
+// определим ссылку для линка "Continue shopping" (Продолжить покупки)
+
+// - если прошлая страница была продуктом, отделом, магазином и т.д., значит показываем ссылку на это
+
+// - если прошлая страница какого-то другого типа, значит показываем:
+
+// отдел, если переменная текущего отдела установлена в сессиях
+// если отдел не задан, показываем магазин, если переменная текущего магазина установлена в сессиях
+// если магазин не задан, показываем текущий город
+// или если город не задан... страну, но для страны я пока переменную не задал
+
+    	//$page = uc_referer_uri(); // показывает предыдущую ссылку, но уже испорченную by pathauto
+    	
+    	
+    	
+    	//$otd = $_SESSION['current_otdel'];
+    	//$sho = $_SESSION['current_shop'];
+    	//$cit = $_SESSION['current_city'];
+    	//drupal_set_message("0 - otd = $otd, sho = $sho, cit = $cit, page = $page", 'error');
+    	
+    	$current_tid = NULL;
+    	
+    	if($current_tid = $_SESSION['current_otdel'])
+    	{
+    	  
+    		$nid = db_result(db_query("SELECT nid from {term_node} WHERE tid  = %d", $current_tid));
+    		//drupal_set_message("1 - otd = $otd, sho = $sho, cit = $cit, page = $page", 'error');
+         }
+    	else 
+    	 if($current_tid = $_SESSION['current_shop'])
+    	 {
+			
+    	 	$nid = db_result(db_query("SELECT nid from {term_node} WHERE tid  = %d", $current_tid));
+    	 	//drupal_set_message("2 - otd = $otd, sho = $sho, cit = $cit, page = $page", 'error');
+    	 }
+    	else 
+    	 if($current_tid = $_SESSION['current_rajon'])
+    	 {
+    	  
+    	 	$nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $current_tid));
+    	  //drupal_set_message("3 - otd = $otd, sho = $sho, cit = $cit, page = $page", 'error');
+    	 }
+    	else 
+    	 if($current_tid = $_SESSION['current_city'])
+    	 {
+    	  
+    	 	$nid = db_result(db_query("SELECT nid from {term_node} WHERE tid = %d", $current_tid));
+    	  //drupal_set_message("3 - otd = $otd, sho = $sho, cit = $cit, page = $page", 'error');
+    	 }
+    	
+    	$continue_shopping['nid'] = $nid;
+    	$continue_shopping['tid'] = $current_tid;
+    	
+    	return $continue_shopping;
+    	   
+    	//return l(variable_get('uc_continue_shopping_text', t('Continue shopping')), 'node/' . $page); 	
+
+}
+
+
+
+
+
+function zp_functions_renew_product_data($unser_data, $order_product_nid)
+{
+
+// ----------------------------- изменение формата поля data продукта, возвращаемого в корзину
+
+
+// сейчас формат атрибутов в заказе слегка отличается от стандартного формата атрибутов в корзине
+// поэтому при возврате в корзину формат нужно изменить на стандартный
+
+   	        
+/*  
+
+// стандартный формат поля data корзины
+
+Array
+(
+    [attributes] => Array
+        (
+            [1] => Нет
+            [2] => 3
+        )
+
+    [model] => 
+    [shippable] => 1
+    [module] => uc_product
+)
+
+
+// изменённый мною формат поля data корзины
+
+Array
+(
+    [attributes] => Array
+        (
+            [Ваши пожелания к товару (укажите)] => Нет
+            [Подарочная упаковка (выберите)] => Обёртка
+        )
+
+    [model] => 
+    [shippable] => 1
+    [module] => uc_product
+    [#opt_price] => 3
+    [#dost_price] => 7.8
+)
+
+
+*/ 	        
+	
+	
+$aids = array();
+
+unset($unser_data['#opt_price']);
+unset($unser_data['#dost_price']);
+
+foreach($unser_data['attributes'] as $name => $option)
+  {
+  	
+  	// сохраняем все полученных из базы соответствия aid и oid, а затем считываем их из массива, чтобы лишний раз не обращаться к базе, если в заказе много однотипных товаров с однотипными атрибутами
+  	if(!isset($aids[$name]['aid']))
+  	{ 
+  		//$attr_data = db_fetch_array(db_query("SELECT aid, display from {uc_attributes} WHERE name  = '%s'", $name));
+  		//$aids[$name]['aid'] = $attr_data['aid'];
+  	  	//$aids[$name]['display'] = $attr_data['display'];
+  	  	
+  	  	$attrs = db_query("SELECT aid, display from {uc_attributes} WHERE name = '%s'", $name);
+        
+        while($aid = db_fetch_array($attrs))
+        {
+        	if($oid = db_result(db_query("SELECT oid FROM {uc_attribute_options} WHERE name = '%s' AND aid = %d", $option, $aid['aid'])))
+        	{
+        		if(db_result(db_query("SELECT oid FROM {uc_product_options} WHERE oid = %d AND nid = %d", $oid, $order_product_nid)))
+        		{
+        			$aids[$name]['aid'] = $aid['aid'];
+  	  				$aids[$name]['display'] = $aid['display'];
+  	  				$aids[$name]['oid'] = $oid;
+        			break;
+        		}
+        	}
+        }
+
+  	}
+  	
+   	if($aids[$name]['display'] == 0) // если этот атрибут - просто текстовое поле
+  	 {
+  	   unset($unser_data['attributes'][$name]); // удаляем этот элемент из массива и меняем его на другой
+  	   
+  	   // если эта переменная до сих пор не определена
+  	   // значит не было найдено совпадение по опциям атрибута, а это возможно только тогда, когда опция - текст, введённый пользователем
+  	   // тогда просто находим атрибут с текущим названием, а если их несколько, то выбираем из них именно текстовый тип
+  	   if(!$aids[$name]['aid'])
+  	   	$aids[$name]['aid'] = db_result(db_query("SELECT aid FROM {uc_attributes} WHERE name = '%s' AND display = %d", $name, 0));
+  	 
+  	   $unser_data['attributes'][$aids[$name]['aid']] = $option; // просто меняем название элемента в массиве (имя атрибута меняем на его aid)
+  	   continue; 
+  	 
+  	 } 
+  	else
+  	//if($aids[$name]['display'] == 1)
+  	{
+	  unset($unser_data['attributes'][$name]); // удаляем этот элемент из массива и меняем его на другой	
+
+	  // сохраняем все полученных из базы соответствия aid и oid, а затем считываем их из массива, чтобы лишний раз не обращаться к базе, если в заказе много однотипных товаров с однотипными атрибутами
+	  if(!isset($aids[$name]['oid']))
+  	    {
+  	   	  	$aids[$name]['oid'] = db_result(db_query("SELECT oid from {uc_attribute_options} WHERE name  = '%s' AND aid = %d", $option, $aids[$name]['aid']));
+  	    }
+	  
+	  $unser_data['attributes'][$aids[$name]['aid']] = $aids[$name]['oid']; // меняем название элемента в массиве (имя атрибута меняем на его aid)
+  	  continue;
+  	}
+
+  }
+
+// ----------------------------- конец изменения формата поля data        
+  return $unser_data;
+}
+
+
+
+
+
+
+/*
+function zp_functions_renew_product_data_2($unser_data, $order_product_nid)
+{   	           
+   
+// старая, некорректно работающая версия... тут не учитываются опции с конкретными ценами для конкретного продукта	
+	
+// ----------------------------- изменение формата поля data продукта, возвращаемого в корзину
+
+// сейчас формат атрибутов в заказе слегка отличается от стандартного формата атрибутов в корзине
+// поэтому при возврате в корзину формат нужно изменить на стандартный
+   	        
+$aids = array();
+
+unset($unser_data['#opt_price']);
+unset($unser_data['#dost_price']);
+
+foreach($unser_data['attributes'] as $name => $option)
+  {
+  	// сохраняем все полученных из базы соответствия aid и oid, а затем считываем их из массива, чтобы лишний раз не обращаться к базе, если в заказе много однотипных товаров с однотипными атрибутами
+  	if(!isset($aids[$name]['aid']))
+  	{ 
+  		$attr_data = db_fetch_array(db_query("SELECT aid, display from {uc_attributes} WHERE name  = '%s'", $name));
+  		$aids[$name]['aid'] = $attr_data['aid'];
+  	  	$aids[$name]['display'] = $attr_data['display'];
+  	}
+  	
+  	if($aids[$name]['display'] == 0) // если этот атрибут - просто текстовое поле
+  	 {
+  	   unset($unser_data['attributes'][$name]); // удаляем этот элемент из массива и меняем его на другой
+  	   $unser_data['attributes'][$aids[$name]['aid']] = $option; // просто меняем название элемента в массиве (имя атрибута меняем на его aid)
+  	   continue; 
+  	 } 
+
+  	 
+  	if($aids[$name]['display'] == 1)
+  	{
+	  unset($unser_data['attributes'][$name]); // удаляем этот элемент из массива и меняем его на другой	
+
+	  // сохраняем все полученных из базы соответствия aid и oid, а затем считываем их из массива, чтобы лишний раз не обращаться к базе, если в заказе много однотипных товаров с однотипными атрибутами
+	  if(!isset($aids[$name]['oid']))
+  	    {
+  	   	  	$aids[$name]['oid'] = db_result(db_query("SELECT oid from {uc_attribute_options} WHERE name  = '%s' AND aid = %d", $option, $aids[$name]['aid']));
+  	    }
+	  
+	  $unser_data['attributes'][$aids[$name]['aid']] = $aids[$name]['oid']; // меняем название элемента в массиве (имя атрибута меняем на его aid)
+  	  continue;
+  	}
+
+  }
+
+// ----------------------------- конец изменения формата поля data   	           
+
+  return $unser_data;
+ 
+}   	           
+
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+// ------------ функции определения расстояния
+
+function zp_functions_mapdistance($StartLat = 0, $StartLong = 0, $EndLat = 0, $EndLong = 0)
+{
+
+/*
+// исходные данные (тестовые) Далее закомментированные результаты показаны именно для этих тестовых координат
+$StartLat = 55.45;   // Начальная широта
+$StartLong = 37.38;  // Начальная долгота
+$EndLat =  52.3;     // Конечная широта
+$EndLong = 13.22;    // Конечная долгота
+
+// исходные данные новые
+$StartLat = 55.45;   // Начальная широта
+$StartLong = 37.38;  // Начальная долгота
+$EndLat =  -22.53;     // Конечная широта
+$EndLong = -43.14;    // Конечная долгота
+
+//$StartLat = '50 3 24.31';
+//$StartLat = "50 3'24.31" . '"';
+//$StartLat = "50° 3'24.31" . '"С';
+
+$StartLat = "75°28'" . '50.98"С';
+$StartLong = "61° 3'" . '19.61"В';
+$EndLat = "70°43'" . '17.78"С';
+$EndLong = "56°38'" . '5.51"В';
+
+
+$StartLat = "59°58'" . '6.66"С';
+$StartLong = "30°24'" . '0.52"В';
+$EndLat = "59°58'" . '23.21"С';
+$EndLong = "30°24'" . '1.66"В';
+
+$StartLat = "40°34'" . '46.22"С';
+$StartLong = "73°58'" . '6.48"З';
+$EndLat = "40°35'" . '34.71"С';
+$EndLong = "73°56'" . '52.71"З';
+
+// do daninogo
+$StartLat = "40°34'" . '46.22"С';
+$StartLong = "73°58'" . '6.48"З';
+$EndLat = "40°37'" . '53.22"С';
+$EndLong = "74° 0'" . '26.93"З';
+*/
+
+/*
+// do mam inogo
+$StartLat = "59°57'" . '23.22"С';
+$StartLong = "30°21'" . '17.02"В';
+$EndLat = "40°37'" . '53.22"С';
+$EndLong = "74° 0'" . '26.93"З';
+*/
+
+if(strpos($StartLat, '°') !== FALSE)
+	$StartLat =  zp_functions_mapcoord_switch($StartLat);
+if(strpos($StartLong, '°') !== FALSE)	
+	$StartLong =  zp_functions_mapcoord_switch($StartLong);
+if(strpos($EndLat, '°') !== FALSE)	
+	$EndLat =  zp_functions_mapcoord_switch($EndLat);
+if(strpos($EndLong, '°') !== FALSE)	
+	$EndLong =  zp_functions_mapcoord_switch($EndLong);
+
+
+//echo 'StartLat = ' . $StartLat . ', StartLong = ' . $StartLong . ', EndLat = ' . $EndLat . ', EndLong = ' . $EndLong . '<br><br>';
+
+
+
+// Переменные, используемые для вычисления смещения и расстояния
+
+/*
+fPhimean  		: Double;                           // Средняя широта
+fdLambda  		: Double;                           // Разница между двумя значениями долготы
+fdPhi     		: Double;                           // Разница между двумя значениями широты
+fAlpha    		: Double;                           // Смещение
+fRho      		: Double;                           // Меридианский радиус кривизны
+fNu       		: Double;                           // Поперечный радиус кривизны
+fR        		: Double;                           // Радиус сферы Земли
+fz        		: Double;                           // Угловое расстояние от центра сфероида
+fTemp     		: Double;                           // Временная переменная, использующаяся в вычислениях
+Distance  		: Double;                           // Вычисленное расстояния в метрах
+Bearing   		: Double;                           // Вычисленное от и до смещение
+
+*/
+
+
+// Константы, используемые для вычисления смещения и расстояния
+
+$D2R = 0.017453;           // Константа для преобразования градусов в радианы
+$R2D = 57.295781;          // Константа для преобразования радиан в градусы
+$a = 6378137;              // Основные полуоси
+$b = 6356752.314245;	   // Неосновные полуоси
+$e2 = 0.006739496742337;   // Квадрат эксцентричности эллипсоида
+$f = 0.003352810664747;    // Выравнивание эллипсоида
+
+
+// Вычисляем разницу между двумя долготами и широтами и получаем среднюю широту
+
+$fdLambda = ($StartLong - $EndLong) * $D2R;   // 0,422
+$fdPhi = ($StartLat - $EndLat) * $D2R;	      // 0,05497695
+$fPhimean = (($StartLat + $EndLat)/2)*$D2R;	  // 0,940280375
+
+
+// Вычисляем меридианные и поперечные радиусы кривизны средней широты
+
+$fTemp = 1 - $e2*(pow(sin($fPhimean), 2));                	       //0,995603037
+$fRho = ($a * (1 - $e2)) / pow($fTemp, 1.5);                 	   //6377165,541
+$fNu = $a / (sqrt(1 - $e2 * (sin($fPhimean) * sin($fPhimean))));   //6392205,628
+
+
+// Вычисляем угловое расстояние
+
+$fz = sqrt(pow(sin($fdPhi / 2.0), 2) + cos($EndLat * $D2R) * cos($StartLat * $D2R) * pow(sin($fdLambda / 2.0), 2));	// 0,126273167
+$fz = 2 * asin($fz);	// 0,253222333
+
+
+// Вычисляем смещение
+
+$fAlpha = cos($EndLat * $D2R) * sin($fdLambda) * (1 / sin($fz));	// 0,999064896	ВНИМАНИЕ! провврить!! яя взялл в скобки  последнее выражение 1/ .in
+$fAlpha = asin($fAlpha);	// 1,527547044
+
+//echo 'Смещение fAlpha = ' . $fAlpha . '<br>';
+
+// Вычисляем радиус Земли
+
+$fR = ($fRho * $fNu) / (($fRho * pow(sin($fAlpha), 2))+($fNu * pow(cos($fAlpha), 2)));	//6392177,447
+
+//echo 'радиус Земли fR = ' . $fR . ' м<br>';
+
+// Получаем смещение и расстояние
+$Distance = $fz * $fR; // Distance, m, 1618642,088
+
+//echo 'Distance = '. $Distance/1000 . ' км<br>';
+
+if(($StartLat < $EndLat) and ($StartLong < $EndLong))
+ {
+   $Bearing = abs($fAlpha * $R2D);	// 87,52200088
+   //echo '<br>1. ($StartLat < $EndLat) and ($StartLong < $EndLong) => ';
+ }
+  else
+   if(($StartLat < $EndLat) and ($StartLong > $EndLong))
+     {
+      $Bearing = 360 - abs($fAlpha * $R2D);	//272,4779991
+      //echo '<br>2. ($StartLat < $EndLat) and ($StartLong > $EndLong) => ';
+     }
+      else
+        if(($StartLat > $EndLat) and (StartLong>EndLong))
+          {
+            $Bearing = 180 + abs($fAlpha * $R2D); // 267,5220009
+            //echo '<br>3. ($StartLat > $EndLat) and (StartLong>EndLong) => ';
+          }
+            else
+              if(($StartLat > $EndLat) and ($StartLong < $EndLong))
+                {
+                  $Bearing = 180 - abs($fAlpha * $R2D); // 92,47799912
+                  //echo '<br>4. ($StartLat > $EndLat) and ($StartLong < $EndLong) => ';
+                }
+//echo 'Азимут/Bearing = ' . $Bearing . ' градусов <br>';
+
+
+
+
+$distance_data['distance'] = $Distance/1000;
+$distance_data['bearing'] = $Bearing;
+
+return $distance_data;
+//return $Distance/1000;
+}
+
+
+
+
+// изменение входного представления координат
+
+function zp_functions_mapcoord_switch($coord)
+{
+  //echo 'test 0 = ' . $coord . '<br>';
+
+  $replace1 = array ("°" => " ", "''" => " ", "'" => " ", '"' => ' ');
+  $replace2 = array ("  " => " ");
+
+  $coord = strtr(strtr($coord, $replace1), $replace2);
+
+  //echo 'test 1 = ' . $coord . "<br>";
+
+  $coord = explode(" ", $coord);
+  $coordNapr = $coord[3];
+  $coord = $coord[0]+($coord[1]*60+$coord[2])/3600;
+
+  //echo $coord[0] . ' ' . $coord[1] . ' ' . $coord[2] . '<br>';
+
+
+  if($coordNapr == 'Ю' OR $coordNapr == 'S' OR $coordNapr == 'З' OR $coordNapr == 'W')
+   $coord = -1*$coord;
+
+  //echo 'New $coord = ' . $coord . '<br>';
+  //echo '$coordNapr = ' . $coordNapr . '<br>';
+
+
+
+  return $coord;
+
+}
+
+  
+
+
+
+

@@ -1,0 +1,42 @@
+<?php
+// пути для собственных переопределённых нодов с корзиной и ордером
+
+define('MY_CART_NODE', 'node/6');
+define('MY_CART_CHECKOUT_NODE', 'node/7');
+define('MY_CART_REVIEW_NODE', 'node/8');
+define('MY_CART_COMPLETE_NODE', 'node/9');
+
+define('MY_CART_NODE_NUM', '6');
+define('MY_CART_CHECKOUT_NODE_NUM', '7');
+define('MY_CART_REVIEW_NODE_NUM', '8');
+define('MY_CART_COMPLETE_NODE_NUM', '9');
+
+
+
+define('MY_ORDER_HISTORY_NODE', 'node/10');
+define('MY_ORDER_REVIEW_NODE', 'node/11');
+
+define('MY_ORDER_HISTORY_NODE_NUM', '10');
+define('MY_ORDER_REVIEW_NODE_NUM', '11');
+
+
+
+define('MY_USER_SETTINGS_NODE', 'node/22');
+define('MY_ZP_COMMENTS_NODE', 'node/23');
+
+define('MY_USER_SETTINGS_NODE_NUM', '22');
+define('MY_ZP_COMMENTS_NODE_NUM', '23');
+
+
+
+define('MY_HOME_PAGE_NODE', 'node/1');
+define('MY_HOME_PAGE_NODE_NUM', '1');
+
+
+define('MY_ZP_BLOG_NODE', 'node/14');
+define('MY_ZP_BLOG_NODE_NUM', '14');
+
+define('MY_ZP_NEWS_NODE', 'node/15');
+define('MY_ZP_NEWS_NODE_NUM', '15');
+
+define('MY_ZP_ADDSHOP_NODE_NUM', '17');

@@ -1,0 +1,47 @@
+<?php
+// $Id: autologout.install,v 1.2.4.3 2008/02/20 15:35:39 jrglasgow Exp $
+
+/**
+ * @file
+ * Auto installation for database table(s)
+ */
+
+if (!function_exists('autologout_install')) {
+  function autologout_install() {
+    $created = FALSE;
+    switch ($GLOBALS['db_type']) {
+      case 'mysql':
+      case 'mysqli':
+        $query1 = db_query("CREATE TABLE IF NOT EXISTS {autologout} (".
+                           "uid INT(10) NOT NULL,".
+                           "setting INT(2) NOT NULL DEFAULT 0,".
+                           "PRIMARY KEY (uid)".
+                           ") /*!40100 DEFAULT CHARACTER SET utf8 */");
+        if($query1) {
+          $created = TRUE;
+        }
+        break;
+
+      case 'pgsql':
+        $query1 = db_query("CREATE TABLE {autologout} (".
+                           "uid INT NOT NULL,".
+                           "setting SMALLINT NOT NULL default 0,".
+                           "PRIMARY KEY (uid))");
+        if($query1) {
+          $created = TRUE;
+        }
+        break;
+    } // end switch
+
+    // sink module's weight to the deepest depths of the module_list()
+    db_query("UPDATE {system} SET weight = %d WHERE name = '%s'", 1000, 'autologout');
+
+    // provide the user with some install feedback
+    if ($created) {
+      drupal_set_message(t('Autologout database tables installed'));
+    }
+    else {
+      drupal_set_message(t('Table install for autologout was unsuccessful.'));
+    }
+  } // end function
+}

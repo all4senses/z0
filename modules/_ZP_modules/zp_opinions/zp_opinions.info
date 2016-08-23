@@ -1,0 +1,10 @@
+; $Id $
+name = "ZP Opinions"
+description = "Add opinions for the product"
+package = ZP Modules
+
+; Information added by drupal.org packaging script on 2007-12-28
+version = "5.x-1.0"
+project = "zp_opinions"
+datestamp = "1224456101"
+

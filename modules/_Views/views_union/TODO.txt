@@ -1,0 +1,6 @@
+1. It only sorts correctly if you set "Sort Criteria" on the master view, not
+   if you use "sortable / default sort".  Fix that.
+
+2. I don't perform validation in the UI.  I only present you with valid
+   choices, but you might figure out how to make invalid ones.  That should be
+   fixed.

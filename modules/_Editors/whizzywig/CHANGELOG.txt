@@ -1,0 +1,17 @@
+v1.2
+----
+- added IMCE as link browser
+- added newline option to toolbar config
+v1.1
+----
+- added IMCE support
+- added possibility to define custom buttons
+v1.0
+----
+- provides basic integration of Whizzywig editor in Drupal
+- provides check if Whizzywig editor is installed
+- possibility to use xhtml.js addon
+- possibility to specify editor width & height
+- possibility to customise the buttons/lists shown in the toolbar, and their order.
+- possibility to use visibility filters
+- possibility to provide stylesheet

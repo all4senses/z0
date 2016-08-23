@@ -1,0 +1,10 @@
+; $Id: workflow.info,v 1.2.2.2 2007/06/18 23:07:16 dww Exp $
+name = Workflow
+description = Allows the creation and assignment of arbitrary workflows to node types.
+package = "Workflow"
+
+; Information added by drupal.org packaging script on 2008-07-19
+version = "5.x-2.3"
+project = "workflow"
+datestamp = "1216432514"
+

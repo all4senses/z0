@@ -1,0 +1,38 @@
+<?php
+
+/**
+* Implementation of hook_init()
+*/
+function drupalforfirebug_preprocess_init() {
+  global $dfp_runtime;
+  $dfp_runtime = array();
+}
+
+/**
+*  Implementation of hook_form_alter()
+*/
+function drupalforfirebug_preprocess_form_alter($form_id, &$form) {
+  global $dfp_runtime;
+  $dfp_runtime['drupalforfirebug_forms']['original'][$form_id] = $form;
+}
+
+/**
+* Implementation of hook_nodeapi()
+*/
+function drupalforfirebug_preprocess_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  global $dfp_runtime;
+  $nid = ($node->nid) ? $node->nid : '*NEW*';
+  if ($node->created) { // only do this for real nodes
+    $node_clone = drupal_clone($node); // this is important since global + pass by reference &$node is bad news
+    $dfp_runtime['drupalforfirebug_nodes']['original'][$node->type][$nid] = $node_clone;
+  }
+}
+
+/**
+* Implementation of hook_views_pre_query()
+*/
+function drupalforfirebug_preprocess_views_pre_query(&$view) {
+  global $dfp_runtime;
+  $view_clone = drupal_clone($view); // // this is important since global + pass by reference &$view is bad news
+  $dfp_runtime['drupalforfirebug_views']['original'][$view->name] = $view_clone;
+}

@@ -1,0 +1,60 @@
+<?php
+// $Id: panels_collapse.module,v 1.1 2009/01/28 11:53:15 joachim Exp $
+
+
+/**
+ * @file
+ * Adds a panel pane style for collapsible panes.
+ */
+
+
+//----------------------------------------------------------------------------
+// Panels hooks.
+
+/**
+ * Implementation of hook_panels_styles().
+ */
+function panels_collapse_panels_styles() {
+  return array(
+    'collapsing' => array(
+      'title'             => t('Collapsing'),
+      'description'       => t('Allows the panel item to be collapsed.'),
+      'render pane'      => 'panels_collapse_style_render_pane',
+    ),
+  );
+}
+
+
+//----------------------------------------------------------------------------
+// Panels style plugin callbacks.
+
+/**
+ * Render callback for a single pane.
+ */
+function theme_panels_collapse_style_render_pane($content, $pane, $display) {
+  // Add the JavaScript and CSS to the page.
+  _panels_collapse_add_js();
+  drupal_add_css(drupal_get_path('module', 'panels_collapse') .'/panels_collapse.css');  
+
+  $output = '<div class="panel-pane-collapsible">';
+  $output .= theme('panels_pane', $content, $pane, $display);
+  $output .= '</div>';
+  return $output;
+}
+
+
+//----------------------------------------------------------------------------
+// Private functions.
+
+/**
+ * Adds the .js file only once per page load.
+ */
+function _panels_collapse_add_js() {
+  static $added = FALSE;
+
+  // Include the JavaScript once per page.
+  if (!$added) {
+    drupal_add_js(drupal_get_path('module', 'panels_collapse') .'/panels_collapse.js');
+    $added = TRUE;
+  }
+}

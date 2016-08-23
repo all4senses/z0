@@ -1,0 +1,11 @@
+; $Id $
+name = "ZP Delivery Time"
+description = "ZP Delivery Time settings during checkout."
+dependencies = uc_store
+package = ZP Modules
+
+; Information added by drupal.org packaging script on 2007-12-28
+version = "5.x-1.0"
+project = "zp_delivery_time"
+datestamp = "1224456101"
+

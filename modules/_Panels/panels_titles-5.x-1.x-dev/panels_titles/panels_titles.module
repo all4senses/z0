@@ -1,0 +1,350 @@
+<?php
+
+define('PANELS_TEMPLATES_EDIT_PERM', 'edit panels titles templates');
+
+/**
+ *  Implements hook_perm().
+ */
+function panels_titles_perm() {
+  return array(
+    PANELS_TEMPLATES_EDIT_PERM
+  );
+}
+
+/**
+ *  Implements hook_menu().
+ */
+function panels_titles_menu($may_cache) {
+  $items = array();
+  if (!$may_cache) {
+    $items[] = array(
+      'path' => 'admin/settings/panels_titles',
+      'title' => t('Panels Titles Templates'),
+      'description' => t('Create title templates that appear when editing panels.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => 'panels_titles_settings',
+      'access' => user_access(PANELS_TEMPLATES_EDIT_PERM),
+    'type' => MENU_NORMAL_ITEM,
+   );
+  }
+  return $items;
+}
+
+/**
+ *  Supply the settings form.
+ */
+function panels_titles_settings() {
+  $form = array();
+  $form['#tree'] = TRUE;
+  $r = db_query('SELECT * FROM {panels_titles_templates}');
+  while ($o = db_fetch_object($r)) {
+    $form['panels-titles-template-' . $o->tid] = array(
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#title' => $o->title,
+    );
+    $form['panels-titles-template-' . $o->tid]['title'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Template Name'),
+      '#description' => t('This is the name of your template.'),
+      '#required' => TRUE,
+      '#size' => 50,
+      '#default_value' => $o->title,
+    );
+    $form['panels-titles-template-' . $o->tid]['template'] = array(
+      '#type' => 'textarea',
+      '#title' => t('Template Name'),
+      '#description' => t('This is the HTML code that will appear in a title. The macro %title% will be replaced with the actual text of the title when the panel is displayed.'),
+      '#required' => TRUE,
+      '#rows' => 5,
+      '#default_value' => $o->template,
+    );
+    $form['panels-titles-template-' . $o->tid]['delete'] = array(
+      '#type' => 'markup',
+      '#value' => l(t('Delete This Template'), 'admin/panels_titles/delete/' . $o->tid),
+    );
+  }
+  $form['panels-titles-template-new'] = array(
+    '#type' => 'fieldset',
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#title' => t('Create New Template'),
+  );
+  $form['panels-titles-template-new']['title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Template Name'),
+    '#description' => t('This is the name of your template.'),
+    '#required' => FALSE,
+    '#size' => 50,
+  );
+  $form['panels-titles-template-new']['template'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Template Name'),
+    '#description' => t('This is the HTML code that will appear in a title. The macro %title% will be replaced with the actual text of the title when the panel is displayed. Click "Save Settings" to create this new template.'),
+    '#required' => FALSE,
+    '#rows' => 5,
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save Settings'),
+  );
+  return $form;
+}
+
+/**
+ *  Submit handler for the settings form (since we use #tree = TRUE, we cannot
+ *  use system_settings_form() for this.
+ */
+function panels_titles_settings_submit($form_id, $form_values) {
+  foreach ($form_values as $fieldsetname => $values) {
+    if (strpos($fieldsetname, 'panels-titles-template-') === 0) {
+      $sectionidentifier = substr($fieldsetname, 23, strlen($fieldsetname));
+      if (is_numeric($sectionidentifier)) {
+        // $sectionidentifier is a template ID. Update that template.
+        panels_titles_update_template(
+          $sectionidentifier, $values['title'], $values['template']
+        );
+      }
+      else if ($sectionidentifier == 'new') {
+        // $sectionidentifier is specifying a new template.
+        if (!empty($values['title'])) {
+          if (!empty($values['template'])) {
+            panels_titles_new_template($values['title'], $values['template']);
+          }
+          else {
+            drupal_set_message(t('Template body is required.'), 'error');
+          }
+        }
+        else if (!empty($values['template'])) {
+          drupal_set_message(t('Template title is required.'), 'error');
+        }
+      }
+    }
+  }
+}
+
+/**
+ *  Create a new template.
+ *  @param $title The title of the template.
+ *  @param $template The body of the template.
+ */
+function panels_titles_new_template($title, $template) {
+  $tid = db_next_id('panels_titles_templates');
+  db_query(
+    'INSERT INTO {panels_titles_templates} SET tid=%d, title="%s", template="%s"',
+    $tid, $title, $template
+  );
+  drupal_set_message(t('Created template "%title".', array('%title'=>$title)));
+}
+
+/**
+ *  Update an existing template.
+ *  @param $tid ID of the template to change.
+ *  @param $title The title of the template.
+ *  @param $template The body of the template.
+ */
+function panels_titles_update_template($tid, $title, $template) {
+  // don't do it if the values are the same as existing.
+  $r = db_query(
+    'SELECT title, template FROM {panels_titles_templates} WHERE tid=%d', $tid
+  );
+  if (!db_num_rows($r)) {
+    watchdog(
+      'panels_titles',
+      'Internal error: panels_titles cannot find template with ID "' .
+      $tid . '". Not updating. '
+    );
+    return;
+  }
+  $o = db_fetch_object($r);
+  if ($o->title == $title && $o->template == $template) return;
+  db_query(
+    'UPDATE {panels_titles_templates} SET title="%s", template="%s" WHERE tid=%d',
+    $title, $template, $tid
+  );
+  drupal_set_message(t('Updated template "%title".', array('%title'=>$title)));
+}
+
+/**
+ *  Implements hook_panels_content_types().
+ */
+function panels_titles_panels_content_types() {
+  return array(
+    'title' => array(
+      'callback' => '_panels_titles_callback',
+      'admin' => '_panels_titles_admin',
+    ),
+  );
+}
+
+/**
+ *  Panels display callback.
+ */
+function _panels_titles_callback($configuration) {
+  $moduletemplates = panels_titles_get_templates();
+  foreach ($moduletemplates as $groupname => $templates) {
+    foreach ($templates as $tid => $template) {
+      if ($tid == $configuration['type']) {
+        if (isset($template['callback'])) {
+          $args = array($configuration['title']);
+          if (isset($template['callback arguments'])) {
+            foreach ($template['callback arguments'] as $arg) {
+              $args[] = $arg;
+            }
+          }
+          return call_user_func_array($template['callback'], $args);
+        }
+      }
+    }
+  }
+  // If we got here without returning above, no hander was found. Use default.
+  return theme('panels_titles_default', $title);
+}
+
+/**
+ *  Panels admin callback.
+ */
+function _panels_titles_admin($op, &$arg1, $arg2=NULL) {
+  switch($op) {
+    case 'list':
+      return '<strong>Panels Title</strong>: ' . $arg1['title'];
+    break;
+    case 'add button':
+      $form = array();
+      $form['#prefix'] = '<div class="container-inline">';
+      $form['#suffix'] = '</div>';
+      $form['title'] = array(
+        '#type' => 'textfield',
+        '#size' => 32,
+        '#default_value' => '',
+        '#title' => 'Add a Panels Title',
+      );
+      $form['type'] = array(
+        '#type' => 'select',
+        '#options' => _panels_titles_title_types(),
+      );
+      $form['submit'] = array(
+        '#type' => 'button',
+        '#value' => t('Add title'),
+      );
+      return $form;
+    break;
+    case 'add':
+      if ($_POST['op'] != t('Add title')) {
+        return;
+      }
+      print_r($_POST);
+      return array(
+        'title' => $_POST['add']['title']['title'],
+        'type' => $_POST['add']['title']['type'],
+      );
+    break;
+    case 'edit':
+      $form = array();
+      $form['#prefix'] = '<div class="container-inline">';
+      $form['#suffix'] = '</div>';
+      $form['title'] = array(
+        '#type' => 'textfield',
+        '#size' => 32,
+        '#default_value' => $arg1['title'],
+        '#title' => t('Modify Panels Title'),
+      );
+      $form['type'] = array(
+        '#type' => 'select',
+        '#default_value' => $arg1['type'],
+        '#options' => _panels_titles_title_types(),
+      );
+      return $form;
+    break;
+    case 'validate':
+      return $arg1;
+    break;
+    case 'save':
+      return $arg1;
+    break;
+  }
+}
+
+/**
+ *  Supplies data for the title type menu.
+ */
+function _panels_titles_title_types() {
+  $options = array();
+  $moduletemplates = panels_titles_get_templates();
+  foreach ($moduletemplates as $groupname => $templates) {
+    if (!isset($options[$groupname])) {
+      $options[$groupname] = array();
+    }
+    foreach ($templates as $templateid => $template) {
+      $options[$groupname][$templateid] = $template['title'];
+    }
+  }
+  return $options;
+}
+
+/**
+ *  Cached way to get the templates from hook_panels_titles_templates(), so we
+ *  don't repeat potentially expensive operations.
+ */
+function panels_titles_get_templates() {
+  static $cache;
+  if (isset($cache)) return $cache;
+  $cache = module_invoke_all('panels_titles_templates');
+  return $cache;
+}
+
+/**
+ *  Implements hook_panels_titles_templates().
+ */
+function panels_titles_panels_titles_templates() {
+  $options = array();
+  $r = db_query('SELECT tid, title, template FROM {panels_titles_templates}');
+  if (db_num_rows($r)) {
+    $options[t('Templates')] = array();
+  }
+  while ($o = db_fetch_object($r)) {
+    $options[t('Templates')]['<template>-' . $o->tid] = array(
+      'title' => $o->title,
+      'callback' => 'panels_titles_templated_title',
+      'callback arguments' => array($o->template),
+    );
+  }
+  if (module_exists('signwriter')) {
+    $r = db_query('SELECT name FROM {signwriter}');
+    if (db_num_rows($r)) {
+      $options[t('Signwriter')] = array();
+    }
+    while ($o = db_fetch_object($r)) {
+      $options[t('Signwriter')]['<signwriter>-' . $o->name] = array(
+        'title' => $o->name,
+        'callback' => 'panels_titles_signwriter_title',
+        'callback arguments' => array($o->name),
+      );
+    }
+  }
+  return $options;
+}
+
+/**
+ *  Callback handler for templated titles.
+ */
+function panels_titles_templated_title($title, $template) {
+  return str_replace('%title%', $title, $template);
+}
+
+/**
+ *  Callback handler for signwriter type titles.
+ */
+function panels_titles_signwriter_title($title, $profilename) {
+  $profile = signwriter_load_profile($profilename);
+  return signwriter_title_convert(strtolower($title), $profile);
+}
+
+/**
+ *  Default title theming function. Used if something went wrong with type
+ *  selection, such as a template or signwriter profile that was deleted.
+ */
+function theme_panels_titles_default($title) {
+  return '<h3>' . $title . '</h3>';
+}

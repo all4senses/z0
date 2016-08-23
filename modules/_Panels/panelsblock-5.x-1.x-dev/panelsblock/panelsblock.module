@@ -1,0 +1,193 @@
+<?php
+// $Id: panelsblock.module,v 1.1.2.7 2007/06/11 21:36:30 nedjo Exp $
+
+// Panels layout area used for blocks.
+define('PANELSBLOCK_DEFAULT_AREA', 'left');
+
+/**
+ * @file
+ * Exposes panels as blocks.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function panelsblock_form_alter($form_id, &$form) {
+  if ($form_id == 'panels_edit_form') {
+    $blocks = variable_get('panelsblock', array());
+    $form['#submit']['panelsblock_form_submit'] = array();
+    $form['panelsblock'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Block'),
+      '#weight' => 0,
+    );
+    $form['panelsblock']['expose_block'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Expose as a block'),
+      '#description' => t('Select whether you wish to make this panels page available as a block.'),
+      '#default_value' => $blocks[$form['did']['#value']] && $blocks[$form['did']['#value']]['expose'] ? $blocks[$form['did']['#value']]['expose'] : 0,
+    );
+    $options = panelsblock_get_areas($form['layout']['#value']);
+    $form['panelsblock']['expose_area'] = array(
+      '#type' => 'select',
+      '#title' => t('Display area'),
+      '#default_value' => $blocks[$form['did']['#value']] && $blocks[$form['did']['#value']]['area'] ? $blocks[$form['did']['#value']]['area'] : (array_key_exists(PANELSBLOCK_DEFAULT_AREA, $options) ? PANELSBLOCK_DEFAULT_AREA : ''),
+      '#options' => $options,
+      '#description' => t('Select the area that will be displayed.'),
+    );
+    $form['panelsblock']['expose_style'] = array(
+      '#type' => 'radios',
+      '#title' => t('Display style'),
+      '#options' => array('default' => t('Default panels'), 'tabs' => t('Tabs')),
+      '#description' => t('Select the display style for items in this panels set.'),
+      '#default_value' => $blocks[$form['did']['#value']] && $blocks[$form['did']['#value']]['style'] ? $blocks[$form['did']['#value']]['style'] : 'default',
+    );
+  }
+}
+
+/**
+ * Implementation of hook_block().
+ */
+function panelsblock_block($op = 'list', $delta = 0, $edit = array()) {
+  switch ($op) {
+    case 'list':
+      $blocks = array();
+      $panelsblocks = variable_get('panelsblock', array());
+      foreach ($panelsblocks as $did => $block) {
+        if ($block['expose']) {
+          if ($panels = panels_load_panels($did)) {
+            $blocks[$did] = array(
+              'info' => t('@title panel', array('@title' => $panels->title ? $panels->title : $panels->path)),
+            );
+          }
+        }
+      }
+      return $blocks;
+
+    case 'view':
+      return panelsblock_get_block($delta);
+  }
+}
+
+/**
+ * Save tabs information for a panel.
+ */
+function panelsblock_form_submit($form_id, $form_values) {
+  $blocks = variable_get('panelsblock', array());
+  $blocks[$form_values['did']] = array(
+    'expose' => $form_values['expose_block'],
+    'style' => $form_values['expose_style'],
+    'area' => $form_values['expose_area'],
+  );
+  variable_set('panelsblock', $blocks);
+}
+
+/**
+ * Load a panels block.
+ */
+function panelsblock_get_block($did) {
+
+  // Some types, e.g, views, can change the title and breadcrumb.
+  // To avoid these changes, cache the existing values.
+  $cached_title = drupal_get_title();
+  $cached_breadcrumb = drupal_get_breadcrumb();
+
+  $panels = panels_load_panels($did);
+  if (!$panels) {
+    return MENU_NOT_FOUND;
+  }
+
+  $layouts = panels_get_layouts();
+  $layout = $layouts[$panels->layout];
+  $layout['css_id'] = $panels->css_id;
+
+  if (!$layout) {
+    watchdog('panels', t('Unable to find requested layout %s', array('%s' => check_plain($panels->layout))));
+    return MENU_NOT_FOUND;
+  }
+
+  $blocks = variable_get('panelsblock', array());
+
+  panels_is_panels_page(TRUE);
+  $content_types = panels_get_content_types();
+  $content = array();
+  panelsblock_load_content_types();
+
+  $display_area = !empty($blocks[$did]['area']) ? $blocks[$did]['area'] : PANELSBLOCK_DEFAULT_AREA;
+
+  foreach ($panels->content as $location => $list) {
+    foreach ($list as $area) {
+      if ($area->area == $display_area) {
+        $function = $content_types[$area->type]['callback'] .'_block';
+        if (function_exists($function)) {
+          $content[] = $function($area->configuration);
+        }
+      }
+    }
+  }
+
+  $theme_function = 'panelsblock_block_'. ($blocks[$did] ? $blocks[$did]['style'] : 'default');
+  $block = array(
+    'subject' => $panels->title ? $panels->title : '',
+    'content' => theme($theme_function, $did, $content),
+  );
+
+  // Restore title and breadcrumb.
+  drupal_set_title($cached_title);
+  drupal_set_breadcrumb($cached_breadcrumb);
+
+  return $block;
+}
+
+/**
+ * Load the supported content types.
+ */
+function panelsblock_load_content_types() {
+  $path = drupal_get_path('module', 'panelsblock') . '/content_types';
+  $files = drupal_system_listing('.inc$', $path, 'name', 0);
+
+  foreach($files as $file) {
+    require_once('./' . $file->filename);
+  }
+}
+
+/**
+ * Given a panel layout, return its content areas.
+ */
+function panelsblock_get_areas($layout) {
+  $layouts = panels_get_layouts();
+  return $layouts[$layout]['content areas'];
+}
+
+/**
+ * Default presentation of block.
+ */
+function theme_panelsblock_block_default($did, $content) {
+  $items = array();
+  foreach ($content as $item) {
+    $items[] = '<div class="title">'. $item['title'] .'</div><div class="body">'. $item['body'] .'</div>';
+  }
+  return theme('item_list', $items);
+}
+
+/**
+ * Presentation of block in tabs.
+ */
+function theme_panelsblock_block_tabs($did, $content) {
+  $tabs = array();
+
+  $tabs['panelsblock_'. $did] = array(
+    '#type' => 'tabset',
+  );
+  foreach ($content as $key => $item) {
+    $body = trim(strip_tags($item['body']));
+    if (!empty($body)) {
+      $tabs['panelsblock_'. $did]['tab_'. $key] = array(
+        '#type' => 'tabpage',
+        '#title' => $item['title'],
+        '#content' => $item['body'],
+      );
+    }
+  }
+  return tabs_render($tabs);
+}

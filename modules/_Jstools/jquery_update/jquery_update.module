@@ -1,0 +1,46 @@
+<?php
+// $Id: jquery_update.module,v 1.1.2.3.2.3 2008/07/15 23:13:55 sun Exp $
+
+/**
+ * @file
+ * This Drupal module helps with updating core jQuery.
+ * Drupal 5.x is shipped with jQuery 1.0.1.
+ * This module helps you to install a later version.
+ *
+ * @see jquery_update.install
+ */
+
+/**
+ * Implementation of hook_menu().
+ */
+function jquery_update_menu($may_cache) {
+  $items = array();
+  if (!$may_cache) {
+    drupal_add_js(drupal_get_path('module', 'jquery_update') . '/compat.js');
+  }
+  return $items;
+}
+
+
+
+
+
+
+
+// my changes ----------------------
+
+
+/**
+* Return the path to the jQuery file.
+*/
+function jquery_update_jquery_path() {  
+  $curr_uri = request_uri();
+  if (strpos($curr_uri,'admin')>0 || strpos($curr_uri,'edit')>0 || strpos($curr_uri,'add')>0){
+    $jquery_file = array('none' => 'jquery.js', 'min' => 'jquery.min.js');
+    return JQUERY_UPDATE_REPLACE_PATH .'/'. $jquery_file[variable_get('jquery_update_compression_type', 'min')];
+  }
+  else {
+    $jquery_file = array('none' => 'jquery-1.4.2.js', 'min' => 'jquery-1.4.2.min.js');
+    return JQUERY_UPDATE_REPLACE_PATH .'/'. $jquery_file[variable_get('jquery_update_compression_type', 'min')];
+  }
+}

@@ -1,0 +1,256 @@
+# $Id$
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  uc_legalaspects.module: n/a
+#  uc_legalaspects.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2008-07-24 00:13+0200\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: Michael Huebl\n"
+"Language-Team: Michael Huebl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+"X-Poedit-Language: German\n"
+"X-Poedit-Country: GERMANY\n"
+"X-Poedit-SourceCharset: utf-8\n"
+
+#: uc_legalaspects.module:17
+msgid "Legal aspects pane"
+msgstr "AGB und Widerrufsrecht"
+
+#: uc_legalaspects.module:18
+msgid "Global terms and conditions, revocation rights settings."
+msgstr "AGB und Widerrufsrecht Einstellungen"
+
+#: uc_legalaspects.module:26;93;238;547
+msgid "General terms and conditions"
+msgstr "Allgmeine Gesch&auml;ftsbedingungen"
+
+#: uc_legalaspects.module:27;34
+msgid "View global terms and conditions."
+msgstr "AGB ansehen"
+
+#: uc_legalaspects.module:33;47
+msgid "Print view"
+msgstr "Druckansicht"
+
+#: uc_legalaspects.module:40;94;181;285;320;554;569
+msgid "Revocation rights"
+msgstr "Widerrufsrecht"
+
+#: uc_legalaspects.module:41;48
+msgid "View revocation rights."
+msgstr "Widerrufsrecht ansehen"
+
+#: uc_legalaspects.module:71
+msgid "Legal aspects"
+msgstr "AGB und Widerrufsrecht"
+
+#: uc_legalaspects.module:72
+msgid "Please confirm if you agree with the legal aspects that aply on all our deliveries."
+msgstr "Bitte best&auml;tigen Sie unsere AGB und das Widerrufsrecht."
+
+#: uc_legalaspects.module:133;136
+msgid "general terms and conditions"
+msgstr "Allgemeine Gesch&auml;ftsbedingungen"
+
+#: uc_legalaspects.module:141;561
+msgid "General Terms and Conditions"
+msgstr "Allgemeine Gesch&auml;ftsbedingungen"
+
+#: uc_legalaspects.module:142
+msgid "I agree with the !gtc"
+msgstr "Ich best&auml;tige die !gtc"
+
+#: uc_legalaspects.module:182
+msgid "I agree with the !grp"
+msgstr "Ich best&auml;tige das !grp"
+
+#: uc_legalaspects.module:151
+msgid "Download the GTCT here"
+msgstr "AGB downloaden"
+
+#: uc_legalaspects.module:161
+msgid "Print view of GTCT"
+msgstr "Druckansicht der AGB"
+
+#: uc_legalaspects.module:173;176
+msgid "revocation rights"
+msgstr "Widerrufsrecht"
+
+#: uc_legalaspects.module:190
+msgid "Download the revocation rights here"
+msgstr "Widerrufsrecht downloaden"
+
+#: uc_legalaspects.module:200
+msgid "Print view of revocation rights"
+msgstr "Druckansicht des Widerrufsrecht"
+
+#: uc_legalaspects.module:248;295
+msgid "There's no file"
+msgstr "Keine Datei vorhanden"
+
+#: uc_legalaspects.module:252
+msgid "GTCT-File Status"
+msgstr "AGB Datei Status"
+
+#: uc_legalaspects.module:259
+msgid "Delete GTCT-File"
+msgstr "AGB Datei l&ouml;schen"
+
+#: uc_legalaspects.module:260
+msgid "Check this if you want to delete your GTCT-File."
+msgstr "Anklicken, wenn Sie die AGB Datei l&ouml;schen wollen"
+
+#: uc_legalaspects.module:266
+msgid "Upload GTCT-File"
+msgstr "AGB Datei uploaden"
+
+#: uc_legalaspects.module:268
+msgid "A file (e.g. a PDF) with the gtct. Overrides existing file if available"
+msgstr "Geben Sie eine Datei (z.B. ein PDF) mit den AGB an. Falls eine existierende Datei vorhanden ist, wird diese &uuml;berschrieben."
+
+#: uc_legalaspects.module:273
+msgid "Terms and conditions"
+msgstr "Allgemeine Gesch&auml;ftsbedingungen"
+
+#: uc_legalaspects.module:275
+msgid "Enter the global terms and conditions that aply to your store."
+msgstr "Geben Sie Ihre Allgemeine Gesch&auml;ftsbedingungen ein"
+
+#: uc_legalaspects.module:299
+msgid "GRP-File Status"
+msgstr "Widerrufsrecht Datei Status"
+
+#: uc_legalaspects.module:306
+msgid "Delete GRP-File"
+msgstr "Widerrufsrecht Datei l&ouml;schen"
+
+#: uc_legalaspects.module:307
+msgid "Check this if you want to delete your GRP-File."
+msgstr "Anklicken, wenn Sie die Widerrufsrecht Datei l&ouml;schen wollen"
+
+#: uc_legalaspects.module:313
+msgid "Upload GRP-File"
+msgstr "Widerrufsrecht uploaden"
+
+#: uc_legalaspects.module:315
+msgid "A file (e.g. a PDF) with the grp. Overrides existing file if available"
+msgstr "Geben Sie eine Datei (z.B. ein PDF) mit dem Widerrufsrecht an. Falls eine existierende Datei vorhanden ist, wird diese &uuml;berschrieben."
+
+#: uc_legalaspects.module:322
+msgid "Enter the revocation rights that aply to your store."
+msgstr "Geben Sie Ihr Widerrufsrecht ein"
+
+#: uc_legalaspects.module:332
+msgid "Pane display options"
+msgstr "Ansichtsoptionen"
+
+#: uc_legalaspects.module:339
+msgid "General terms and conditions display options"
+msgstr "Optionen f&uuml;r Allgemeine Gesch&auml;ftsbedingungen"
+
+#: uc_legalaspects.module:346;381
+msgid "Show Popuplink"
+msgstr "Zeige einen Link, der ein Popup-Fenster &ouml;ffnet"
+
+#: uc_legalaspects.module:353;388
+msgid "Show Printlink"
+msgstr "Zeige einen Link zum Ausdrucken"
+
+#: uc_legalaspects.module:360
+msgid "Show GTCT in Pane"
+msgstr "Zeige die AGB direkt im Bestellvorgang an"
+
+#: uc_legalaspects.module:367;402
+msgid "Show required Checkbox"
+msgstr "Zeige eine Best&auml;tigungen-Checkbox"
+
+#: uc_legalaspects.module:374
+msgid "Revocation rights display options"
+msgstr "Optionen f&uuml;r Widerrufsrecht"
+
+#: uc_legalaspects.module:395
+msgid "Show revocation rights in pane"
+msgstr "Zeige das Widerrufsrecht direkt im Bestellvorgang an"
+
+#: uc_legalaspects.module:409
+msgid "Submit"
+msgstr "Speichern"
+
+#: uc_legalaspects.module:440;452
+msgid "File successfully deleted (!file)"
+msgstr "Datei erfolgreich gel&ouml;scht (!file)"
+
+#: uc_legalaspects.module:443;468
+msgid "File successfully uploaded to @path"
+msgstr "Datei erfolgreich hochgeladen nach @path"
+
+#: uc_legalaspects.module:564
+msgid "You can download the GTCT here"
+msgstr "Sie k&ouml;nnen die AGB hier downloaden"
+
+#: uc_legalaspects.module:572
+msgid "You can download the revocation rights here"
+msgstr "Sie k&ouml;nnen das Widerrufsrecht hier downloaden"
+
+#: uc_legalaspects.module:0
+msgid "uc_legalaspects"
+msgstr "uc_legalaspects"
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want the GTCT displayed in a popup."
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit sich der Kunde die AGB in einem Popup-Fenster anzeigen lassen kann."
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want a print-link available"
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit sich der Kunde die AGB ausdrucken kann"
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want the GTCT-Text displayed directly in the checkout pane."
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit die AGB direkt im Bestellvorgang angezeigt werden."
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want the Customer to aply the GTCT at checkout."
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit der Kunde die AGB im Bestellvorgang best&auml;tigen muss."
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want the revocation rights displayed in a popup."
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit sich der Kunde das Widerrufsrecht in einem Popup-Fenster anzeigen lassen kann."
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want a print-link available"
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit sich der Kunde das Widerrufsrecht ausdrucken kann"
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want the revocation rights text displayed directly in the checkout pane."
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit das Widerrufsrecht direkt im Bestellvorgang angezeigt werden."
+
+#: uc_legalaspects.module:0
+msgid "Check this if you want the Customer to aply the revocation rights at checkout."
+msgstr "W&auml;hlen Sie diesen Punkt aus, damit der Kunde das Widerrufsrecht im Bestellvorgang best&auml;tigen muss."
+
+#: uc_legalaspects.module:0
+msgid "You've uploaded the file: !filename You can delete or override it."
+msgstr "Sie haben die Datei !filename hochgeladen. Sie k&ouml;nnen Sie l&ouml;schen oder &uuml;berschreiben."
+
+#: uc_legalaspects.info:0
+msgid "Legal aspects checkout pane"
+msgstr "AGB und Widerrufsrecht"
+
+#: uc_legalaspects.info:0
+msgid "Adds a pane for agreeing terms and conditions and/or revocation rights using a checkbox."
+msgstr "Erm&ouml;glicht es, im Bestellvorgang die AGB und das Widerrufsrecht best&auml;tigen zu lassen"
+
+#: uc_legalaspects.info:0
+msgid "Ubercart - core (optional)"
+msgstr "Ubercart - core (optional)"
+

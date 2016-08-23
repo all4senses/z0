@@ -1,0 +1,87 @@
+<?php
+// $Id: masquerade.install,v 1.3.2.4 2009/03/21 15:50:19 deekayen Exp $
+
+/**
+ * @file masquerade.install
+ *
+ * Install, uninstall and update hooks for the Masquarade module.
+ */
+
+/**
+ * Implementation of hook_install().
+ */
+function masquerade_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {masquerade} (
+          sid varchar(64) NOT NULL default '',
+          uid_from int(10) NOT NULL default 0,
+          uid_as int(10) NOT NULL default 0,
+          KEY (sid, uid_from),
+          KEY (sid, uid_as)
+        ) /*!40100 DEFAULT CHARACTER SET utf8 */;");
+      drupal_set_message(t('The required database tables for Masquerade module were created successfully.'));
+      break;
+    case 'pgsql':
+      db_query("CREATE TABLE {masquerade} (
+        sid varchar(64) NOT NULL default '',
+        uid_from numeric(10) NOT NULL default 0,
+        uid_as numeric(10) NOT NULL default 0
+      );");
+      db_query("CREATE INDEX idx_masquerade_sid_uid_from ON {masquerade} (sid, uid_from);");
+      db_query("CREATE INDEX idx_masquerade_sid_uid_as ON {masquerade} (sid, uid_as);");
+      drupal_set_message(t('The required database tables for Masquerade module were created successfully.'));
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function masquerade_uninstall() {
+  db_query('DROP TABLE {masquerade}');
+  variable_del('masquerade_test_user');
+  variable_del('masquerade_admin_roles');
+  variable_del('masquerade_quick_switches');
+}
+
+/**
+ * Implementation of hook_update_N().
+ */
+function masquerade_update_1() {
+  return _system_update_utf8(array('masquerade'));
+}
+
+/**
+ * Implementation of hook_update_N().
+ *
+ * Update for http://drupal.org/node/281468
+ * Adding support for multiple quick links in the Masquerade block.
+ */
+function masquerade_update_5000() {
+  // If test user was previously configured, add that as the first quick switch user.
+  $masquerade_test_user = variable_get('masquerade_test_user', '');
+  $masquerade_test_uid = db_result(db_query("SELECT uid FROM {users} WHERE name = '%s'", $masquerade_test_user));
+  if ($masquerade_test_uid) {
+    variable_set('masquerade_quick_switches', array($masquerade_test_uid => $masquerade_test_uid));
+  }
+  return array();
+}
+
+/**
+ * Match the 64 character length of the sessions table.
+ */
+function masquerade_update_5001() {
+  $ret = array();
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      $ret[] = update_sql("ALTER TABLE {masquerade} CHANGE `sid` `sid` VARCHAR(64) CHARACTER SET utf8 COLLATE utf8_general_ci NOT NULL default ''");
+      break;
+    case 'pgsql':
+      $ret[] = update_sql("ALTER TABLE {masquerade} ALTER COLUMN sid TYPE VARCHAR(64)");
+      break;
+  }
+  return $ret;
+}

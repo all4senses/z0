@@ -1,0 +1,33 @@
+<div id="test">footer my 1</div>
+<div id = "footer_back1"> 
+
+<div class="footer">
+
+	<?php
+	
+	echo '<div class="copy"><a href="' . $node->field_links[0]['url'] . '">' . $node->field_links[0]['title'] . '</a></div>';
+	
+	echo $node->content['body']['#value'];
+	
+	echo '<div id="block1">';
+		echo '<a href="' . $node->field_links[1]['url'] . '">' . $node->field_links[1]['title'] . '</a><br>';
+		
+	echo '</div>';
+	
+	echo '<div id="block2">';
+		echo '<a href="' . $node->field_links[2]['url'] . '">' . $node->field_links[2]['title'] . '</a><br>';
+		echo '<a href="' . $node->field_links[3]['url'] . '">' . $node->field_links[3]['title'] . '</a><br>';
+		echo '<a href="' . $node->field_links[4]['url'] . '">' . $node->field_links[4]['title'] . '</a><br>';
+		echo '<a href="' . $node->field_links[5]['url'] . '">' . $node->field_links[5]['title'] . '</a><br>';
+	echo '</div>';
+	
+	
+	
+	
+	?>
+
+
+
+</div>
+
+</div>

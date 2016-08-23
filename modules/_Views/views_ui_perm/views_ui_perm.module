@@ -1,0 +1,254 @@
+<?php
+// $Id: views_ui_perm.module,v 1.1.2.3 2008/09/03 11:25:57 swentel Exp $
+
+/**
+ * @file
+ * The Views UI permissions module let's you set permissions to what a
+ * user can edit on the views edit page.
+ *
+ * @author Kristof De Jaeger - http://drupal.org/user/107403 - http://realize.be
+ * @version this is the drupal 5.x version
+ */
+
+/**
+ * Implementation of hook_perm().
+ */
+function views_ui_perm_perm() {
+  return array('administer restricted views ui', 'restricted views ui');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function views_ui_perm_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/settings/views_ui_perm',
+      'title' => t('Views UI Permissions'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('views_ui_perm_settings'),
+      'access' => user_access('administer restricted views ui'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+    $items[] = array(
+      'path' => 'admin/build/views_ui_perm',
+      'title' => t('Views'),
+      'callback' => 'views_ui_perm_views_page',
+      'access' => user_access('restricted views ui') && !user_access('administer views'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+  else {
+    if (user_access('restricted views ui') && !user_access('administer views')) {
+      $urls = views_get_all_urls();
+      foreach ($urls as $key => $url) {
+        if (strpos($_GET['q'], $url) !== FALSE) {
+          $view_name = $key;
+          break;
+        }
+      }
+      $view = views_get_view($view_name);
+      $title = t('View');
+      $path_view = $url .'/view';
+      $path_edit = $url .'/edit';
+      if ($view) {
+        $items[] = array(
+          'path' => $path_view,
+          'title' => $title,
+          'type' => MENU_DEFAULT_LOCAL_TASK,
+        );
+        $items[] = array(
+          'path' => $path_view,
+          'title' => $title,
+          'type' => MENU_LOCAL_TASK,
+        );
+        $items[] = array(
+          'path' => $path_edit,
+          'title' => t('Edit'),
+          'callback' => 'views_ui_perm_views_page',
+          'callback arguments' => array($view->vid),
+          'access' => user_access('restricted views ui') && !user_access('administer views'),
+          'type' => MENU_LOCAL_TASK,
+          'weight' => 10,
+        );
+      }
+    }
+  }
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function views_ui_perm_form_alter($form_id, &$form) {
+  if ($form_id == 'views_edit_view' && user_access('restricted views ui') && !user_access('administer views')) {
+    // set a global variable, so we can use this in the
+    // template override, this way, we are sure we will
+    // be hiding the right fieldset.
+    $GLOBALS['views_ui_edit_page'] = 1;
+
+    // hide fields/fieldsets
+    $available_fields = views_ui_perm_available_fields();
+    $ui_permissions = variable_get('views_ui_permissions', views_ui_perm_default_values($available_fields));
+    foreach ($available_fields as $field) {
+      if ($ui_permissions[$field['name']] == '0') {
+        if (!is_array($field['fields']))
+          $form[$field['fields']]['#access'] = FALSE;
+        else
+          $form[$field['fields'][0]][$field['fields'][1]]['#access'] = FALSE;
+
+        // Create global with the fieldsets in that are renderd in views_ui with theme('fieldset');
+        // The complete array's access might be false now, but the fieldset is still rendered.
+        if ($field['fieldset'] == 1)
+          $GLOBALS['views_fieldsets'][] = $field['name'];
+      }
+    }
+
+    // special cases, if block and page checkbox are not toggled, disable complete fieldset,
+    // hide those two checkboxes either way, even if fieldset is ok.
+    if ($form['page-info']['page']['#default_value'] == '0') $form['page-info']['#access'] = FALSE;
+    if ($form['block-info']['block']['#default_value'] == '0') $form['block-info']['#access'] = FALSE;
+    $form['page-info']['page']['#access'] = FALSE;
+    $form['block-info']['block']['#access'] = FALSE;
+
+    // Disable delete button
+    $form['delete']['#access'] = FALSE;
+    $form['cancel']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Settings callback.
+ */
+function views_ui_perm_settings() {
+
+  $options = views_ui_perm_available_fields();
+  $ui_options = array();
+  foreach ($options as $option) {
+    $ui_options[] = $option['name'];
+  }
+  $form['views_ui_permissions'] = array(
+    '#type' => 'checkboxes',
+    '#options' => drupal_map_assoc($ui_options),
+    '#default_value' => variable_get('views_ui_permissions', views_ui_perm_default_values($options)),
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Theme settings form.
+ */
+function theme_views_ui_perm_settings($form) {
+  $i = 0;
+  $options = views_ui_perm_available_fields();
+
+  $output = '<div>'. t('Views UI permissions lets you restrict access to users with the <em>restricted views permissions</em> to edit certain fields in the views interface. Toggle the checkbox of any views edit field to enable access. There are a few special cases:<ul><li>If there is no page or block view, the fieldset is disabled automatically. These two checkboxes are also disabled.</li><li>Access to any other views option is also disabled (add, delete, clone, export, import and tools).</li></ul>Consult the README.txt that comes with this module because you need to override a theming function.') .'</div>';
+
+  foreach (element_children($form['views_ui_permissions']) as $key) {
+    if ($options[$i]['div_open']) {
+      $output .= '<div style="float: left; border-left:1px solid #ccc; margin-top: 10px; padding: 10px 10px 0 10px;"><h3>'. $options[$i]['div_title'] .'</h3>';
+      if ($options[$i]['div_help'])
+      $output .= $options[$i]['div_help'];
+    }
+    $output .= drupal_render($form['views_ui_permissions'][$key]);
+    if ($options[$i]['div_close']) {
+      $output .= '</div>';
+    }
+    $i++;
+  }
+
+  $output .= '<div style="clear: both"></div>';
+  $output .= drupal_render($form);
+  return $output;
+}
+
+/**
+ * Available properties in views form to alter.
+ */
+function views_ui_perm_available_fields() {
+  $available_fields = array(
+    // page fieldset
+    array('enabled' => '1', 'name' => t('Page fieldset'), 'fields' => 'page-info', 'div_open' => 1, 'div_title' => t('Page permissions'), 'div_help' => t('Page fieldset must be enabled<br />if you want to give access to other fields'), 'fieldset' => 1),
+    array('enabled' => '0', 'name' => t('Page URL'), 'fields' => array('page-info', 'url'), 'render' => 1),
+    array('enabled' => '0', 'name' => t('Page Type'), 'fields' => array('page-info', 'page_type')),
+    array('enabled' => '0', 'name' => t('Page title'), 'fields' => array('page-info', 'page_title')),
+    array('enabled' => '0', 'name' => t('Page use pager'), 'fields' => array('page-info', 'use_pager')),
+    array('enabled' => '0', 'name' => t('Page breadcrumb'), 'fields' => array('page-info', 'breadcrumb_no_home')),
+    array('enabled' => '0', 'name' => t('Page nodes per page'), 'fields' => array('page-info', 'nodes_per_page')),
+    array('enabled' => '1', 'name' => t('Page header'), 'fields' => array('page-info', 'page_header_fieldset')),
+    array('enabled' => '1', 'name' => t('Page footer'), 'fields' => array('page-info', 'page_footer_fieldset')),
+    array('enabled' => '0', 'name' => t('Page empty text'), 'fields' => array('page-info', 'page_empty_fieldset')),
+    array('enabled' => '0', 'name' => t('Page menu'), 'fields' => array('page-info', 'menu-info'), 'div_close' => 1),
+    // block fieldset
+    array('enabled' => '1', 'name' => t('Block fieldset'), 'fields' => 'block-info', 'div_open' => 1, 'div_title' => t('Block permissions'), 'div_help' => t('Block fieldset must be enabled<br />if you want to give access to other fields'), 'fieldset' => 1),
+    array('enabled' => '0', 'name' => t('Block type'), 'fields' => array('block-info', 'block_type')),
+    array('enabled' => '0', 'name' => t('Block title'), 'fields' => array('block-info', 'block_title')),
+    array('enabled' => '0', 'name' => t('Block nodes per block'), 'fields' => array('block-info', 'nodes_per_block')),
+    array('enabled' => '0', 'name' => t('Block more'), 'fields' => array('block-info', 'block_more')),
+    array('enabled' => '1', 'name' => t('Block header'), 'fields' => array('block-info', 'block_header_fieldset')),
+    array('enabled' => '1', 'name' => t('Block footer'), 'fields' => array('block-info', 'block_footer_fieldset')),
+    array('enabled' => '0', 'name' => t('Block empty text'), 'fields' => array('block-info', 'block_empty_fieldset'), 'div_close' => 1),
+    // other fieldsets
+    array('enabled' => '0', 'name' => t('Basic Info'), 'fields' => 'basic-info', 'div_open' => 1, 'div_title' => t('Other permissions'), 'fieldset' => 1),
+    array('enabled' => '0', 'name' => t('Fields'), 'fields' => 'field', 'fieldset' => 1),
+    array('enabled' => '0', 'name' => t('Arguments'), 'fields' => 'argument', 'fieldset' => 1),
+    array('enabled' => '0', 'name' => t('Arguments handling code'), 'fields' => 'view_args_php_fieldset'),
+    array('enabled' => '0', 'name' => t('Filters'), 'fields' => 'filter', 'fieldset' => 1),
+    array('enabled' => '0', 'name' => t('Exposed Filters'), 'fields' => 'exposed_filter', 'fieldset' => 1),
+    array('enabled' => '0', 'name' => t('Sort Criteria'), 'fields' => 'sort', 'div_close' => 1, 'fieldset' => 1),
+  );
+  return $available_fields;
+}
+
+/**
+ * Return default values, used when views_ui_permissions doesn't exist in variable table.
+ */
+function views_ui_perm_default_values($available_fields) {
+  $default_enabled = array();
+  foreach ($available_fields as $field) {
+    $value =  ($field['enabled'] == '1') ? $field['name'] : '0';
+    $default_enabled[$field['name']] = $value;
+  }
+  return $default_enabled;
+}
+
+/**
+ * We generate our own views overview or edit page.
+ */
+function views_ui_perm_views_page($vid = NULL) {
+  if (!empty($vid)) {
+    return views_ui_admin_edit_page($vid);
+  }
+  else {
+
+    views_load_cache();
+    $num_views = 25;
+    drupal_set_title(t('Administer views'));
+
+    $result = pager_query("SELECT vid, name, description, menu_title, page_title, block_title, url, page, menu, block FROM {view_view} ORDER BY name", $num_views);
+
+    while ($view = db_fetch_object($result)) {
+      $url = ($view->page ? l($view->url, $view->url) : t('No Page View'));
+      $items[] = array(
+        $view->name,
+        filter_xss_admin(views_get_title($view, 'admin')),
+        $view->description,
+        $url,
+        theme('links', array(
+          array('title' => t('Edit'), 'href' => "admin/build/views_ui_perm/$view->vid"),
+        ))
+      );
+    }
+
+    if ($items) {
+      $output = theme('table', array(t('View'), t('Title'), t('Description'), t('URL'), t('Actions')), $items);
+      $output .= theme('pager', NULL, $num_views);
+    }
+    else {
+      $output .= t('<p>No views have currently been defined.</p>');
+    }
+    return $output;
+  }
+}

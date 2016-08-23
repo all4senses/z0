@@ -1,0 +1,6 @@
+; $Id$
+name = Payment Method Fee
+description = Add fee to order amount based on the payment method choice.
+package = Ubercart - payment
+
+

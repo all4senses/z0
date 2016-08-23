@@ -1,0 +1,9 @@
+<?php
+
+function autocalc_shipping_form_alter($form_id, &$form){
+  if ($form_id == 'uc_cart_checkout_form'){
+    drupal_add_js('$(document).ready(function(){
+      $("input[@id*=quote-button]").click();
+    });', 'inline');
+  }
+}

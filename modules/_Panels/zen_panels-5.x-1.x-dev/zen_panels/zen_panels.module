@@ -1,0 +1,99 @@
+<?php
+// $Id: zen_panels.module,v 1.1 2008/08/13 00:00:39 grugnog Exp $
+
+/**
+ * Implementation of hook_panels_layouts
+ */
+function zen_panels_panels_layouts() {
+  $items['zen_panels_default'] = array(
+    'module' => 'zen_panels',
+    'icon' => 'zen_panels_default.png',
+    'title' => t('Default Zen Layout'),
+    'theme' => 'zen_panels_default',
+    'panels' => array('left' => t('Left side'), 'middle' => t('Middle column'), 'right' => t('Right side')),
+  );
+  return $items;
+}
+
+/**
+ * Callback function that themes the panel.
+ *
+ * @param $id
+ *   The ID of the layout
+ * @param $content
+ *   The content array
+ */
+function theme_zen_panels_default($id, $content) {
+  // Special case when on the admin screen we use the 25/50/25 layout, because
+  // panels draggables does not cope when the boxes are outside of the edit area 
+  if (arg(0) == 'admin' && arg(1) == 'panels') {
+    $layout = panels_get_layout('threecol_25_50_25');
+    return panels_render_layout($layout, $content);
+  }
+  
+  // On normal pages we just output content and defer the sidebar content until later  
+  $output = $content['middle'];
+  zen_panels_set_content('sidebar_left', $content['left']);
+  zen_panels_set_content('sidebar_right', $content['right']);
+  return $output;
+}
+
+/**
+ * Set content for a specified region.
+ * 
+ * This is used to defer the sidebar content until the page theme variables
+ * are being built.
+ *
+ * @param $region
+ *   Page region the content is assigned to.
+ *
+ * @param $data
+ *   Content to be set.
+ */
+function zen_panels_set_content($region = NULL, $data = NULL) {
+  static $content = array();
+
+  if (!is_null($region) && !is_null($data)) {
+    $content[$region] = $data;
+  }
+  return $content;
+}
+
+/**
+ * Implementation of hook_preprocess_page().
+ * 
+ * This retrieves the saved sidebar content up and inserts it into the theme
+ * variables for the page.
+ *
+ * @param $vars
+ *   The theme variables array to be modified
+ */
+function zen_panels_preprocess_page(&$vars) {
+  $content = zen_panels_set_content();
+  $vars = array_merge($vars, $content);
+}
+
+/**
+ * Implementation of hook_form_alter().
+ * 
+ * This hides (and enables) the setting to hide existing blocks/regions, since
+ * it doesn't make any sense with this layout.
+ * 
+ * This will only hide it if the default display layout is zen, but this
+ * setting is per-panel not per-display so you don't have finer control anyway.
+ * 
+ * @param $form_id
+ *   The id of the form
+ * @param $form
+ *  The form array to be altered
+ */
+function zen_panels_form_alter($form_id, &$form) {
+//  dpr($form);
+  if ($form_id = 'panels_page_advanced_form') {
+    $display = panels_load_display($form['panel_page']['#value']->did);
+    if ($display && $display->layout == 'zen_panels_default') {
+      $form['right']['advanced']['no_blocks']['#type'] = 'hidden';
+      $form['right']['advanced']['no_blocks']['#default_value'] = TRUE;
+    }
+  }
+}

@@ -1,0 +1,7 @@
+TODO:
+- add popup functionality
+- support multiple languages
+- settings per role (buttons, visibility,...) -> be able to create a profile and choose which roles can use it.
+- link to toggle editor on/off
+- try to use theme CSS
+- functionality increase editor height dynamically 

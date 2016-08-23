@@ -1,0 +1,208 @@
+<?php
+
+// $Id: wf_required_fields.module,v 1.1.2.1 2008/01/03 18:24:38 traxer Exp $
+
+require_once(drupal_get_path('module', 'wf_required_fields') . '/wf_required_fields.inc');
+require_once(drupal_get_path('module', 'wf_required_fields') . '/wf_required_fields_table.inc');
+
+/**
+ * Implementation of hook_menu().
+ * 
+ * Adds the callback for the configuration page.
+ *
+ * @param bool $may_cache Whether cachable menu items are requiested
+ * @return array Array of menu items
+ */
+function wf_required_fields_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/build/wf-required-fields',
+      'title' => t('Workflow Required Fields'),
+      'description' => t('Choose the content types that you want to have state dependant required fields. For each such content type and each state, configure the fields that you want to be required.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => 'wf_required_fields_settings_form',
+    );
+  }
+  else {
+    // No uncachable items at the moment
+  } 
+  return $items;
+}
+
+/**
+ * Implementation of hook_form_alter().
+ * 
+ * Sets the '#required' property of configured fields in node edit forms. 
+ * 
+ * @param string $form_id The form id
+ * @param array &$form Forms API array of the form
+ * @todo Eliminate (or disable) fields that are required on the cck field
+ *  configuration page
+ */
+function wf_required_fields_form_alter($form_id, &$form) {
+  if ($form['#id'] !== 'node-form') {
+    return; // wrong form
+  }
+
+  $node = $form['#node'];
+  $type = $node->type;
+  $types = wf_required_fields_get_types_configured();
+  if (! isset($types[$type])) {
+    return; // node type is not configured to be handled by this module
+  }
+
+  $sid = workflow_node_current_state($form['#node']);
+  $info = content_types($type);
+  $fields_available = $info['fields'];
+  foreach (array_keys($fields_available) as $field) {
+    if (wf_required_fields_is_required($type, $field, $sid)) {
+      $array =& wf_required_fields_find_required($form, $field);
+      if ($array !== null) {
+        wf_required_fields_set_required($array);
+      }
+    }
+  }
+}
+
+/**
+ * Form function for the configuration page.
+ *
+ * @return array Forms API array for the configuration page
+ */
+function wf_required_fields_settings_form() {
+  $form = array();
+  $form['wf_required_fields'] = array(
+    '#tree' => true,
+  );
+
+  $types_applicable = wf_required_fields_get_types_applicable();
+  $types_configured = wf_required_fields_get_types_configured();
+  
+  // Present a select box to the user for choosing content types from.
+  $form['wf_required_fields']['types'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Content Types'),
+    '#description' => t('Select the content types that you want to use this module with. Then save this page and add required fields to the content types in one of the next sections. If you do not see your type here, it is because it has now workflow associated.'),
+    '#collapsible' => true,
+    '#collapsed' => !empty($types_applicable) && !empty($types_configured),
+  );
+  if (empty($types_applicable)) {
+    // No content types where found.
+    $form['wf_required_fields']['types']['config'] = array(
+      '#type' => 'markup',
+      '#value' => t('You have not configured any content types to use a workflow. You can use this module only with content types that are configured to use a workflow.'),
+    );
+    return system_settings_form($form);
+  }
+  $form['wf_required_fields']['types']['config'] = array(
+    '#type' => 'select',
+    '#multiple' => true,
+    '#options' =>  $types_applicable,
+    '#default_value' => $types_configured,
+  );
+
+  // For each content type, present a matrix with states and fields; and checkboxes to click.
+  foreach ($types_configured as $type) {
+    $wid = workflow_get_workflow_for_type($type);
+    $states = workflow_get_states($wid);
+    $form['wf_required_fields']['settings'][$type] = array(
+      '#type' => 'fieldset',
+      '#title' => $types_applicable[$type],
+      '#description' => t('For each state, select the fields that you want to make a required field.'),
+      '#collapsible' => true,
+      '#collapsed' => false,
+    );
+    $form['wf_required_fields']['settings'][$type]['table'] = array(
+      '#type' => 'wf_required_fields_table',
+      '#header' => array(
+        '#type' => 'wf_required_fields_header',
+        0 => array(
+          '#type' => 'wf_required_fields_cell',
+          0 => array(
+            '#value' => t('Field') . '\\' . t('State'),
+          )
+        ),
+      ),
+    );
+    $cols = array();
+    foreach ($states as $sid => $sname) {
+      $form['wf_required_fields']['settings'][$type]['table']['#header'][$sid] = array(
+        '#type' => 'wf_required_fields_cell',
+        0 => array(
+          '#value' => $sname,
+        )
+      );
+      $cols[] = $sid;
+    }
+    $info = content_types($type);
+    foreach ($info['fields'] as $field => $field_info) {
+      $form['wf_required_fields']['settings'][$type]['table'][$field] = array(
+        '#type' => 'wf_required_fields_row',
+        0 => array(
+          '#type' => 'wf_required_fields_cell',
+          '#head' => true,
+          0 => array(
+            '#value' => $field_info['widget']['label'],
+          ),
+        ),
+      );
+      foreach ($cols as $sid) {
+        $form['wf_required_fields']['settings'][$type]['table'][$field][$sid] = array(
+          '#type' => 'wf_required_fields_cell',
+          'required' => array(
+            '#type' => 'checkbox',
+            '#default_value' => wf_required_fields_is_required($type, $field, $sid),
+          ), 
+        );
+      }      
+    }
+  }
+
+  return system_settings_form($form);  
+}
+
+/**
+ * Implementation of hook_workflow().
+ *
+ * Objects transitions on nodes if required fields in the new state are
+ * missing.
+ * 
+ * @param string $op 'transition pre': transition is about to be executed,
+ *  'transition post': transition was just executed
+ * @param int $old_sid The sid of the state the node came from
+ * @param int $new_sid The sid of the state the transition goes to
+ * @param stdClass $node The node the transtions occures on  
+ */
+function wf_required_fields_workflow($op, $old_sid, $new_sid, $node) {
+  $types = wf_required_fields_get_types_configured();
+  if (! isset($types[$node->type])) {
+    return;
+  }
+  switch ($op) {
+    case 'transition pre':
+      $missing = wf_required_fields_get_missing_fields($node, $new_sid);
+      if (! empty($missing)) {
+        $state = workflow_get_state($new_sid);
+        $list = '<ul>';
+        foreach ($missing as $value) {
+          $list .= '<li>' . check_plain($value) . '</li>';
+        }
+        $list .= '</ul>';
+        drupal_set_message(
+          t(
+            'Cannot promote "!title" to state %state. The following fields are empty: !list',
+            array(
+              '!title' => l($node->title, $node->nid),
+              '%state' => $state['state'],
+              '!list' => $list,
+            )
+          )
+        );
+        return false;
+      }
+      break;
+    default:
+      return;
+  }
+}

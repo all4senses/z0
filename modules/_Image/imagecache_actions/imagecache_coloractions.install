@@ -1,0 +1,23 @@
+<?php
+// $Id: imagecache_coloractions.install,v 1.1.4.2.2.1 2009/04/23 00:50:13 dman Exp $
+
+function imagecache_coloractions_install() {
+  if (function_exists('imagecache_action_definitions')) {
+    imagecache_action_definitions(TRUE);
+  }
+  cache_clear_all('imagecache_actions', 'cache');
+}
+function imagecache_coloractions_uninstall() {
+  if (function_exists('imagecache_action_definitions')) {
+    imagecache_action_definitions(TRUE);
+  }
+  cache_clear_all('imagecache_actions', 'cache');
+}
+
+function imagecache_coloractions_update_3() {
+  if (function_exists('imagecache_action_definitions')) {
+    imagecache_action_definitions(TRUE);
+  }
+  cache_clear_all('imagecache_actions', 'cache');
+  return array();
+}

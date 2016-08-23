@@ -1,0 +1,10 @@
+; $Id: wf_required_fields.info,v 1.1.2.1 2008/01/03 16:35:27 traxer Exp $
+name = Workflow required fields
+description = Sets CCK fields to "required" depending on the workflow state of the node
+package = Workflow
+dependencies = content workflow
+; Information added by drupal.org packaging script on 2008-01-03
+version = "5.x-1.0"
+project = "wf_required_fields"
+datestamp = "1199386508"
+

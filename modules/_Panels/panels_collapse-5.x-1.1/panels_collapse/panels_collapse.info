@@ -1,0 +1,11 @@
+; $Id: panels_collapse.info,v 1.1 2009/01/28 11:53:15 joachim Exp $
+name = Collapsing panel style
+description = Panel style for collapsible panel item.
+package = "Panels style plugins"
+dependencies = panels
+
+; Information added by drupal.org packaging script on 2009-02-01
+version = "5.x-1.1"
+project = "panels_collapse"
+datestamp = "1233481826"
+

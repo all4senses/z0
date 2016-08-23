@@ -1,0 +1,1901 @@
+<?php
+// $Id: zp_autoimport.module,v 1.1 
+
+//zp_autoimport_execute();
+ 
+//return;
+
+
+
+
+
+
+
+
+// functions ------------------------------------------------------------------
+
+function zp_autoimport_menu($may_cache) {
+  $items = array();
+
+  $age = 1; // в часах
+  
+  if (!$may_cache) 
+  {
+    //folder  
+    $items[] = array(
+      'path' => 'admin/store/zp_autoimport',
+      'title' => t('ZP Autoimport'),
+      //'access' => user_access('access content'),
+    );
+    
+    //item in folder
+    $items[] = array(
+      //'path' => 'admin/store/zp_autoimport/zp_autoimport_prices',
+      'path' =>'admin/store/zp_autoimport/go',
+      'title' => t('Do Import now!'),
+      'description' => t('Get new emails with prices and import it to the shop'),
+      'callback' => 'zp_autoimport_execute',
+      //'type' => MENU_LOCAL_TASK,
+      //'type' => MENU_CALLBACK,
+      //'callback arguments' => array($age, 0, 1), // возраст сессии в часах (выше в этой функции указан), удалять удминские сессии, возвращать на пред. страницу
+      //'access' => user_access('access content'),
+    );
+
+    //item in folder
+    $items[] = array(
+      //'path' => 'admin/store/zp_autoimport/zp_autoimport_prices',
+      'path' =>'ai/go',
+      'title' => t('Do Import now!'),
+      'description' => t('Get new emails with prices and import it to the shop'),
+      'callback' => 'zp_autoimport_execute',
+      //'type' => MENU_LOCAL_TASK,
+      'type' => MENU_CALLBACK,
+      //'callback arguments' => array($age, 0, 1), // возраст сессии в часах (выше в этой функции указан), удалять удминские сессии, возвращать на пред. страницу
+      'access' => user_access('access content'),
+    );
+    
+    
+  }
+  return $items;
+} 
+
+
+function zp_autoimport_init_variables()
+{
+    global $server_directory;
+    global $work_part, $base_path_close, $path_close, $base_path_open, $path_open;
+    global $out;
+
+    $work_path = 'prices';	
+    //$server_directory = $_SERVER['DOCUMENT_ROOT'] . '/' . $work_part . '/'; //fetch mails // working! get site's root 
+    // here $_SERVER['DOCUMENT_ROOT'] = /home/zpshop/public_html
+    //echo 'server_directory = ' . $server_directory . '<br>';
+
+    $base_path = '/home/zpshop/zp_work/';
+    $base_path_open = '/home/zpshop/public_html/zpwrk/'; //fetch mails // one level up from site's root
+    $path_open = $base_path_open . $work_path . '/';
+    $base_path_close = '/home/zpshop/zp_work/';
+    $path_close = $base_path_close . $work_path . '/';
+    
+    //$server_directory = $work_part . '/'; //fetch mails
+    //$server_directory = realpath('/' . $work_part); //fetch mails	
+
+    $ld = array();
+
+    //$ld[0]['u'] = "a.blackpigeon@gmail.com";
+    //$ld[0]['p'] = "rhfcysqjuehtw";
+    
+    $ld[0]['u'] = "zp.prices@gmail.com";
+    $ld[0]['p'] = "sapfir99";
+
+    return $ld;
+}
+
+
+
+function zp_autoimport_execute()
+{
+    global $new_mails;
+    global $out;
+    global $mails_count;
+    
+    $new_mails_count = 0;
+    $new_mails = ''; // список адресов новой почты.
+    
+    $ld = zp_autoimport_init_variables();
+    
+    foreach ($ld as $l) 
+    {
+        $new_mails_count += zp_autoimport_get_new_emails_from_one_box($l);	
+        return;
+        
+    }   
+        
+
+    if($new_mails_count > 0)
+    {
+            if($new_mails_count > 10)
+            {
+                    $new_mails = $new_mails . '... (+ ' . ($new_mails_count - 10) . ' unreaden)';
+                    // no sending for a while
+                    //send_sms_report('New mails (' . $new_mails_count .'+): ' . $new_mails); // уведомление по sms
+            }
+            else
+            {
+                    // no sending for a while
+                    //send_sms_report('New mails (' . $new_mails_count .'): ' . $new_mails); // уведомление по sms
+            }
+
+            //echo '<br>New mails (' . $new_mails_count . ') from: ' . $new_mails;
+            echo '<br>New mails (' . $new_mails_count . ') from: ' . $new_mails;
+    }
+
+    //echo 'Out = <br>' . $out; // выводим всё, что хотела вывести программа
+
+
+    
+}   // end of function zp_autoimport_execute() 
+
+
+     
+     
+     
+function zp_autoimport_get_new_emails_from_one_box($access) //$user, $password
+{
+    global $server_directory;
+    global $new_mails;
+    global $out;
+
+    $user = $access['u']; $password = $access['p'];
+
+    $pop_conn = fsockopen("ssl://pop.gmail.com", 995,$errno, $errstr, 10);
+    if(!$errstr)
+    {
+            $data=fgets($pop_conn,1024);
+            echo "$data<br>";
+
+            fputs($pop_conn,"USER $user\r\n");
+            $data= fgets($pop_conn,1024);
+            echo "$data<br>";
+
+            fputs($pop_conn,"PASS $password\r\n");
+            $data= fgets($pop_conn,1024);
+
+            if(stristr($data,"ok"))
+            {
+                    echo "$data<br>";
+
+                    //колво писем
+                    fputs($pop_conn,"STAT\r\n");
+                    $data=fgets($pop_conn,1024);
+                    $data=eregi("^\+OK *([0-9]+)",$data,$cnt);
+
+                    echo "Писем = $cnt[1]<br>";
+					
+                    //if($cnt[1]>0)
+                    /*
+                    if($cnt[1] > 10)
+                            $count = 10;
+                    else
+                            $count = $cnt[1];
+                            //$count = $cnt[1] - 1;
+                    */
+                    // читаем все новые письма, всё равно потом пропускаем все, которы не подходят по признакам обновляемого прайса
+                    $count = $cnt[1];
+
+                    $flag_own_report = 0;
+
+                    //while($count > 0) // get more newer letters first
+                    for($i = 1; $i <= $count; $i++) // get more older letters first
+                    {
+                        //$letter = zp_autoimport_get_next_unreaden_letter($pop_conn, $count--, $cnt, $user);
+                        $letter = zp_autoimport_get_next_unreaden_letter($pop_conn, $i, $cnt, $user);
+                        zp_autoimport_process_letter($letter);
+                    }
+
+                    // close connection
+                    fputs($pop_conn,"QUIT\r\n");
+
+
+            } // end of if(stristr($data,"ok"))
+
+    } // end of if(!$errstr)
+
+    return $cnt[1]; // возвращаем количество полученных писем
+	
+}
+     
+     
+
+
+
+
+
+function zp_autoimport_get_next_unreaden_letter($pop_conn, $email_num, &$cnt, $user) // $cnt = номер письма среди непрочитанных
+{
+    global $out;
+
+    /*
+    fputs($pop_conn,"TOP 1 30\r\n");
+    fputs($pop_conn,"RETR 1\r\n");
+
+    почему-то команда UIDL <номер> не работает, а зависает
+    а просто UIDL как и положено выдаёт список всех писем (правда, только ещё не просмотренных) с идентификаторами
+    fputs($pop_conn, "UIDL ". $email_num . "\r\n");
+    fputs($pop_conn, "UIDL 1\r\n");
+    $email_uidl = zp_autoimport_get_data($pop_conn);
+    echo "email_uidl = " . $email_uidl . "<br>";
+
+    echo "String = " . "RETR ". $email_num . "\r\n<br>";
+    */
+
+    //fputs($pop_conn,"RETR 1\r\n");
+    //fputs($pop_conn,"RETR ". "100" . "\r\n");
+    fputs($pop_conn, "RETR ". $email_num . "\r\n");
+
+    // получим письмо
+    $text = zp_autoimport_get_data($pop_conn);
+    // в переменной $text сейчас всё письмо вместе с заголовками.
+
+    echo "Next Letter, num. $cnt[1] #############################################<br>";
+
+    // разделяем письмо на заголовки и тело, еще раз советую почитать Почтовый стандарт "MIME" (RFC1521) (http://webi.ru/webi_files/26_15_f.html)
+    $struct = zp_autoimport_fetch_structure($text);
+
+    // теперь раскладываем заголовки по полочкам
+    // и получаем удобный ассоциативный массив с удобным обращением к любому заголовку.
+    // например $mass_header['subject'] == "=?windows-1251?B?7/Do4uXy?="
+    $mass_header = zp_autoimport_decode_header($struct['header']);
+
+    // чтобы воспользоваться заголовком, который может содержать не латинские символы
+    // например тема письма, нужно прогнать заголовок через функцию декодирования.
+    
+    
+    
+    
+    
+    //echo "Subj before enc: " . $mass_header["subject"] . '<br>';
+    
+    $mass_header["subject"] = zp_autoimport_decode_mime_string($mass_header["subject"]);
+    
+    $from['address'] = zp_autoimport_decode_mime_string($mass_header["from"]);
+    $mail_full_address = ereg_replace("\"(.*)\"","\\1", $from['address']);
+    
+    if(stripos($from['address'], ">"))
+    {
+        $mail_address = explode("<", $from['address']);
+        $mail_address = trim($mail_address[1], ">");
+    }	
+        
+    echo "Date: " . $mass_header["date"] . "<br>";
+    //echo 'From[subject] after enc = ' . $mass_header["subject"] . '<br>';
+    
+    echo 'From[subject] after enc = '. $mass_header["subject"] . '<br>';
+    //echo 'From[subject] after enc cp1251_to_utf8_recursive = '. zp_autoimport_cp1251_to_utf8_recursive($mass_header["subject"]) . '<br>';
+	//echo 'From[subject] after enc win_utf8 = '. zp_autoimport_win_utf8($mass_header["subject"]);
+    
+    
+    echo 'From[address] = ' . $from['address'] . '<br>';
+
+    // strip from address (убираем имя до адреса из строки с адресом, если она в формате �?МЯ <Адрес> или "�?МЯ" <Адрес>)
+    $strip_mail_name = explode("<", $from['address']);
+    if($strip_mail_name != $from['address'])
+    {
+        if($strip_mail_name[1])
+            $strip_mail_from = trim($strip_mail_name[1], ">");
+        else
+            $strip_mail_from = trim($strip_mail_name[0], '"');
+    }
+    else
+        $strip_mail_from = $strip_mail_name;
+     
+    // теперь имеем обычный читаемый текст
+
+    /*
+    foreach($mass_header as $key => $mh)
+        echo $key . ": " . $mh . "<br>";
+    */
+        
+    if(stripos($from['subject'], 'sms.F.') !== false AND $strip_mail_from == $user) // ... и если это не письмо, которое не получено, а отправлено с этого ящика
+    {
+        $flag_own_report = 1;
+        $cnt[1] = $cnt[1] - 1;
+        echo "Own letter! Skip it! Now there are $cnt[1] letters<br>";
+        return;
+    }   
+
+    // �?наче обрабатываем содержимое письма
+
+    // Сейчас разберем заголовок Content-Type, это тип содержимого. Определим, что в письме, только текст или еще и файлы.
+    // Content-Type: text/plain; charset=Windows-1251 это обычное текстовое письмо
+    // Content-Type: multipart/mixed; boundary="_----------=_118224799143839" это составное письмо из нескольких частей, с вложенными файлами.
+    $type = $ctype = $mass_header['content-type'];
+    $ctype = split(";",$ctype);
+    $types = split("/",$ctype[0]);
+    $maintype = trim(strtolower($types[0])); // text или multipart
+    $subtype = trim(strtolower($types[1])); // а это подтип(plain, html, mixed)
+
+    echo "Mail maintype = " . $maintype . "<br>";
+    echo "Mail subtype = " . $subtype . "<br>";
+
+    
+    
+    // сейчас проверяем тип содержимого письма
+    // Если это обычное текстовое содержимое (текст или html) без вложений
+    if($maintype == "text")
+    {
+        // $subtype можно использовать эту переменную для определения текстовое письмо или html
+        // эту проверку можете поставить сами
+        // Передаем тело письма в функцию, на перекодирование. �? так же посылаем заголовки, информирующие о том, как было закодировано письмо.
+
+        echo 'It\'s a mail without attach';
+        //echo "Body before enc: " . $body . '<br>';
+        $body = zp_autoimport_compile_body($struct['body'],$mass_header["content-transfer-encoding"],$mass_header["content-type"]);
+        echo "Body after enc: " . $body . '<br>';
+
+        if($subtype == "html")
+        {
+            $body = zp_autoimport_html2text($body);
+            echo "It's stripped html...<br> Body after stripping:<br>" . $body . '<br>';
+        }
+        $mail_message = $body;
+    }
+    elseif($maintype == "multipart")// and ereg($subtype,"signed,mixed,related,alternative"))  //elseif($maintype=="multipart" and ereg($subtype,"signed,mixed,related"))
+    {
+        // теперь рассмотрим вариант, если письмо имеет несколько разных частей.
+        // тут рассматриваю подтипы signed,mixed,related, но есть еще подтип alternative, который служит для альтернативного отображения письма.
+        // например, письмо в html и к нему же можно добавить альтернативное текстовое содержание.
+        // подробнее читайте про этот подтип в Почтовом стандарте "MIME" (RFC1521) (http://webi.ru/webi_files/26_15_f.html)
+
+        $textplain = 0; // flag - has plain
+        $texthtml = 0; // flag - has html
+
+        // получаем метку-разделитель частей письма
+        $boundary = zp_autoimport_get_boundary($mass_header['content-type']);
+
+        //echo "boundary = " . $boundary . "<br>";
+        // на основе этого разделителя разбиваем письмо на части
+        $part = zp_autoimport_split_parts($boundary,$struct['body']);
+
+        $count_parts = count($part);
+        echo "It's a multipart with " . $count_parts . " parts in the letter<br>";
+
+        //$attached_filenames = "";
+        // теперь обрабатываем каждую часть письма
+        for($i=0; $i < $count_parts; $i++)
+        {
+            // разбиваем текущую часть на тело и заголовки
+            $email = zp_autoimport_fetch_structure($part[$i]);
+            $header = $email["header"];
+            $body = $email["body"];
+
+            // разбираем заголовки на массив
+            $headers = zp_autoimport_decode_header($header);
+            $ctype = $headers["content-type"];
+            $cid = $headers["content-id"];
+            $Actype = split(";",$headers["content-type"]);
+            $types = split("/",$Actype[0]);
+            $rctype = strtolower($Actype[0]);
+            
+
+    
+
+            echo "<br><br>------------" . $i . " part... <br>";
+            echo "rctype = " . $rctype . "<br>";
+
+            // теперь проверяем, является ли эта часть прикрепленным файлом
+            $is_download = (ereg("name=",$headers["content-disposition"].$headers["content-type"]) || $headers["content-id"] != "" || $rctype == "message/rfc822");
+
+            // теперь читаем и выводим само тело части, если это обычный текст
+            if(!$is_download)
+            {
+                if($rctype == "text/plain" AND !$texthtml)
+                {
+                    // если это plain text
+                    //echo "Mail Body before enc: " . $body . '<br>';
+                    $body = zp_autoimport_compile_body($body,$headers["content-transfer-encoding"],$headers["content-type"]);
+                    echo "Mail Body after enc: " . $body . '<br>';
+                    $mail_message = $body;
+                    $textplain = 1;
+                }
+                elseif($rctype == "text/html" AND !$textplain)
+                {	
+                    // если это html
+                    $body = zp_autoimport_compile_body($body, $headers["content-transfer-encoding"],$headers["content-type"]);
+                    $body = zp_autoimport_html2text($body);
+                    $mail_message = $body;
+                    $texthtml = 1;					
+                    echo "It's stripped html: <br>$body<br>";
+                }
+                elseif($rctype == "multipart/alternative")
+                {
+                	echo 'Multypart again! :)<br>';
+                	
+                	// получаем метку-разделитель частей письма для вложенной в группу группы
+			        //$boundary = zp_autoimport_get_boundary($mass_header['content-type']);
+			        $boundary = zp_autoimport_get_boundary($header);
+			
+			        //echo "boundary = " . $boundary . "<br>";
+			        // на основе этого разделителя разбиваем письмо на части
+			        //$part = zp_autoimport_split_parts($boundary, $struct['body']);
+			        $part_nested = zp_autoimport_split_parts($boundary, $body);
+			        
+			
+			        $count_parts = count($part_nested);
+			        echo "It's an inner (nested) multipart with " . $count_parts . " parts in the letter<br>";
+			
+			        //$attached_filenames = "";
+			        // теперь обрабатываем каждую часть письма
+			        for($j=0; $j < $count_parts; $j++)
+			        {
+			            // разбиваем текущую часть на тело и заголовки
+			            $email = zp_autoimport_fetch_structure($part_nested[$j]);
+			            $header = $email["header"];
+			            $body = $email["body"];
+			
+			            // разбираем заголовки на массив
+			            $headers = zp_autoimport_decode_header($header);
+			            $ctype = $headers["content-type"];
+			            $cid = $headers["content-id"];
+			            $Actype = split(";", $headers["content-type"]);
+			            $types = split("/", $Actype[0]);
+			            $rctype = strtolower($Actype[0]);
+			
+			            echo "<br><br>------------" . $j . " part of nested parts... <br>";
+			            echo "rctype = " . $rctype . "<br>";
+			
+			            // теперь проверяем, является ли эта часть прикрепленным файлом
+			            $is_download = (ereg("name=", $headers["content-disposition"].$headers["content-type"]) || $headers["content-id"] != "" || $rctype == "message/rfc822");
+			
+			            // теперь читаем и выводим само тело части, если это обычный текст
+			            if(!$is_download)
+			            {
+			                if($rctype == "text/plain" AND !$texthtml)
+			                {
+			                    // если это plain text
+			                    //echo "Body (in subnest) before enc: " . $body . '<br>';
+			                    $body = zp_autoimport_compile_body($body,$headers["content-transfer-encoding"],$headers["content-type"]);
+			                    echo "Body (in subnest) after enc: " . $body . '<br>';
+			                    $mail_message = $body;
+			                    $textplain = 1;
+			                }
+			                elseif($rctype == "text/html" AND !$textplain)
+			                {	
+			                    // если это html
+			                    $body = zp_autoimport_compile_body($body,$headers["content-transfer-encoding"],$headers["content-type"]);
+			                    $body = zp_autoimport_html2text($body);
+			                    $mail_message = $body;
+			                    $texthtml = 1;					
+			                    echo "It's stripped html (in subnest): <br>$body<br>";
+			                }
+			                elseif($rctype == "multipart/alternative")
+			                {
+			                	echo 'Multypart again - deepper! :)<br>';
+			                	// ... and so on deepper into the nest :)
+			                	
+			                }
+			            }
+			            elseif($is_download) 
+			            {
+			                // и наконец, если это файл
+			                // �?мя файла можно выдернуть из заголовков Content-Type или Content-Disposition
+			                $cdisp = $headers["content-disposition"];
+			                $ctype = $headers["content-type"];
+			                $ctype2 = explode(";",$ctype);
+			                $ctype2 = $ctype2[0];
+			                $Atype = split("/",$ctype);
+			                $Acdisp = split(";",$cdisp);
+			                $fname = $Acdisp[1];
+			                if(ereg("filename=(.*)",$fname,$regs))
+			                    $filename = $regs[1];
+			                if($filename == "" && ereg("name=(.*)",$ctype,$regs))
+			                    $filename = $regs[1];
+			                $filename = ereg_replace("\"(.*)\"","\\1",$filename);
+			
+			                // как получили имя файла, теперь его нужно декодировать
+			                $filename = trim(zp_autoimport_decode_mime_string($filename));
+			
+			                echo "<br>File in attach (while in subnest) = " . $filename . "<br>";
+			
+			                // формируем строку с именами файлов в аттаче
+			               	if(!$attached_filenames['utf8']) $attached_filenames['utf8'] = $attached_filenames['utf8'] . $filename['utf8']; else $attached_filenames['utf8'] = $attached_filenames['utf8'] . ", " . $filename['utf8'];
+                			if(!$attached_filenames['win1251']) $attached_filenames['win1251'] = $attached_filenames['win1251'] . $filename['win1251']; else $attached_filenames['win1251'] = $attached_filenames['win1251'] . ", " . $filename['win1251'];
+
+			                // теперь читаем файл в переменную и сохраняем его для последующей обработки
+			                $attached_files[] = array('filename' =>$filename, 'body' => zp_autoimport_compile_body($body, $headers["content-transfer-encoding"], $ctype));
+			
+			            } // end of elseif($is_download) 
+			
+			        } // end of for($j=0; $j < count($part); $j++)
+                	
+                }
+            }
+            elseif($is_download) 
+            {
+                // и наконец, если это файл
+                // �?мя файла можно выдернуть из заголовков Content-Type или Content-Disposition
+                $cdisp = $headers["content-disposition"];
+                $ctype = $headers["content-type"];
+                $ctype2 = explode(";",$ctype);
+                $ctype2 = $ctype2[0];
+                $Atype = split("/",$ctype);
+                $Acdisp = split(";",$cdisp);
+                $fname = $Acdisp[1];
+                if(ereg("filename=(.*)",$fname,$regs))
+                    $filename = $regs[1];
+                if($filename == "" && ereg("name=(.*)",$ctype,$regs))
+                    $filename = $regs[1];
+                $filename = trim(ereg_replace("\"(.*)\"","\\1",$filename));
+
+                // как получили имя файла, теперь его нужно декодировать
+                $filename = zp_autoimport_decode_mime_string($filename, true); // get both win1251 and utf filename string
+
+                echo "<br>File in attach (utf8): " . $filename['utf8'] . '<br>';
+                //zp_functions_show($filename);
+                
+
+                // формируем строку с именами файлов в аттаче
+                if(!$attached_filenames['utf8']) $attached_filenames['utf8'] = $attached_filenames['utf8'] . $filename['utf8']; else $attached_filenames['utf8'] = $attached_filenames['utf8'] . ", " . $filename['utf8'];
+                if(!$attached_filenames['win1251']) $attached_filenames['win1251'] = $attached_filenames['win1251'] . $filename['win1251']; else $attached_filenames['win1251'] = $attached_filenames['win1251'] . ", " . $filename['win1251'];
+
+                // выясним дату, на которую получены цены
+                //Спар1 ТЦ Персона (1)_230411_040511.csv // 040511 - текущая дата, 230411 - дата прошлой выгрузки
+        		//$last = mb_strlen($filename, 'win-1251') - 1; // not working
+        		//$last = zp_import_strlen($filename) - 1; // wrong code
+                $dates = explode(')_', $filename);
+        		$dates = $dates[1];
+        		$last = strlen($dates);
+        		 
+        		$price_current_date = '20' . $dates[$last - 6] . $dates[$last - 5] . '-' . $dates[$last - 8] . $dates[$last - 7]   . '-' . $dates[$last - 10] . $dates[$last - 9]; // 2011-05-04 // year, m, d
+        		$price_current_date = strtotime($price_current_date); 
+        		//$str_date = date('Y j M', $price_current_date);
+        		echo "<br>Price for the date = " . $price_current_date . ' (' . date('d m Y, h:m', $price_current_date) . ")<br>";
+        		
+        		//echo "File_content befor conv = " . $body . '<br>';
+        		$body = zp_autoimport_compile_body($body, $headers["content-transfer-encoding"], $ctype);
+        		echo "File_content after conv = " . $body . '<br>';
+                // теперь читаем файл в переменную и сохраняем его для последующей обработки
+                $attached_files[] = array('filename' =>$filename, 'body' => $body, 'price_current_date' => $price_current_date);
+
+            } // end of elseif($is_download) 
+
+        } // end of for($i=0;$i<count($part);$i++)
+
+    } // end of elseif($maintype=="multipart")
+
+    return array('attached_files'=>$attached_files, 
+                 'attached_filenames' => $attached_filenames,
+                 'mass_header'=>$mass_header, 
+                 'mail_full_address' => $mail_full_address, 
+                 'mail_address' => $mail_address,
+                 'mail_message' => $mail_message, 
+                );
+	
+} // The End of function get_one_unreaden_email($pop_conn, $email_num) // $cnt = номер письма среди непрочитанных
+
+
+
+
+// wrong code
+/*
+function zp_import_strlen($str)
+{
+	$count = 0;
+	while($str[$count])
+	{
+		echo $str[$count];
+		$count++;
+	}
+	return $count;
+}
+*/
+
+
+
+
+
+function zp_autoimport_process_letter($letter)
+{
+	if(($attaches = count($letter['attached_files'])) != 1)
+    	zp_autoimport_add_emailname_to_maillist_file($letter['mail_address'], array('message' => (!$attaches)?'No attach':'Too many (' . $attaches . ') attached files'));
+	elseif($shop = zp_autoimport_get_shop_id($letter['attached_filenames']))
+	{
+		echo 'Shop id = ' . $shop['zp_id'] . '<br>';
+		
+		if(!$error_message = zp_autoimport_check_and_save_attached_files($letter['attached_files']))
+		{
+			$result_message = zp_autoimport_process_price($shop, $letter['attached_files']);
+
+			// write reports
+			zp_autoimport_add_emailname_to_maillist_file($letter['mail_address'], array('message' => 'Shop: ' . $shop['zp_id'] . ', attach: ' . $letter['attached_filenames']['win1251']));
+			zp_autoimport_save_to_wap($letter['mass_header']["date"], $letter['mail_full_address'], $letter['mail_address'], zp_autoimport_decode_mime_string($letter['mass_header']["to"]), $letter['mass_header']["subject"], $letter['mail_message'], $letter['attached_filenames']['utf8'], $result_message, $shop);
+		}
+		else
+			zp_autoimport_add_emailname_to_maillist_file($letter['mail_address'], array('message' => $error_message));
+	}
+    else 
+    	zp_autoimport_add_emailname_to_maillist_file($letter['mail_address'], array('message' => 'Not recognized shop'));
+    	
+    die('Hello!');
+}
+
+
+
+
+// this function could get and handle multiple files, although here it will be called only in case of the one file
+function zp_autoimport_check_and_save_attached_files($attached_files)
+{
+    global $path_close;
+    
+	// check if file(s) exist(s) and if files format is correct
+    $file_exists = 0;
+    $wrong_format = 0;
+    foreach($attached_files as $count => $attached_file)
+    {
+        if(file_exists($path_close . $attached_file['filename']['win1251']))
+        {
+        	echo 'Error: file_exist: ' . $path_close . $attached_file['filename']['utf8'] . '<br>';
+        	$file_exists++;
+        }	
+        // uncomment it!
+        /*	
+        if($wrong_date = db_result(db_query("SELECT on_date FROM {zp_autoimport_report} WHERE on_date >= %d DESC", $attached_file['price_current_date'])))
+        	break;
+        */	
+        	
+        $strings = explode("\n", $attached_file['body']);
+		$indexes = explode(";", $strings[0]);
+		//zp_functions_show($indexes);
+		if(!in_array('Код', $indexes))
+		{
+			echo 'Error: wrong_format in file: ' . $path_close . $attached_file['filename']['utf8'] . '<br>';
+			$wrong_format++;
+		}
+    }
+    
+    
+    
+    
+    if($file_exists OR $wrong_format OR $wrong_date)
+    {
+    	if($file_exists)
+    		$error_message .=  $file_exists . ' of ' . ($count+1) . ' file(s) exist(s) already, ';
+    	if($wrong_format)
+			$error_message .= $wrong_format . ' of ' . ($count+1) . ' file(s) has wrong format';
+		if($wrong_date)
+			$error_message .= 'The last max Date (' . $wrong_date . ')  is bigger then current (' . $price_current_date . ')';
+			
+		die('Die after error in file format or exist');
+			
+		return $error_message;
+    }
+    
+    foreach($attached_files as $attached_file)
+    {
+    	if(!$ft = fopen($path_close . $attached_file['filename']['win1251'], "wb"))
+    	{
+    		echo 'Ошибка при создании файла ' . $path_close . $attached_file['filename']['utf8'] . '<br>';
+    		//die('Hey! :)');
+    		
+    		return 'Ошибка при создании файла ' . $path_close . $attached_file['filename']['win1251'] . '<br>';
+    	}
+    	
+    	echo 'Создаём файл ' . $path_close . $attached_file['filename']['utf8'] . '<br>';
+    		
+        fwrite($ft, $attached_file['body']);
+        fclose($ft);
+    }
+    
+    
+    
+    return null;
+}
+
+
+
+
+
+
+function zp_autoimport_get_shop_id($attached_filename)
+{
+	// Спар1 ТЦ Персона (1)_230411_040511.csv
+	// SPAR / ТЦ Персона (1)_230411_040511.csv
+	$shop = null;
+	$shop_name = explode('(', $attached_filename['utf8']);
+	
+	if($shop_name = trim($shop_name[0]))
+		$shop = db_fetch_array(db_query("SELECT s.field_zp_art_place_value AS zp_id, s.nid, n.title FROM {content_field_zp_art_place} s INNER JOIN {content_field_mail_id} m ON m.nid = s.nid LEFT JOIN {node} n ON n.nid = s.nid WHERE m.field_mail_id_value LIKE '%%s%%'", $shop_name));
+
+	//zp_functions_show($shop);
+
+	return $shop;
+}
+
+
+
+
+
+
+function zp_autoimport_process_price($shop, $attached_files)
+{
+	
+	$result_massage = null;
+	
+	foreach($attached_files as $attached_file)
+	{
+		$strings = explode("\n", $attached_file['body']);
+		$count = 0;
+		foreach($strings as $key=>$string)
+		{
+			if(!$key)
+				$indexes = explode(";", $string);
+			else 
+			{
+				$fields = explode(";", $string);
+				foreach($fields as $k => $field)
+					$result[$indexes[$k]] = $field;
+				
+				if(!$result['ЭтоГруппа'] AND $result['Код'])
+					$products[$count++] = $result;
+			}
+			
+		}
+		
+		$result_massage = zp_autoimport_update_prices($shop, $products);
+	}
+	
+	return $result_massage;
+}
+
+
+
+
+
+
+function zp_autoimport_update_prices($shop, $products)
+{
+	
+	foreach($products as $product_new)
+	{
+		zp_functions_show($product_new);
+		
+		$query = "SELECT a.nid, s.field_status_value AS status, p.sell_price, p.model, n.title
+											FROM {uc_products} p 
+											INNER JOIN {content_field_zp_art_shop} a ON a.nid = p.nid 
+											LEFT JOIN {content_field_status} s ON s.nid = p.nid
+											LEFT JOIN {node} n ON n.nid = p.nid
+											WHERE a.field_zp_art_shop_value = '" . $product_new['Код'] . "' 
+												AND p.model LIKE '%" . $shop['zp_id'] . "%%'";
+										    
+		//echo 'query = ' . $query . '<br>';
+		
+		$product_old = db_fetch_array(db_query($query));
+		echo "product_old['nid'] = " . $product_old['nid'] . '<br>';
+		zp_functions_show($product_old);
+		
+
+		if(($product_new['ТоварПоявился'] OR $product_new['Новый']) AND $product_old['status'] === '0')
+		{
+			if($product_old['nid'])
+			{
+				db_query("UPDATE {content_field_status} SET field_status_value = '' WHERE nid = %d", $product_old['nid']);
+				db_query("UPDATE {node} SET changed = %d WHERE nid = %d", time(), $product_old['nid']);
+				$changed_depts[substr($product_old['model'], 0, 11)] = 1; // collect changed departments to set update time for them later here
+				
+				$counts['normal']['Появился']['count']++;
+				
+				if(!$counts['normal']['Появился']['titles']) 
+					$counts['normal']['Появился']['titles'] .= $product_old['title'];
+				else
+					$counts['normal']['Появился']['titles'] .= ', ' .  $product_old['title'];
+					
+				//echo "counts['normal']['Появился']['count'] = " . $counts['normal']['Появился']['count'] . '<br>';
+			}
+			else 
+			{
+				$counts['new']['Появился']['count']++;
+				
+				if(!$counts['new']['Появился']['titles']) 
+					$counts['new']['Появился']['titles'] .= $product_new['Наименование'];
+				else
+					$counts['new']['Появился']['titles'] .= ', ' .  $product_new['Наименование'];
+					
+				//echo "counts['new']['Появился']['count'] = " . $counts['new']['Появился']['count'] . '<br>';
+			}
+		}
+		elseif(($product_new['ТоварЗакончился'] OR $product_new['НетВПродаже']) AND $product_old['status'] !== '0')
+		{
+			if($product_old['nid'])
+			{
+				db_query("UPDATE {content_field_status} SET field_status_value = '0' WHERE nid = %d", $product_old['nid']);
+				db_query("UPDATE {node} SET changed = %d WHERE nid = %d", time(), $product_old['nid']);
+				$changed_depts[substr($product_old['model'], 0, 11)] = 1; // collect changed departments to set update time for them later here
+				$counts['normal']['Закончился']['count']++;
+				
+				if(!$counts['normal']['Закончился']['titles']) 
+					$counts['normal']['Закончился']['titles'] .= $product_old['title'];
+				else
+					$counts['normal']['Закончился']['titles'] .= ', ' .  $product_old['title'];
+					
+				//echo "counts['normal']['Закончился']['count'] = " . $counts['normal']['Закончился']['count'] . '<br>';
+			}
+			else 
+			{
+				$counts['new']['Закончился']['count']++;
+				
+				if(!$counts['new']['Закончился']['titles']) 
+					$counts['new']['Закончился']['titles'] .= $product_new['Наименование'];
+				else
+					$counts['new']['Закончился']['titles'] .= ', ' .  $product_new['Наименование'];
+					
+				//echo "counts['new']['Закончился']['count'] = " . $counts['new']['Закончился']['count'] . '<br>';
+			}
+		}
+		
+		//echo "product_new['ЦенаПродажи'] = " . $product_new['ЦенаПродажи'] . ", product_old['sell_price'] = " . $product_old['sell_price'] . '<br>';
+		if($product_new['ЦенаПродажи'] != $product_old['sell_price'])
+		{
+			if($product_old['nid'])
+			{
+				db_query("UPDATE {uc_products} SET sell_price = %f WHERE nid = %d", $product_new['ЦенаПродажи'], $product_old['nid']);
+				db_query("UPDATE {node} SET changed = %d WHERE nid = %d", time(), $product_old['nid']);
+				$changed_depts[substr($product_old['model'], 0, 11)] = 1; // collect changed departments to set update time for them later here
+				
+				$counts['normal']['ИзмениласьЦена']['count']++;
+				
+				if(!$counts['normal']['ИзмениласьЦена']['titles']) 
+					$counts['normal']['ИзмениласьЦена']['titles'] .= $product_old['title'] . ' (' . $product_old['sell_price']  . '/маг' . $product_new['ЦенаПродажиСтарая'] . ' => ' . $product_new['ЦенаПродажи'] . ')';
+				else
+					$counts['normal']['ИзмениласьЦена']['titles'] .= ', ' .  $product_old['title'] . ' (' . $product_old['sell_price']  . '/маг' . $product_new['ЦенаПродажиСтарая'] . ' => ' . $product_new['ЦенаПродажи'] . ')';
+					
+				//echo "counts['normal']['ИзмениласьЦена']['count'] = " . $counts['normal']['ИзмениласьЦена']['count'] . '<br>';
+			}
+			else 
+			{
+				$counts['new']['ИзмениласьЦена']['count']++;
+				
+				if(!$counts['new']['ИзмениласьЦена']['titles']) 
+					$counts['new']['ИзмениласьЦена']['titles'] .= $product_new['Наименование'] . ' (маг' . $product_new['ЦенаПродажиСтарая'] . ' => ' . $product_new['ЦенаПродажи'] . ')';
+				else
+					$counts['new']['ИзмениласьЦена']['titles'] .= ', ' .  $product_new['Наименование'] . ' (маг' . $product_new['ЦенаПродажиСтарая'] . ' => ' . $product_new['ЦенаПродажи'] . ')';
+					
+				//echo "counts['new']['ИзмениласьЦена']['count'] = " . $counts['new']['ИзмениласьЦена']['count'] . '<br>';
+			}
+		}
+	}
+	
+	// update parent departments changed time
+	foreach($changed_depts as $dept_zpid => $flag)
+		db_query("UPDATE {node} SET changed = %d WHERE nid = (SELECT nid FROM {content_field_zp_art_place} WHERE field_zp_art_place_value = '%s')", time(), $dept_zpid);
+	
+	zp_clear_cache_drupal(); // clear all caches to make changes visible
+	
+	
+	// set report
+	$report_normal_count = false;
+	$report_new_count = false;
+	foreach($counts['normal'] as $type => $normal)
+	{
+		if(!$report_normal_count)
+		{
+			$report .= 'Изменены: ' . $type . '=' . $normal['count'];
+			$report_titles .= 'Изменены: ' . $type . ' = ' . $normal['titles'];
+			$report_normal_count = true;
+		}
+		else
+		{
+			$report .= ', ' . $type . '=' . $normal['count'];
+			$report_titles .= '; ' . $type . ' = ' . $normal['titles'];
+		}
+	}
+
+	foreach($counts['new'] as $type => $new)
+	{
+		if(!$report_new_count)
+		{
+			$report .= ' *** Новые: ' . $type . '=' . $new['count'];
+			$report_titles .= ' *** Новые: ' . $type . ' = ' . $new['titles'];
+			$report_new_count = true;
+		}
+		else
+		{
+			$report .= ', ' . $type . '=' . $new['count'];
+			$report_titles .= '; ' . $type . ' = ' . $new['titles'];
+		}
+	}
+	
+	//zp_functions_show($counts);
+	echo 'report = ' . $report . '<br>';
+	echo 'report_titles = ' . $report_titles . '<br>';
+
+	return array('counts' => $report, 'titles' => $report_titles);
+}
+
+
+
+
+
+
+
+
+// функция сохранения сообщения в виде вап-страницы
+function zp_autoimport_save_to_wap($date, $mail_full_address, $mail_address, $to, $subject, $message, $attach, $report, $shop = null) 
+{
+	
+	global $path_open;
+	global $out;
+
+	
+	// каталог на сервере с исходными и выходными файлами с данными
+	//$server_directory = 'http://www.zapokupkami.com/zp_import_data/';
+	
+	//$server_directory = 'D:\\WebServers\\home\\zapokupkami.com\\www\\orders_wrk\\';
+	//$server_directory = 'http://www.all4senses.com/fb/';
+	
+	
+	//$server_directory = realpath('/fb');
+	
+	//$server_directory = 'http://www.all4senses.com/files/';
+
+	
+	//$server_directory = $_SERVER['DOCUMENT_ROOT'] . '/fb/';
+	//$server_directory = '/fb/';
+	//$xxx = realpath('http://www.all4senses.com/fb/');
+	//drupal_set_message($xxx, 'error');
+	//echo 'xxx = ' . $xxx;
+	//echo 'dir = ' . $server_directory;
+	//$server_directory = 'http://www.all4senses.com/fb/';
+	
+
+	
+
+	
+
+	
+	
+ 	// формируем и записываем собственно сам файл с письмом
+  	
+if(strpos($mail_full_address, ">"))
+{
+	$mail_name = explode("<", $mail_full_address);
+	if($mail_name[1])
+		$mail_address = ' (' . trim($mail_name[1], ">") . ')';
+	$mail_name = trim($mail_name[0], '"');
+	$mail_full_address = $mail_name . $mail_address;
+}
+ 	
+
+
+
+
+
+
+if(strpos($to, ">"))
+{
+	$to_name = explode("<", $to);
+	if($to_name[1])
+		//$mail_address = ' (' . trim($mail_name[1], ">") . ')';
+		$to_address = ' (' . trim($to_name[1], ">") . ')';
+	$to_name = trim($to_name[0], '"');
+	$to = $to_name . $to_address;
+}
+
+// заменим все <> на (), так как с <> возникают ошибки
+$message = ereg_replace('<', '("', $message);
+$message = ereg_replace('>', ')"', $message);
+
+
+
+  	$string = '<?xml version="1.0"?>
+<!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN"
+      "http://www.wapforum.org/DTD/wml_1.1.xml">
+
+
+
+<wml>
+'; 
+  	
+  	
+//------------------------ Report  	  	
+  	$string .= '<card id="ReportCounts" title="Report counts">
+<p>From: 
+' . 
+  	//zp_autoimport_win_utf8($mail_full_address) 
+	$mail_full_address
+. '</p><p>Shop: ' . $shop['title'] . '</p><p> Date: ' . $date . '</p>
+<p> Report counts:
+' . $report['counts'] .
+'</p><do type="prev" label="Report titles"><go href="#ReportTitles"/></do>
+<do type="accept" label="Task"><go href="#Task"/></do>
+</card>
+';
+  	
+
+
+//------------------------ Data  	
+  	$string .= '<card id="Task" title="Task">
+';
+  	
+	$string .= '<p> Date: 
+' . $date . '</p>';
+  	
+  	$string .= '<p> From: 
+' . 
+  	//zp_autoimport_win_utf8($mail_full_address) 
+  	$mail_full_address
+. '</p>';
+  	
+  	$string .= '<p> To: 
+' . 
+  	//zp_autoimport_win_utf8($to)
+  	$to
+. '</p>';
+  	
+  	$string .= '<p>Shop: ' . $shop['title'] . '</p><p> Subj: 
+' . 
+  	//zp_autoimport_win_utf8($subject) 
+  	$subject
+. '</p>';
+
+  	if($attach AND $attach != "")
+  	{
+  	$string .= '<p> Files: 
+' . 
+  	//zp_autoimport_win_utf8($attach) 
+  	$attach
+. '</p>';
+  	}
+  	  	
+	$string .= '<p> Message: 
+	
+' . 
+//zp_autoimport_win_utf8($message) 
+	$message 
+. '</p>
+<do type="prev" label="Report counts"><prev/></do>
+<do type="accept" label="Report titles"><go href="#ReportTitles"/></do>
+</card>';
+
+
+
+//------------------------ Report titles 	  	
+  	$string .= '<card id="ReportTitles" title="Report titles">
+<p>Shop: ' . $shop['title'] . '</p><p> Date: ' . $date . '</p>
+<p> Report titles: </p>
+<p>' . $report['titles'] .
+'</p><do type="prev" label="Task"><prev/></do>
+<do type="accept" label="Report counts"><go href="#ReportCounts"/></do>
+</card>
+</wml>';
+	
+
+	//$message_len = strlen($s)/1000 . 'k-' . strlen($message)/1000 . 'k';
+	$message_len = strlen($string)/1000 . 'k';
+	
+	
+	$new_message_file = ($shop['zp_id']?$shop['zp_id']:$mail_address) . '_' . date("MjS_H-i-s") . '(' . $message_len . ').wml';
+
+	
+	echo "<br>Write letter to wml_file " . $new_message_file . "<br>"; // . "Mail_full = " . $mail_full_address . '<br>';
+	
+	
+  	if (!$fp = fopen($path_open . $new_message_file, 'w')) {
+		
+  		
+  		echo 'Ошибка открытия файла ' . $path_open . $new_message_file . '<br>';
+		die('Test-1');
+  	
+  		return 'Ошибка открытия файла ' . $path_open . $new_message_file;
+  	}
+	
+
+  	//fwrite($fp, cp1251_to_utf8_recursive($string));
+  	//fwrite($fp, win_utf8($string));
+  	fwrite($fp, $string);
+   	fclose($fp);	
+	
+	
+
+   
+  	
+  	$message_index_file = 'fmindex.wml';
+	echo "<br>Save to wap fmindex.wml: mail_address = " . $mail_address . "<br>";
+
+	if (!$fp = fopen($path_open . $message_index_file, 'r')) {
+  	//if (!$fp = fopen($message_index_file, 'r')) {
+		//echo 'Ошибка открытия файла ' . $message_index_file;
+		echo 'Ошибка открытия файла ' . $path_open . $message_index_file . '<br>';
+		die('Test-2!');
+		
+  		return 'Ошибка открытия файла ' . $path_open . $message_index_file;
+  	}
+
+	
+  	while(($buffer = trim(fgets($fp))) != '<wml>')
+  	{
+  		//echo '1 - buffer =  ' .  $buffer .'<br>';	
+  	}
+  	
+  	$new_message_index[] = '<?xml version="1.0"?>
+
+<!DOCTYPE wml PUBLIC "-//WAPFORUM//DTD WML 1.1//EN" 
+
+"http://www.wapforum.org/DTD/wml_1.1.xml">
+
+<wml>';
+  	
+
+  	while(strpos(($buffer = trim(fgets($fp))), '<card id="Messages') === false)
+  	{
+  		if(feof($fp)) break;
+  		$new_message_index[] = $buffer;
+  	}
+  
+  	
+  	$last_card_open_tag = $buffer; // открывающий тег последней карты '<card id="Messages" title="All eMails"><p align="center">'
+  	
+  	$old_messages_page = $last_card_open_tag[18];
+  	
+  	if($last_card_open_tag[19] != '"') // если двухзначное число у номера страницы, то значит взять и второй знак
+  		$old_messages_page .= $last_card_open_tag[19];
+
+  	while(($buffer = trim(fgets($fp))) != '</p></card>')
+  		$last_card_inside[] = $buffer;
+   
+  	$last_card_close_tag = $buffer; // закрывающий тег последней карты '</p></card>'
+	
+  	if(count($last_card_inside) > 12) // если в последей карте больше 10 адресов (12 - две строчки настройки меню для карты), 
+  	{
+  		$new_messages_page = $old_messages_page + 1;
+ 		
+  		// создаём новую карту, которая будет помещена перед последней 
+  		$new_message_index[] = '<card id="Messages' . $new_messages_page . '" title="M-Page ' . $new_messages_page . '"><p align="center">';
+  		// добавляем ссылку на новый файл с заказом
+  		$new_message_index[] = '<a href="' . $new_message_file . '">' . $new_message_file . '</a><br/>';
+  		
+  		$new_message_index[] = '<do type="accept" label="next"><go href="#Messages' . $old_messages_page . '"/></do>';
+		$new_message_index[] = '<do type="prev" label="prev"><go href="#Messages' . ($new_messages_page + 1) . '"/></do>'; // на самой последней странице (т.е. на первой показываемой) вызовет ошибку при нажатии, так как такой страницы ещё нет, которая назначена на предыдущую кнопку
+
+  		$new_message_index[] = '</p></card>';
+  		$new_message_index[] = '
+';
+  		// затем добавляем последнюю, которая уже была, полностью
+  		$new_message_index[] = $last_card_open_tag;
+  	}
+  	else 
+  	{
+ 		$new_message_index[] = $last_card_open_tag;
+  		
+  		// добавляем ссылку на новый файл с заказом
+  		$new_message_index[] = '<a href="' . $new_message_file . '">' . $new_message_file . '</a><br/>';
+  	}
+  	
+  	foreach ($last_card_inside as $address)
+  		$new_message_index[] = $address;
+  		
+  	$new_message_index[] = $last_card_close_tag;
+
+  	while(!feof($fp)) 
+  	{
+  		$buffer = trim(fgets($fp));
+  		$new_message_index[] = $buffer;
+  	}	
+
+  	fclose($fp);
+  	
+  	// обновляем файл со списком сообщений (перезаписываем), добавляя в него ссылку на новое сообщение
+	if (!$fp = fopen($path_open . $message_index_file, 'w')) {
+		echo 'Ошибка открытия файла ' . $path_open . $message_index_file;
+		return 'Ошибка открытия файла ' . $message_index_file;
+  	}
+  
+  	foreach ($new_message_index as $string)
+  		fwrite($fp, $string . '
+');
+	
+  	fclose($fp);	
+  	
+  
+  	
+  	
+  	// выведем ссылки на индексный файл и файл с текущим письмом
+  	echo '<a href="http://zapokupkami.com/zpwrk/prices/' . $message_index_file . '"><p>Индексный файл: ' . $message_index_file . '</p></a>';
+  	echo '<a href="http://zapokupkami.com/zpwrk/prices/' . $new_message_file . '"><p>Текущее письмо: ' . $new_message_file . '</p></a><br>';
+  	
+  	die('Test-3!');
+}
+
+
+
+
+
+
+
+
+function zp_autoimport_add_emailname_to_maillist_file($from, $options)
+{
+    global $path_close;
+    global $out;
+
+    //$from = $from['address'];
+
+    //сохраняем список адресов новых писем
+    //$mail_name_test = trim($from, "<");
+    //$mail_name_test = trim($mail_name_test, ">");
+
+    $mail_name = explode("<", $from);
+    //if(trim($mail_name, ">") != $from)
+    
+    if($mail_name[0] != $from)
+    {
+    	if($mail_name[1])
+    		$mail_from = trim($mail_name[1], ">");
+    	else
+    		$mail_from = trim($mail_name[0], '"');
+    }
+    else
+    	$mail_from = $mail_name[0];
+
+    echo 'In add_emailname_to_maillist_file...<br>';
+    	
+    if ($fp = fopen($path_close . '_fetch_tst.txt', 'a'))
+    {
+
+    	$report = date("d.m.y,H:i:s") . ' -> ' . $from . ($options['message']? ', ' . $options['message']:'') . '
+';
+
+    	fwrite($fp, $report);
+    	fclose($fp);
+    	echo 'The data about the mail has been written to the file ' . $path_close . '_fetch_tst.txt<br>' ;
+    }
+    else
+    	echo 'Error opening file ' . $path_close . '_fetch_tst.txt';
+
+    return;
+}
+
+
+
+
+
+// послать уведлмление по sms
+
+function zp_autoimport_send_sms_report($sms_message, $sms_address = 'all4senses@gmail.com', $sms_subject = 'A4S-NewMail')
+{
+
+	$sms_subject = 'sms.F.';
+	
+	// таблица для транслита
+	$iso1 = array(
+	"Р„"=>"Ye","Р†"=>"I","Рѓ"=>"G","С–"=>"i","в„–"=>"#","С”"=>"ye","С“"=>"g",
+	"Рђ"=>"A","Р�?"=>"B","Р’"=>"V","Р“"=>"G","Р”"=>"D",
+	"Р•"=>"E","РЃ"=>"Yo","Р–"=>"Zh",
+	"Р—"=>"Z","Р?"=>"I","Р™"=>"J","Рљ"=>"K","Р›"=>"L",
+	"Рњ"=>"M","Рќ"=>"N","Рћ"=>"O","Рџ"=>"P","Р "=>"R",
+	"РЎ"=>"S","Рў"=>"T","РЈ"=>"U","Р¤"=>"F","РҐ"=>"Kh",
+	"Р¦"=>"Ts","Р§"=>"Ch","РЁ"=>"Sh","Р©"=>"Sch","РЄ"=>"'",
+	"Р«"=>"Y","Р¬"=>"","Р­"=>"E","Р®"=>"Yu","РЇ"=>"Ya",
+	"Р°"=>"a","Р±"=>"b","РІ"=>"v","Рі"=>"g","Рґ"=>"d",
+	"Рµ"=>"e","С�?"=>"yo","Р¶"=>"zh",
+	"Р·"=>"z","Рё"=>"i","Р№"=>"j","Рє"=>"k","Р»"=>"l",
+	"Р�?"=>"m","РЅ"=>"n","Рѕ"=>"o","Рї"=>"p","СЂ"=>"r",
+	"СЃ"=>"s","С‚"=>"t","Сѓ"=>"u","С„"=>"f","С…"=>"kh",
+	"С†"=>"ts","С‡"=>"ch","С€"=>"sh","С‰"=>"shh","СЉ"=>"",
+	"С‹"=>"y","СЊ"=>"","СЌ"=>"e","СЋ"=>"yu","СЏ"=>"ya","В«"=>"","В»"=>"","вЂ”"=>"-","С—"=>"i","Р‡"=>"I"
+	);
+
+
+	$sms_message = strtr($sms_message, $iso1);
+	$count = strlen($sms_message) - 87;
+
+	$sms_message = substr($sms_message, 0, 87);
+	$sms_message = $sms_message . '+' . $count;
+
+
+	//drupal_mail('webform-submission-sms', $sms_address, $sms_subject,  $sms_message, 'info@all4senses.com', $header);
+	
+	//echo "--------------- mail it <br>";
+	echo "--------------- mail it <br>";
+	
+	//mail_it('New email report', $sms_address, $sms_subject, $sms_message, $from = NULL, $headers = array());
+	zp_autoimport_mail_it('New email report', $sms_address, $sms_subject, $sms_message, 'info@all4senses.com');
+	
+}
+
+
+
+
+
+
+function zp_autoimport_mime_header_encode($string) {
+	if (preg_match('/[^\x20-\x7E]/', $string)) {
+		$chunk_size = 47; // floor((75 - strlen("=?UTF-8?B??=")) * 0.75);
+		$len = strlen($string);
+		$output = '';
+		while ($len > 0) {
+			$chunk = truncate_utf8($string, $chunk_size);
+			$output .= ' =?UTF-8?B?'. base64_encode($chunk) ."?=\n";
+			$c = strlen($chunk);
+			$string = substr($string, $c);
+			$len -= $c;
+		}
+		return trim($output);
+	}
+	return $string;
+}
+
+
+
+
+function zp_autoimport_mail_it($mailkey, $to, $subject, $body, $from = NULL, $headers = array()) {
+
+// example 
+/*  
+__________$header.="From: =?windows-1251?Q?".str_replace("+","_",str_replace("%","=",urlencode('Максим')))."?= <login@mail.ru>\r\n"; 
+++++++++++$header.="X-Mailer: The Bat! (v3.99.3) Professional\r\n"; 
+__________$header.="Reply-To: =?windows-1251?Q?".str_replace("+","_",str_replace("%","=",urlencode('Максим')))."?= <login@mail.ru>\r\n";
+++++++++++$header.="X-Priority: 3 (Normal)\r\n";
+$header.="Message-ID: <172562218.".date("YmjHis")."@mail.ru>\r\n";
+__________$header.="To: =?windows-1251?Q?".str_replace("+","_",str_replace("%","=",urlencode('Сергей')))."?= <asd@qwe.ru>\r\n";
+__________$header.="Subject: =?windows-1251?Q?".str_replace("+","_",str_replace("%","=",urlencode('проверка')))."?=\r\n";
+----------$header.="MIME-Version: 1.0\r\n";
+----------$header.="Content-Type: text/plain; charset=windows-1251\r\n";
+----------$header.="Content-Transfer-Encoding: 8bit\r\n";
+*/  
+  
+  
+  // To prevent e-mail from looking like spam, the addresses in the Sender and
+  // Return-Path headers should have a domain authorized to use the originating
+  // SMTP server. Errors-To is redundant, but shouldn't hurt.
+
+  // Note: if you are having problems with sending mail, or mails look wrong
+  // when they are received you may have to modify the str_replace to suit
+  // your systems.
+  // - \r\n will work under dos and windows.
+  // - \n will work for linux, unix and BSDs.
+  // - \r will work for macs.
+  //
+  // According to RFC 2646, it's quite rude to not wrap your e-mails:
+  //
+  // "The Text/Plain media type is the lowest common denominator of
+  // Internet e-mail, with lines of no more than 997 characters (by
+  // convention usually no more than 80), and where the CRLF sequence
+  // represents a line break [MIME-IMT]."
+  //
+  // CRLF === \r\n
+  //
+
+  
+  global $mailer;
+  $mailer = 'mail';
+  //$mailer = 'mymailer';
+  
+  global $server_type; // определяется в самом начале программы
+  $server_type = 'local'; // если отправка прямо с сервера all4senses.com
+  //$server_type = 'remote'; // отправка через удалённый сервер (через локальный денвер и локальный smtp)
+  
+  
+  
+  $defaults = array(
+   'MIME-Version' => '1.0',
+   'Content-Type' => 'text/plain; charset=UTF-8; format=flowed',
+   'Content-Transfer-Encoding' => '8Bit',
+   'X-Mailer' => 'The Batt! (v3.99.3) Professional',
+   //'X-Priority' => '3 (Normal)'
+   'X-Priority' => '2 (high)'
+   //'X-PHP-Script' => 'tst script'
+  );
+  
+
+  $body = "\n". $body;
+  $subject = mime_header_encode($subject);
+  
+  $defaults['From'] = $defaults['Sender'] = $defaults['Return-Path'] = $defaults['Errors-To'] = $from;
+  $headers = array_merge($defaults, $headers);
+  
+  $mimeheaders = array();
+  //if( $server_type != 'local' OR $mailer != 'mail' ) // если отправляем через локальный смтп сервер с денвером, то надо добавить строчку "to" в хидер, иначе она не воспринимается
+  if( $mailer != 'mail' ) // если отправляем через локальный смтп сервер с денвером, то надо добавить строчку "to" в хидер, иначе она не воспринимается
+  { 
+    $mimeheaders[]='To:' . $to; // если эта строчка будет использоваться при выполнении прямо на сервере all4senses.com, то будет дублирование "to"
+  
+  //-------------------
+  //$subject = $server_type . ' via mymailer() at ' .date("d.m.y, H:i:s") . ' >' . $subject;
+  //----------------
+  } 
+
+  $mimeheaders[]='Subject:' .$subject;
+  foreach ($headers as $name => $value)
+   $mimeheaders[] = $name .': '. mime_header_encode($value);
+
+  $mimeheaders = join("\n", $mimeheaders);
+  
+  
+  if( $server_type == 'local' AND $mailer == 'mail')
+    {   
+      
+  //-------------------
+  //$subject = $server_type . ' via mail() at ' .date("d.m.y, H:i:s") . ' >' . $subject;
+  //----------------
+    	
+    	
+      ini_set(smtp_port, 2525);  
+      
+      return mail(
+         $to,
+         $subject,
+         str_replace("\r", '', $body),
+         $mimeheaders
+         );
+
+    }  
+   else
+   {  
+
+   	return zp_autoimport_mymailer($to, $from, $subject, $body, $mimeheaders, $server_type);      
+     
+   }  
+
+  
+/*
+  return mail(
+  $to,
+  mime_header_encode($subject),
+  str_replace("\r", '', $body),
+  join("\n", $mimeheaders)
+  );
+
+*/
+
+}
+
+
+
+
+
+
+
+
+function zp_autoimport_mymailer($to, $from, $subject, $text, $header, $server_type)
+{
+
+	global $out;
+	
+  // данные для инициализации сервера
+  // требуется указать необходимые!
+/*
+  $smtp_address = 'localhost';
+  $smtp_port = 2525;
+  $smtp_login = 'free';
+  $smtp_pass = 'pass';
+*/  
+
+
+if($server_type == 'remote-direct-to-smpt')
+  {
+   $smtp_address = 'mail.all4senses.com';
+   $smtp_port = 2525;
+   $smtp_login = 'info@all4senses.com';
+   $smtp_pass = 'qwertyu';
+  }
+ if($server_type == 'remote-via-local-smtp')
+  {
+   $smtp_address = 'localhost';
+   $smtp_port = 2525;
+   $smtp_login = 'free';
+   $smtp_pass = 'pass';
+  } 
+ if($server_type == 'local')
+   {
+   $smtp_address = 'localhost';
+   $smtp_port = 2525;
+   $smtp_login = 'info@all4senses.com';
+   $smtp_pass = 'qwertyu';
+  } 
+
+  
+  
+
+  // подключение к смтп-серверу
+  $smtp_conn = fsockopen($smtp_address, $smtp_port, $errno, $errstr, 10);
+  sleep(1);
+  
+  
+  // отправка почты
+  //fputs($smtp_conn,"EHLO $from.ru\r\n");
+  fputs($smtp_conn,"EHLO www.all4senses.com\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+  
+  fputs($smtp_conn,"AUTH LOGIN\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+  
+  fputs($smtp_conn,base64_encode($smtp_login)."\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+
+  fputs($smtp_conn,base64_encode($smtp_pass)."\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+
+  fputs($smtp_conn,"MAIL FROM:$from\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+
+  fputs($smtp_conn,"RCPT TO:$to\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+  
+  fputs($smtp_conn,"DATA\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+
+  fputs($smtp_conn,$header."\r\n".$text."\r\n.\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+
+  fputs($smtp_conn,"QUIT\r\n");
+  $data = zp_autoimport_get_data($smtp_conn);
+  if($data[0] == '4' OR $data[0] == '5') 
+    //echo 'error_srv_answer = ' . $data . '<br>';
+    echo 'error_srv_answer = ' . $data . '<br>';
+    
+  sleep(1);
+
+  return $data;
+}
+
+
+
+
+
+/*
+
+function zp_autoimport_set_ld(){
+
+	global $server_directory;
+	global $work_part;
+
+	$work_part = 'fm';	
+	$server_directory = $_SERVER['DOCUMENT_ROOT'] . '/' . $work_part . '/'; //fetch mails
+	$server_directory = realpath('/' . $work_part); //fetch mails	
+	
+	$ld = array();
+	
+	$ld[0]['u'] = "a.blackpigeon@gmail.com";
+	$ld[0]['p'] = "rhfcysqjuehtw";
+
+	
+
+	return $ld;
+}
+*/
+
+
+
+
+
+
+/*
+
+function zp_autoimport_win_utf8 ($in_text)
+{
+	$output="";
+	$other[1025]="р";
+	$other[1105]="с";
+	$other[1028]="т";
+	$other[1108]="у";
+	$other[1030]="I";
+	$other[1110]="i";
+	$other[1031]="ф";
+	$other[1111]="х";
+	
+	for ($i=0; $i<strlen($in_text); $i++){
+	if (ord($in_text{$i})>191){
+	  $output.="&#".(ord($in_text{$i})+848).";";
+	} else {
+	  if (array_search($in_text{$i}, $other)===false){
+	   $output.=$in_text{$i};
+	  } else {
+	   $output.="&#".array_search($in_text{$i}, $other).";";
+	  }
+	}
+	}
+	return $output;
+}
+   
+*/
+
+
+function zp_autoimport_html2text($html)
+{
+    $tags = array (
+    0 => '~<h[123][^>]+>~si',
+    1 => '~<h[456][^>]+>~si',
+    2 => '~<table[^>]+>~si',
+    3 => '~<tr[^>]+>~si',
+    4 => '~<li[^>]+>~si',
+    5 => '~<br[^>]+>~si',
+    6 => '~<p[^>]+>~si',
+    7 => '~<div[^>]+>~si',
+    );
+    $html = preg_replace($tags,"\n",$html);
+    $html = preg_replace('~</t(d|h)>\s*<t(d|h)[^>]+>~si',' - ',$html);
+    $html = preg_replace('~<[^>]+>~s','',$html);
+    // reducing spaces
+    $html = preg_replace('~ +~s',' ',$html);
+    $html = preg_replace('~^\s+~m','',$html);
+    $html = preg_replace('~\s+$~m','',$html);
+    // reducing newlines
+    $html = preg_replace('~\n+~s',"\n",$html);
+    return $html;
+}
+
+
+
+function zp_autoimport_cp1251_to_utf8_recursive(/*mixed*/ $data)
+{
+  if (is_array($data))
+  {
+	  $d = array();
+	  foreach ($data as $k => &$v)
+	  {
+	  	$d[cp1251_to_utf8_recursive($k)] = cp1251_to_utf8_recursive($v);
+	  }
+	  return $d;
+  }
+  if (is_string($data)) return iconv('cp1251', 'utf-8//IGNORE//TRANSLIT', $data);
+  if (is_scalar($data) or is_null($data)) return $data;
+  #throw warning, if the $data is resource or object:
+  trigger_error('An array, scalar or null type expected, ' . gettype($data) . ' given!', E_USER_WARNING);
+  return $data;
+}
+
+
+
+
+
+
+     
+// При отправке почты, все не латинские символы в заголовках кодируется, 
+// например тема письма может выглядеть так =?windows-1251?B?7/Du4uXw6uA=?= 
+// вот такие тексты и будет преобразовывать эта функция
+function zp_autoimport_decode_mime_string($subject, $return_array = false) 
+{
+	global $out;
+
+	$string = $subject;
+	if(($pos = strpos($string,"=?")) === false) return $string;
+	while(!($pos === false)) 
+	{
+		$newresult .= substr($string,0,$pos);
+		$string = substr($string,$pos+2,strlen($string));
+		$intpos = strpos($string,"?");
+		$charset = substr($string,0,$intpos);
+		$enctype = strtolower(substr($string,$intpos+1,1));
+		$string = substr($string,$intpos+3,strlen($string));
+		$endpos = strpos($string,"?=");
+		$mystring = substr($string,0,$endpos);
+		$string = substr($string,$endpos+2,strlen($string));
+		if($enctype == "q") 
+			$mystring = quoted_printable_decode(ereg_replace("_"," ",$mystring));
+		elseif($enctype == "b") 
+			$mystring = base64_decode($mystring);
+		$newresult .= $mystring;
+		$pos = strpos($string,"=?");
+	}
+
+	$result = $newresult.$string;
+	//echo 'String before convert = ' . $result . '<br>';
+	if(ereg("koi8", $subject) OR ereg("KOI8", $subject)) 
+	{
+		//echo 'String before (Koi8-r) = ' . $result . '<br>';
+
+		$result = convert_cyr_string($result, "k", "w");
+		
+		if($return_array)
+			$result_array['win1251'] = $result;
+	
+		//echo 'String after (win1251)= ' . $result . '<br>';
+		
+		//$result = zp_autoimport_win_utf8($result); // seems like a wrong converting!!!
+		$result = zp_autoimport_cp1251_to_utf8_recursive($result);		
+		
+		if($return_array)
+			$result_array['utf8'] = $result;
+
+		
+		//echo 'String after enc win_utf8 = ' . $result;
+		
+		//zp_functions_show($result_array);
+		
+	}
+	
+	if($result_array AND $return_array)
+		return $result_array;
+	else
+		return $result;
+}
+
+
+
+
+
+
+
+// перекодировщик тела письма.
+// Само письмо может быть закодировано и данная функция приводит тело письма в нормальный вид.
+// Так же и вложенные файлы будут перекодироваться этой функцией.
+function zp_autoimport_compile_body($body,$enctype,$ctype) 
+{
+	global $out;
+	
+	$enctype = explode(" ",$enctype); $enctype = $enctype[0];
+	if(strtolower($enctype) == "base64")
+		$body = base64_decode($body);
+	elseif(strtolower($enctype) == "quoted-printable")
+		$body = quoted_printable_decode($body);
+	
+	 
+	// text in the file (text/csv) already IS in win1251, not in koi8-r... so convert only text/plain or text/html
+	if((ereg("koi8", $ctype) OR ereg("KOI8", $ctype)) AND (ereg("text/plain", $ctype) OR ereg("text/html", $ctype))) 
+	{
+		//echo 'Body in koi8-r (before convert) = ' . $body . '<br>';
+		
+		$body = convert_cyr_string($body, "k", "w");
+		
+		//echo 'Body in win 1251 (after convert) = ' . $body . '<br>';
+		
+		//$body4 = mb_convert_encoding($body, 'UTF-8', 'KOI8-R'); // no appropriate library
+	}
+	
+	//$body = zp_autoimport_win_utf8($body); // wrong converting!!!
+	$body = zp_autoimport_cp1251_to_utf8_recursive($body);
+		
+	//echo 'Body after enc win_utf8 = ' . $body;
+	
+	return $body;
+}
+
+
+
+
+
+
+
+
+// Функция для выдергивания метки boundary из заголовка Content-Type
+// boundary это разделитель между разным содержимым в письме,
+// например, чтобы отделить файл от текста письма
+function zp_autoimport_get_boundary($ctype){
+	if(preg_match('/boundary[ ]?=[ ]?(["]?.*)/i',$ctype,$regs)) {
+		$boundary = preg_replace('/^\"(.*)\"$/', "\\1", $regs[1]);
+		return trim("--$boundary");
+	}
+}
+
+
+
+
+
+
+// если письмо будет состоять из нескольких частей (текст, файлы и т.д.)
+// то эта функция разобьет такое письмо на части (в массив), согласно разделителю boundary
+function zp_autoimport_split_parts($boundary,$body) {
+	$startpos = strpos($body,$boundary)+strlen($boundary)+2;
+	$lenbody = strpos($body,"\r\n$boundary--") - $startpos;
+	$body = substr($body,$startpos,$lenbody);
+	return explode($boundary."\r\n",$body);
+}
+
+
+
+
+
+
+// Эта функция отделяет заголовки от тела.
+// и возвращает массив с заголовками и телом
+function zp_autoimport_fetch_structure($email) {
+	$ARemail = Array();
+	$separador = "\r\n\r\n";
+	$header = trim(substr($email,0,strpos($email,$separador)));
+	$bodypos = strlen($header)+strlen($separador);
+	$body = substr($email,$bodypos,strlen($email)-$bodypos);
+	$ARemail["header"] = $header;
+	$ARemail["body"] = $body;
+	return $ARemail;
+}
+
+
+
+
+
+
+// разбирает все заголовки и выводит массив, в котором каждый элемент является соответсвующим заголовком
+function zp_autoimport_decode_header($header) {
+	$headers = explode("\r\n",$header);
+	$decodedheaders = Array();
+	for($i=0;$i<count($headers);$i++) {
+		$thisheader = trim($headers[$i]);
+		if(!empty($thisheader))
+		if(!ereg("^[A-Z0-9a-z_-]+:",$thisheader))
+		$decodedheaders[$lasthead] .= " $thisheader";
+		else {
+			$dbpoint = strpos($thisheader,":");
+			$headname = strtolower(substr($thisheader,0,$dbpoint));
+			$headvalue = trim(substr($thisheader,$dbpoint+1));
+			if($decodedheaders[$headname] != "") $decodedheaders[$headname] .= "; $headvalue";
+			else $decodedheaders[$headname] = $headvalue;
+			$lasthead = $headname;
+		}
+	}
+	return $decodedheaders;
+}
+
+
+
+
+
+
+
+// эта функция нам уже знакома. она получает данные и реагирует на точку, которая ставится сервером в конце вывода.
+function zp_autoimport_get_data($pop_conn)
+{
+	$data="";
+	$data_size = 0;
+	$data_size_limit = 850000; // в байтах // 850k
+	while (!feof($pop_conn)) {
+		$buffer = chop(fgets($pop_conn,1024));
+		
+		// слишком большие письма с тяжёлыми вложениями подвешивают сервер, 
+		// поэтому прекращаем тянуть письмо, если оно более $data_size_limit 
+		// но на тот случае, если вдруг письмо не считается считанным с сервера, пока не прочитается всё целиком
+		// продолжаем тянуть до самого конца, но в рабочей переменной сохранять перестаём с того момента, как размер перевалил за $data_size_limit
+		$data_size += 1024;
+		if($data_size > $data_size_limit OR trim($buffer) == ".")
+			break;
+		else 
+			$data .= "$buffer\r\n";
+	}
+	
+	// восстанавливаем точку в письме в том случае, если было прекращение сохранения данных (т.е., всё письмо весит более $data_size_limit, значит имеет тяжёлые вложения)
+	// то есть, добавляем последний считанный фрагмент с сервера
+	if($data_size > $data_size_limit)
+		$data .= "$buffer\r\n";
+	
+	return $data;
+}
+

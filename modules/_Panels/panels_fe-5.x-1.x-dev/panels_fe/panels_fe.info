@@ -1,0 +1,11 @@
+; $Id: panels_fe.info,v 1.1.2.1 2008/05/25 00:40:58 gordon Exp $
+name = Panels Field Elements
+description = Use panels to re-organise how forms will be displayed on the page.
+dependencies = panels
+package = Panels
+
+; Information added by drupal.org packaging script on 2008-05-25
+version = "5.x-1.x-dev"
+project = "panels_fe"
+datestamp = "1211717434"
+

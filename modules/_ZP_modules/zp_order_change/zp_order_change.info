@@ -1,0 +1,6 @@
+; $Id: zp_order_change.info,v 1.6.2.2 2008/07/29 22:22:42 rszrama Exp $
+name = ZP Order change
+description = User Order change by admins.
+dependencies = uc_store uc_order uc_product workflow_ng
+package = ZP Modules
+

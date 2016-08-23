@@ -1,0 +1,98 @@
+<?php
+// $Id: node_extended_stats_views.module,v 1.1.2.1 2008/11/20 06:34:42 jaydub Exp $
+
+/**
+ * @file
+ * Allows for integration of content views and comment counts for arbitrary time periods with Views
+ *
+ */
+
+/**
+ * Implementation of hook_help().
+ */
+function node_extended_stats_views_help($section) {
+  switch ($section) {
+    case 'admin/modules#description':
+      return t('Allows for integration of content view counts and comment counts for arbitrary time periods with the Views module.');
+      break;
+    case 'admin/help#node_extended_stats_views':
+      return t('<p>This module integrates the content view counts and comment counts collected for arbitray time periods by the Node Extended Stats module and makes the view counts available to the Views module as both fields to display for a node and as sort values for sorting results from Views.</p>');
+      break;
+  }
+}
+
+/**
+ * Implementation of hook_views_tables().
+ */
+function node_extended_stats_views_tables() {
+  $periods = variable_get('node_extended_stats_nodecount_timeperiods', array());
+  foreach ($periods as $period) {
+
+    // Views fields
+    $fields['period_'. $period .'_count'] = array(
+      'name' => t('Node Extended Stats: Hits in last @interval', array('@interval' => format_interval($period, 1))),
+      'field' => 'viewcount',
+      'query_handler' => 'node_extended_stats_views_period_query_handler',
+      'period' => $period,
+      'sortable' => TRUE,
+      'help' => t('This will display the number of times a node has been read over the last !interval', array('!interval' => format_interval($period, 1))),
+    );
+    $fields['period_'. $period .'_commentcount'] = array(
+      'name' => t('Node Extended Stats: Comments in last @interval', array('@interval' => format_interval($period, 1))),
+      'field' => 'commentcount',
+      'query_handler' => 'node_extended_stats_views_period_query_handler',
+      'period' => $period,
+      'sortable' => TRUE,
+      'help' => t('This will display the number of comments left on a node over the last !interval', array('!interval' => format_interval($period, 1))),
+    );
+
+    // Views sorts
+    $sorts['period_'. $period .'_count'] = array(
+      'name' => t('Node Extended Stats: Hits in last @interval', array('@interval' => format_interval($period, 1))),
+      'field' => 'viewcount',
+      'handler' => 'node_extended_stats_views_period_sort_handler',
+      'period' => $period,
+      'help' => t('This allows you to sort by the number of times a node has been read over the last !interval', array('!interval' => format_interval($period, 1))),
+    );
+    $sorts['period_'. $period .'_commentcount'] = array(
+      'name' => t('Node Extended Stats: Comments in last @interval', array('@interval' => format_interval($period, 1))),
+      'field' => 'commentcount',
+      'handler' => 'node_extended_stats_views_period_sort_handler',
+      'period' => $period,
+      'help' => t('This allows you to sort by the number of comments left on a node over the last !interval', array('!interval' => format_interval($period, 1))),
+    );
+  }
+
+  $tables['node_extended_stats_summary'] = array(
+    'name' => 'node_extended_stats_summary',
+    'join' => array(
+      'left' => array(
+        'table' => 'node',
+        'field' => 'nid',
+      ),
+      'right' => array(
+        'field' => 'nid'
+      ),
+    ),
+    'fields' => $fields,
+    'sorts' => $sorts,
+  );
+
+  return $tables;
+}
+
+/**
+ * Custom Views query handler function for field definition
+ */
+function node_extended_stats_views_period_query_handler($fielddata, $fieldinfo, &$query) {
+  $query->add_where($fieldinfo['table'] .'.period = %d', $fieldinfo['period']);
+}
+
+/**
+ * Custom Views sort handler function for sort definition
+ */
+function node_extended_stats_views_period_sort_handler($op, &$query, $sortinfo, $sortdata) {
+  $query->add_table($sortinfo['table']);
+  $query->add_where($sortinfo['table'] .'.period = %d', $sortinfo['period']);
+  $query->add_orderby($sortinfo['table'], $sortinfo['field'], $sortdata['sortorder']);
+}

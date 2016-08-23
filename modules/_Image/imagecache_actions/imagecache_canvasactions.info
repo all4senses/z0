@@ -1,0 +1,12 @@
+; $Id: imagecache_canvasactions.info,v 1.1 2008/05/28 11:45:08 dman Exp $
+name = Imagecache Canvas Actions
+description = Actions for manipulating image canvases layers, including watermark and background effect.
+dependencies = imagecache imageapi
+package = ImageCache
+
+
+; Information added by drupal.org packaging script on 2009-05-10
+version = "5.x-3.1"
+project = "imagecache_actions"
+datestamp = "1241999136"
+

@@ -1,0 +1,41 @@
+<?php
+
+/**
+ * @author Ryan Hughes <ryan@linuxbox.com>
+ */
+
+/**
+ * Implementation of hook_views_style_plugins.
+ */
+require_once('taxonomygroup.inc');
+require_once('monthgroup.inc');
+
+function views_group_pack_views_style_plugins() {
+  $items = array();
+  if (module_exists('taxonomy')) {
+    $items['taxonomygroup'] = array(
+      'name' => t("Grouped By Taxonomy Term, Full Nodes"),
+      'theme' => "taxonomygroup_group",
+      'summary_theme' => "views_summary",
+    );
+    $items['taxonomygroup_teaser'] = array(
+      'name' => t("Grouped By Taxonomy Term, Teasers"),
+      'theme' => "taxonomygroup_group_teaser",
+      'summary_theme' => "views_summary",
+    );
+  }
+
+  if (module_exists('date')) {
+    $items['monthgroup'] = array(
+      'name' => t("Grouped By Month, Full Nodes"),
+      'theme' => "monthgroup_group",
+      'summary_theme' => "views_summary",
+    );
+    $items['monthgroup_teaser'] = array(
+      'name' => t("Grouped By Month, Teasers"),
+      'theme' => "monthgroup_group_teaser",
+      'summary_theme' => "views_summary",
+    );
+  }
+  return $items;
+}

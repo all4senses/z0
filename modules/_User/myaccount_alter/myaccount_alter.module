@@ -1,0 +1,85 @@
+<?php
+// $Id: myaccount_alter.module,v 1.1.2.2 2008/02/11 01:36:08 lynn Exp $
+
+/**
+ * Myaccount_alter allows an administrator to disable any of the fields on the my account page
+ * For example you can hide the 'History' section or any section coming from a contrib module
+ * The changes will apply to all users who do not have permission of 'show unaltered my account page'
+ */
+
+function myaccount_alter_perm() {
+  return array('administer myaccount_alter', 'show unaltered my account page');
+}
+
+function myaccount_alter_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+    //settings page
+    $items[] = array(
+      'path' => 'admin/user/myaccount-alter',
+      'title' => t('MyAccount_Alter'),
+      'description' => t('Disable any of the fields on the my account page.'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('myaccount_alter_settings'),
+      'access' => user_access('administer myaccount_alter'),
+      );
+    }
+  return $items;
+}
+
+function myaccount_alter_settings() {
+  if (module_exists('i18n')) {
+    drupal_set_message(t('You are using i18n module.  If you are using multiple languages you need to set these settings separately while in each language mode.'));
+  }
+  $form = array();
+  $form['help'] = array(
+    '#value' => 'Uncheck any field which you would like to hide from the my account page.',
+    ); 
+  global $user;
+  // We fetch the applicable fields shown to the user who is doing this administration (usually superuser) 
+  foreach (module_list() as $module) {
+   if ($data = module_invoke($module, 'user', 'view', '', $user)) {
+     foreach ($data as $category => $items) {
+        foreach ($items as $key => $item) {
+          //$category needs to be encoded somehow to be used as a variable.  It could have had spaces in it etc.
+          $class = 'myaccount_alter_'. base64_encode($category) .'_'. $key;
+          $form[$class] = array(
+            '#type' => 'checkbox',
+            '#title' => $category,
+            '#return_value' => 1,
+            '#description' => t('content from %module module, section %key', array('%module' => $module, '%key' => $key)),
+            '#default_value' => variable_get($class, 1),
+            );
+           $form[$class .'_example'] = array(
+            '#type' => 'fieldset',
+            '#collapsible' => true,
+            '#collapsed' => true,
+            '#title' => 'example',
+          );
+          $form[$class .'_example']['content'] = array(
+            '#value' => '<h3>'. $item['title'] .'</h3><p>'. $item['value'] .'</p>',
+            ); 
+        } 
+      } 
+    } 
+  } 
+  return system_settings_form($form);
+}
+
+function myaccount_alter_profile_alter(&$account, &$fields) {
+  global $user;
+  if (!user_access('show unaltered my account page') || $user->uid == 1) {
+    foreach ($fields AS $category => $items) {
+      foreach ($items as $key => $item) {
+        if(variable_get('myaccount_alter_'. base64_encode($category) .'_'. $key, 1) == 0) {
+          //unset disabled fields
+          unset($fields[$category][$key]);
+          //if unsetting the field leaves the whole section empty, unset the whole section
+          if($fields[$category] == array()) {
+            unset($fields[$category]);
+          }
+        }
+      }
+    }
+  }
+}

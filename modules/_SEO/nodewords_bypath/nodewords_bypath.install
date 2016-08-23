@@ -1,0 +1,84 @@
+<?php
+// $Id: nodewords_bypath.install,v 1.1.2.1 2008/06/17 18:36:25 shannonlucas Exp $
+
+/**
+ * @file Provides the (un)installation logic for the Meta Tags by Path 
+ *       module.
+ */
+
+
+/**
+ * Implementation of hook_install().
+ */
+function nodewords_bypath_install() {
+	switch ($GLOBALS['db_type']) {
+		case 'mysql':
+		case 'mysqli':
+		  // -----------------------------------------------------------------------
+		  // Maps a Drupal path expression or PHP logic to a set of meta tags and 
+		  // their values that should be placed in the HTML head on pages matching
+		  // that expression.
+		  //
+		  // The 'type' column indicates whether the path_expr is a list of paths
+		  // or a block of PHP code. The allowed values are:
+		  //        0 - Reserved (don't use)
+		  //        1 - Show on only the listed pages.
+		  //        2 - Show if path_expr contains PHP code that returns TRUE
+		  //
+		  // 'weight' is the order in which the expressions are evaluated. Items
+		  // with lower weights are evaluated before items with higher weights.
+		  db_query("CREATE TABLE {nodewords_bypath_rules} (
+		                         id          int        unsigned NOT NULL,
+		                         name        varchar(128)        NOT NULL,
+		                         type        tinyint(1) unsigned NOT NULL default 1,
+		                         path_expr   text                NOT NULL,
+		                         weight      tinyint             NOT NULL default 0,
+		                   PRIMARY KEY (id)
+		           )"
+		  );
+
+		  db_query('CREATE TABLE {nodewords_bypath_tags} (
+		                         rule_id    int unsigned NOT NULL,
+		                         meta_tag   varchar(32)  NOT NULL,
+		                         meta_value text,
+		                   PRIMARY KEY (rule_id, meta_tag)
+		           )'
+		  );
+
+			$success = TRUE;
+			break;
+		default:
+			drupal_set_message(t('Unsupported database.'));
+	}
+	
+	if ($success) {
+		drupal_set_message(t('Meta tags by path installed all tables successfully.'));
+	}
+	else {
+		drupal_set_message(t('Meta tags by path could not be installed.'), 'error');
+	}		
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function nodewords_bypath_uninstall() {
+	switch ($GLOBALS['db_type']) {
+		case 'mysql':
+		case 'mysqli':
+		  db_query('DROP TABLE IF EXISTS {nodewords_bypath_rules} CASCADE');
+		  db_query('DROP TABLE IF EXISTS {nodewords_bypath_tags} CASCADE');
+			$success = TRUE;
+			break;
+		default:
+			drupal_set_message(t('Unsupported database.'));
+	}
+	
+	if ($success) {
+		drupal_set_message(t('Meta tags by path uninstalled successfully.'));
+	}
+	else {
+		drupal_set_message(t('Meta tags by path could not be uninstalled.'), 'error');
+	}
+}

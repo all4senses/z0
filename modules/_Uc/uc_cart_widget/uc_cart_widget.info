@@ -1,0 +1,12 @@
+; $Id: uc_cart_widget.info,v 1.1 2008/05/02 21:12:36 islandusurper Exp $
+name = CCK Ubercart Widget
+description = Defines a field type for displaying an Ubercart "Add to Cart" form.
+dependencies = content uc_cart
+package = Ubercart - extra
+
+
+; Information added by drupal.org packaging script on 2008-05-27
+version = "5.x-1.0"
+project = "uc_cart_widget"
+datestamp = "1211900719"
+

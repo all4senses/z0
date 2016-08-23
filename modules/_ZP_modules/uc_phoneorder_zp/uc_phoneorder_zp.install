@@ -1,0 +1,41 @@
+<?php
+// $Id$
+
+/**
+ * Ubercart uc_phoneorder_zp.module schema
+ */
+function uc_phoneorder_zp_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE {uc_phoneorder_zp} (
+        phoneorder_zp_id mediumint(11) NOT NULL auto_increment,
+        order_id mediumint(9) NOT NULL default '0',
+
+        //amount int(10) NOT NULL default '0',
+	amount float(10) NOT NULL default '0',
+
+        created int(11) NOT NULL default '0',
+        PRIMARY KEY (phoneorder_zp_id),
+	  KEY order_id (order_id)
+      ) /*!40100 DEFAULT CHARACTER SET UTF8 */ ");
+      break;
+    case 'pgsql':
+       db_query("CREATE TABLE {uc_phoneorder_zp} (
+        phoneorder_zp_id mediumint(11) NOT NULL auto_increment,
+        order_id mediumint(9) NOT NULL default '0',
+
+        //amount int(10) NOT NULL default '0',
+        amount float(10) NOT NULL default '0',
+
+        created int(11) NOT NULL default '0'',
+        PRIMARY KEY (phoneorder_zp_id),
+	  KEY order_id (order_id)
+      )");
+      break;
+  }
+}
+
+function uc_phoneorder_zp_uninstall() {
+  db_query("DROP TABLE IF EXISTS {uc_phoneorder_zp}");
+}

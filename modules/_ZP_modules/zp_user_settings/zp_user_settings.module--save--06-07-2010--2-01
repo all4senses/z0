@@ -1,0 +1,653 @@
+<?php
+
+
+// my changes ---------------------------------------------------------------------
+
+// объявление системных переменных
+require_once('sites/all/modules/_ZP_modules/zp_node_paths_aliases/zp_node_paths_aliases.inc');
+
+
+
+
+
+function zp_user_settings_form($form_state = NULL, $user) {
+
+  
+	
+  //print '<PRE>';
+  //print_r($user);
+  //print '</PRE>';	
+	
+  // Access log settings:
+  $options = array('1' => t('Enabled'), '0' => t('Disabled'));
+  
+  
+  $form['access'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Access settings'), 
+    //'#tree' => TRUE,
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+  );
+  
+  
+  $form['access']['username'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Your username'), 
+    '#default_value' =>  $user->name, 
+    //'#options' => $options, 
+    '#disabled' => TRUE,
+    '#description' => t("Your preferred username; punctuation is not allowed except for periods, hyphens, and underscores."),
+  );
+  
+  $form['access']['email'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Your e-mail'), 
+    '#default_value' =>  $user->mail, 
+    //'#options' => $options, 
+    //'#disabled' => TRUE,
+    '#description' => t("A valid e-mail address. All e-mails from the system will be sent to this address. The e-mail address is not made public and will only be used if you wish to receive a new password or wish to receive certain news or notifications by e-mail."),
+  );
+  
+  
+  $form['access']['pass1'] = array(
+    '#type' => 'password', 
+    '#title' => t('New password'), 
+    //'#default_value' =>  '', 
+    //'#options' => $options, 
+    //'#description' => t('Password.'),
+  );
+
+  $form['access']['pass2'] = array(
+    '#type' => 'password', 
+    '#title' => t('Confirm new password'), 
+    //'#default_value' =>  '', 
+    //'#options' => $options, 
+    '#description' => t('To change the current user password, enter the new password in both fields.'),
+  ); 
+  
+  
+  
+  /*
+  $form['access']['log'] = array(
+    '#type' => 'radios', 
+    '#title' => t('Log'), 
+    '#default_value' =>  variable_get('log', 0), 
+    '#options' => $options, 
+    '#description' => t('The log.'),
+  );
+
+  
+  
+  $period = drupal_map_assoc(array(3600, 10800, 21600, 32400, 43200, 86400, 172800, 259200, 604800, 1209600, 2419200, 4838400, 9676800), 'format_interval');
+  $form['access']['timer'] = array(
+    '#type' => 'select', 
+    '#title' => t('Discard logs older than'), 
+    '#default_value' => variable_get('timer', 259200), 
+    '#options' => $period, 
+    '#description' => t('The timer.'),
+  );
+  
+  */
+  
+ 
+  // Description
+  $form['comment_settings'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('comment_settings'), 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+  );
+  $form['comment_settings']['signature'] = array(
+    '#type' => 'textarea', 
+    '#title' => t('Signature'), 
+    '#default_value' =>  $user->signature, 
+    '#cols' => 60, 
+    '#rows' => 5, 
+    '#description' => t('Your signature will be publicly displayed at the end of your comments.'),
+  );
+ 
+  
+  if(user_access('select different theme')) 
+  {
+  	$themes = system_theme_select_form(t('Selecting a different theme will change the look and feel of the site.'), $user->theme, 2);
+  	
+  	// добавляем название ключа (= название темы) к теме, у которой почему-то название ключа не установлено
+  	foreach($themes['themes'] as $key => $theme)
+  	{
+		if($key)
+		{ 
+			if($key != 'theme')
+				$themes_new['themes'][$key] = $theme;
+			else 
+			{
+				foreach($theme as $key2 => $theme2)
+				{
+					if($key2 != '#options')
+						$theme_new[$key2]  = $theme2;
+					else 
+					{
+						foreach($theme2 as $key3 => $value3)
+						{
+							if($key3)
+								$theme_new[$key2][$key3] = $value3;
+							else
+								$theme_new[$key2][$saved_title] = $value3;
+						}
+					}
+				}
+				
+				$themes_new['themes'][$key] = $theme_new;
+
+			}
+  			
+		}	
+  		else
+  		{ 
+  			$themes_new['themes'][$theme['description']['#title']] = $theme;
+  			$saved_title = $theme['description']['#title'];
+  		}
+  	}
+  	
+  	$form['theme_select'] = $themes_new;
+	//$form['theme_select']['#collapsible'] = TRUE;
+    $form['theme_select']['themes']['#collapsed'] = TRUE;
+	$form['theme_select']['#weight'] = 5;
+  }
+   
+  	
+    if (variable_get('configurable_timezones', 1)) {
+      $zones = _system_zonelist();
+      $form['timezone'] = array(
+        '#type'=>'fieldset',
+        '#title' => t('Locale settings'),
+        //'#weight' => 6,
+        '#collapsible' => TRUE,
+      );
+      $form['timezone']['timezone'] = array(
+        '#type' => 'select',
+        '#title' => t('Time zone'),
+        '#default_value' => strlen($user->timezone) ? $user->timezone : variable_get('date_default_timezone', 0),
+        '#options' => $zones,
+        '#description' => t('Select your current local time. Dates and times throughout this site will be displayed using this time zone.'),
+      );
+    }
+  
+
+  //$form['hidden'] = array('#type' => 'value', '#value' => 'is_it_here');
+  
+  
+  $form['submit'] = array(
+  '#type' => 'submit', 
+  '#value' => t('Save'),
+  '#weight' => 8,
+  );
+  
+  
+  /*
+  $form['clear'] = array(
+    '#type' => 'submit',
+    '#value' => t('Reset form'),
+    '#validate' => array('test_form_clear'),
+  );
+  */
+  
+  
+  //print '<PRE>';
+  //print_r($form);
+  //print_r($themes);
+  //print '</PRE>';	
+  
+  return $form;
+}
+
+
+
+
+
+
+function zp_user_settings_form_validate($form_id, &$form_state, &$form) {
+
+	//$x = $form_state['values']['name'];
+	//$x = $form['name'];
+	
+  
+    //print '<PRE>';
+    //print_r($form_state);
+    //print '</PRE>';
+	
+    //print '<PRE>';
+    //print_r($form);
+    //print '</PRE>';
+	
+    /*
+    
+	$old_email = $form['access']['email']['#default_value'];
+	$old_signature = $form['comment_settings']['signature']['#default_value'];
+	$old_timezone = $form['timezone']['timezone']['#default_value'];
+	  
+    $new_email = $form_state['email'];
+	$new_signature = $form_state['signature'];
+	$new_timezone = $form_state['timezone'];
+	$new_theme = $form_state['theme'];
+	$new_pass1 = $form_state['pass1'];
+	$new_pass2 = $form_state['pass2'];
+	
+	drupal_set_message("old_email = $old_email, old_signature = $old_signature, old_timezone = $old_timezone");
+	drupal_set_message("new_email = $new_email, new_signature = $new_signature, new_timezone = $new_timezone");
+	drupal_set_message("new_theme = $new_theme");
+	drupal_set_message("new_pass1 = $new_pass1, new_pass2 = $new_pass2");
+	*/
+	
+	
+	
+	if($form_state['pass1'] != '' AND $form_state['pass2'] != '')
+	  if($form_state['pass1'] != $form_state['pass2'])
+	  {
+	    form_set_error('pass2', t('Entered passwords are not equal.'));
+	    form_set_error('pass1', t(' ')); 
+	  }  
+
+	
+	if(!isValidEmail($form_state['email']))
+	 {
+	   form_set_error('email', t('Invalid email.'));
+	   return; 
+	 } 
+	else
+	 {  // если адрес не изменился, задаём значение NULL для нового адреса, чтобы не обновлять его затем в базе
+	 	if($form_state['email'] == $form['access']['email']['#default_value'])
+	 	 form_set_value($form['access']['email'], NULL);
+	 }  
+	
+  
+	 // если подпись не изменилась, задаём значение NULL для новой подписи, чтобы не обновлять её затем в базе 
+	 if($form_state['signature'] == $form['comment_settings']['signature']['#default_value'])
+	 {
+	   form_set_value($form['comment_settings']['signature'], NULL);
+	   drupal_set_message("new");
+	  
+	 } 
+	 
+	 // если временная зона не изменилась, задаём значение NULL для новой подписи, чтобы не обновлять её затем в базе   
+	 if($form_state['timezone'] == $form['timezone']['timezone']['#default_value'])  
+	  form_set_value($form['timezone']['timezone'], NULL); 
+	 
+	 //print '<PRE>';
+  	//print_r($form_state);
+  	//print '</PRE>';
+	 
+	//if ($form_state['name'] == 'aaa')
+      //form_set_value($form['name'], 'bbb');
+}
+
+
+// проверка на правильность введенного имейла
+function isValidEmail($email){
+	return eregi("^[_a-z0-9-]+(\.[_a-z0-9-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*(\.[a-z]{2,3})$", $email);
+}
+
+
+
+
+//function zp_user_settings_form_submit($form_id, &$form_state, $form = NULL) {
+function zp_user_settings_form_submit($form_id, &$form_state, $form = NULL) {	
+
+ 
+ 
+  //print '<PRE>';
+  //print_r($form_state);
+  //print '</PRE>';
+	
+/*
+	$old_email = $form['access']['email']['#default_value'];
+	$old_signature = $form['comment_settings']['signature']['#default_value'];
+	$old_timezone = $form['timezone']['timezone']['#default_value'];
+	  
+    $new_email = $form_state['email'];
+	$new_signature = $form_state['signature'];
+	$new_timezone = $form_state['timezone'];
+	$new_theme = $form_state['theme'];
+	$new_pass1 = $form_state['pass1'];
+	$new_pass2 = $form_state['pass2'];
+	
+	//echo $new_theme;
+	
+	drupal_set_message("old_email = $old_email, old_signature = $old_signature, old_timezone = $old_timezone");
+	drupal_set_message("new_email = $new_email, new_signature = $new_signature, new_timezone = $new_timezone");
+	drupal_set_message("new_theme = $new_theme");
+	drupal_set_message("new_pass1 = $new_pass1, new_pass2 = $new_pass2");
+  */
+ 
+  
+  
+  global $user;  
+  
+  // если введён пароль (в оба поля одинаковый, эту проверку мы сделали в проверочной функции), записываем его в базу 
+  if($form_state['pass1'] != '')
+  {
+    //drupal_set_message("Write new pass " . $form_state['pass1']); 
+
+    $query[] = "pass = '%s'";
+    $v[] = md5($form_state['pass1']);
+  } 
+    
+  
+  
+  // если введен новый емейл, то записываем его в базу
+  if($form_state['email'] !== NULL)
+  {
+    //drupal_set_message("Write new email " . $form_state['email']); 
+
+    $query[] = "mail = '%s'";
+    $v[] = $form_state['email'];
+  }  
+  
+
+  // если выбрана новая тема, записываем её в базу
+   if($form_state['theme'] != '')
+   {
+     //drupal_set_message("Write new theme " . $form_state['theme']); 
+     
+     $query[] = "theme = '%s'";
+     $v[] = $form_state['theme'];
+   }  
+  
+  // если введена новая подпись, записываем её в базу
+  if($form_state['signature'] !== NULL)
+  {
+    //drupal_set_message("Write new signature " . $form_state['signature']);  
+
+    $query[] = "signature = '%s'";
+    $v[] = $form_state['signature'];
+  } 
+  
+  
+  
+  // если выбрана новая временная зона, записываем её в базу
+  if($form_state['timezone'] !== NULL)
+  {
+    //drupal_set_message("Write new timezone " . $form_state['timezone']); 
+   
+    $query[] = "timezone = '%s'";
+    $v[] = $form_state['timezone'];
+  }   
+
+ 
+  //--------------------------------------------------------------------------------------
+  
+  
+  // обновляем юзера в системе, если произведены какие-то изменения
+  if(!empty($query))
+  //if($form_state['pass1'] != '')
+   {
+     //drupal_set_message("--query = $query"); 
+     //foreach($v as $value)
+      //drupal_set_message("--v = $value"); 
+   	
+     $query = implode(', ', $query);
+     db_query("UPDATE {users} SET $query WHERE uid = %d", array_merge($v, array($user->uid)));
+
+     sess_destroy_uid($user->uid);
+     sess_regenerate(); 
+     
+     // Refresh user object
+     $user = user_load(array('uid' => $user->uid));
+     //user_module_invoke('after_update', $array, $user, $category);
+   }  
+   
+}
+
+
+
+
+ 
+function zp_user_settings_page() {
+  
+  global $user; 	
+  
+  if($user->uid == 0)
+    return "You are not autorised to view this page";	
+  else
+    return drupal_get_form('zp_user_settings_form', NULL, $user);
+}
+
+
+
+
+function zp_user_settings_form_clear($form, &$form_state) {
+  $form_state['rebuild'] = TRUE;
+}
+
+
+
+
+
+
+
+// ----------------------------------------------------
+
+function zp_user_settings_passremind_run()
+{
+	return drupal_get_form('zp_user_settings_passremind');
+}
+
+
+
+function zp_user_settings_passremind($destination = NULL, $passreminded = 0){
+	
+	if($passreminded) // если пароль отослан на почту
+	{
+		$form['name'] = array(
+    	'#value' => t('You can leave us a message using the contact form below.'),
+    	'#size' => 60,
+    	//'#maxlength' => max(USERNAME_MAX_LENGTH, EMAIL_MAX_LENGTH),
+    	//'#required' => TRUE,
+  		);
+	
+	
+	}
+	else 
+	{
+  		// Display form:
+  		$form['name'] = array('#type' => 'textfield',
+    	'#title' => t('Username or e-mail address'),
+    	'#size' => 60,
+    	'#maxlength' => max(USERNAME_MAX_LENGTH, EMAIL_MAX_LENGTH),
+    	'#required' => TRUE,
+  		);
+  		$form['submit'] = array('#type' => 'submit',
+	    '#value' => t('E-mail new password'),
+    	'#weight' => 2,
+  		);
+  
+	}
+
+
+  return $form;
+	
+	
+}
+
+
+
+ 
+
+function zp_user_settings_passremind_validate($form_id, $form_values) {
+  $name = $form_values['name'];
+
+  // Blocked accounts cannot request a new password,
+  // check provided username and email against access rules.
+  if (drupal_is_denied('user', $name) || drupal_is_denied('mail', $name)) {
+    form_set_error('name', t('%name is not allowed to request a new password.', array('%name' => $name)));
+  }
+
+  $account = user_load(array('mail' => $name, 'status' => 1));
+  if (!$account) {
+    $account = user_load(array('name' => $name, 'status' => 1));
+  }
+  if ($account->uid) {
+    form_set_value(array('#parents' => array('account')), $account);
+  }
+  else {
+    form_set_error('name', t('Sorry, %name is not recognized as a user name or an email address.', array('%name' => $name)));
+  }
+}
+
+function zp_user_settings_passremind_submit($form_id, $form_values) {
+  global $base_url;
+
+  $account = $form_values['account'];
+  $from = variable_get('site_mail', ini_get('sendmail_from'));
+
+  // Mail one time login URL and instructions.
+  $variables = array('!username' => $account->name, '!site' => variable_get('site_name', 'Drupal'), '!login_url' => zp_user_settings_passremind_reset_url($account), '!uri' => $base_url, '!uri_brief' => preg_replace('!^https?://!', '', $base_url), '!mailto' => $account->mail, '!date' => format_date(time()), '!login_uri' => url('user', NULL, NULL, TRUE), '!edit_uri' => url('user/'. $account->uid .'/edit', NULL, NULL, TRUE));
+  $subject = _user_mail_text('pass_subject', $variables);
+  $body = _user_mail_text('pass_body', $variables);
+  $mail_success = drupal_mail('user-pass', $account->mail, $subject, $body, $from);
+
+  if ($mail_success) {
+    watchdog('user', t('Password reset instructions mailed to %name at %email.', array('%name' => $account->name, '%email' => $account->mail)));
+    
+    
+// my changes -----------    
+    
+ 	// убираем пояснение тут, так как пояснение мы выводим через ноду восстановления пароля
+ 	
+    //original
+    //drupal_set_message(t('Further instructions have been sent to your e-mail address.'));
+    
+    
+    
+    
+// my changes -----------
+    
+    drupal_goto(MY_PASSREMIND_NODE, 'xdestination=' . $_GET['xdestination'] . '&passreminded=1');
+    
+  }
+  else {
+    watchdog('user', t('Error mailing password reset instructions to %name at %email.', array('%name' => $account->name, '%email' => $account->mail)), WATCHDOG_ERROR);
+    drupal_set_message(t('Unable to send mail. Please contact the site admin.'));
+  }
+  
+  
+  
+  
+// my changes -----------
+  
+  return;
+
+//original
+  
+  //return 'user';
+}
+
+/**
+ * Menu callback; process one time login link and redirects to the user page on success.
+ */
+function zp_user_settings_passremind_reset($uid, $timestamp, $hashed_pass, $action = NULL) {
+  global $user;
+  
+  
+  //echo 'uid = ' . $uid . ', timestamp = ' . $timestamp . 'hashed_pass = ' . $hashed_pass . ', action = ' . $action . '<br>';
+
+  //return;
+  
+  // Check if the user is already logged in. The back button is often the culprit here.
+  if ($user->uid) {
+    // original
+  	//drupal_set_message(t('You have already used this one-time login link. It is not necessary to use this link to login anymore. You are already logged in.'));
+    //drupal_goto();
+    
+    // my changes ------------
+  	return t('You have already used this one-time login link. It is not necessary to use this link to login anymore. You are already logged in.');
+  }
+  else {
+    // Time out, in seconds, until login URL expires. 24 hours = 86400 seconds.
+    $timeout = 86400;
+    $current = time();
+    // Some redundant checks for extra security ?
+    if ($timestamp < $current && $account = user_load(array('uid' => $uid, 'status' => 1)) ) {
+      // Deny one-time login to blocked accounts.
+      if (drupal_is_denied('user', $account->name) || drupal_is_denied('mail', $account->mail)) {
+        
+      	// original
+      	//drupal_set_message(t('You have tried to use a one-time login for an account which has been blocked.'), 'error');
+        //drupal_goto();
+        
+        
+        // my changes ------------
+        return '<br><br><br>' .  t('You have tried to use a one-time login for an account which has been blocked. Please request a new one using the form below.') . '<br><br><br>' . drupal_get_form('zp_user_settings_passremind');
+      }
+      // No time out for first time login.
+      if ($account->login && $current - $timestamp > $timeout) {
+        
+      	// original
+      	//drupal_set_message(t('You have tried to use a one-time login link that has expired. Please request a new one using the form below.'));
+        //drupal_goto('user/password');
+        
+        // my changes ------------
+        return '<br><br><br>' . t('You have tried to use a one-time login link that has expired. Please request a new one using the form below.') . '<br><br><br>' . drupal_get_form('zp_user_settings_passremind');
+      }
+      else if ($account->uid && $timestamp > $account->login && $timestamp < $current && $hashed_pass == zp_user_settings_passremind_rehash($account->pass, $timestamp, $account->login)) {
+        // First stage is a confirmation form, then login
+        if ($action == 'login') {
+          watchdog('user', t('User %name used one-time login link at time %timestamp.', array('%name' => $account->name, '%timestamp' => $timestamp)));
+          // Update the user table noting user has logged in.
+          // And this also makes this hashed password a one-time-only login.
+          db_query("UPDATE {users} SET login = %d WHERE uid = %d", time(), $account->uid);
+          // Now we can set the new user.
+          $user = $account;
+          // And proceed with normal login, going to user page.
+          $edit = array();
+          user_module_invoke('login', $edit, $user);
+          drupal_set_message(t('You have just used your one-time login link. It is no longer necessary to use this link to login. Please change your password.'));
+          
+          // my changes ------------
+          drupal_goto(MY_USER_SETTINGS_NODE);
+          
+          // original
+          //drupal_goto('user/'. $user->uid .'/edit');
+        }
+        else {
+          $form['message'] = array('#value' => t('<p>This is a one-time login for %user_name and will expire on %expiration_date</p><p>Click on this button to login to the site and change your password.</p>', array('%user_name' => $account->name, '%expiration_date' => format_date($timestamp + $timeout))));
+          $form['help'] = array('#value' => '<p>'. t('This login can be used only once.') .'</p>');
+          $form['submit'] = array('#type' => 'submit', '#value' => t('Log in'), '#weight' => 20);
+          
+          // original
+          //$form['#action'] = url("user/reset/$uid/$timestamp/$hashed_pass/login");
+          
+          // my changes -------------
+          $form['#action'] = url("node/" . MY_PASSREMIND_NODE_NUM . "/reset/$uid/$timestamp/$hashed_pass/login");
+          return drupal_render($form);
+        }
+      }
+      else {
+        // original
+      	//drupal_set_message(t('You have tried to use a one-time login link which has either been used or is no longer valid. Please request a new one using the form below.'));
+        //drupal_goto('user/password');
+        
+        // my changes ------------
+        return '<br><br><br>' . t('You have tried to use a one-time login link which has either been used or is no longer valid. Please request a new one using the form below.') . '<br><br><br>' . drupal_get_form('zp_user_settings_passremind');
+      }
+    }
+    else {
+      // Deny access, no more clues.
+      // Everything will be in the watchdog's URL for the administrator to check.
+      drupal_access_denied();
+    }
+  }
+}
+
+function zp_user_settings_passremind_reset_url($account) {
+  $timestamp = time();
+
+  // original
+  //return url("user/reset/$account->uid/$timestamp/".zp_user_settings_passremind_rehash($account->pass, $timestamp, $account->login), NULL, NULL, TRUE);
+  
+  return url("node/" . MY_PASSREMIND_NODE_NUM . "/reset/$account->uid/$timestamp/".zp_user_settings_passremind_rehash($account->pass, $timestamp, $account->login), NULL, NULL, TRUE);
+}
+
+function zp_user_settings_passremind_rehash($password, $timestamp, $login) {
+  return md5($timestamp . $password . $login);
+}

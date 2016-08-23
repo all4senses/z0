@@ -1,0 +1,2 @@
+<div class="test">side menu my</div>
+<div id="side_menu"><?php print $zp_side_menu_01 ?></div>

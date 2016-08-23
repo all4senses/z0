@@ -1,0 +1,524 @@
+<?php
+
+function zp_block_toggle_perm() {
+  return array('manage ZP Block Toggle options');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+/*
+function zp_block_toggle_menu($may_cache) {
+  if ($may_cache) {
+      $items[] = array(
+      'path' => 'admin/store/settings/checkout/zp_block_toggle',
+      'title' => t('ZP Messenger settings'),
+      'description' => t('Manage ZP Messenger options'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('zp_block_toggle_settings_form'),
+      'access' => user_access('manage ZP Messenger options'),
+      'type' => MENU_NORMAL_ITEM,
+    );
+  }
+
+  return $items;
+}
+
+
+
+
+function zp_block_toggle_settings_form() {
+  $per_item = variable_get('zp_block_toggle_per_item', 1);
+  $charge = variable_get('zp_block_toggle_charge', 3.00);
+  $form['per_item'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Charge per item rather than per order'),
+    '#default_value' => $per_item,
+    '#weight' => '1'
+  );
+  $form['charge'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Price per ZP Messenger'),
+    '#default_value' => $charge,
+    '#weight' => '2'
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#weight' => '3'
+  );
+  return $form;
+}
+
+*/
+
+
+
+/*
+function zp_block_toggle_settings_form_submit($form, $form_values) {
+  //variable_set('zp_block_toggle_per_item', $form_values['per_item']);
+  //variable_set('zp_block_toggle_charge', $form_values['charge']);
+}
+*/
+
+
+
+
+
+
+/*
+* Add  js to the page
+*/
+function zp_block_toggle_start() {
+	
+ 	static $started;
+
+	if (!isset($started))
+	{	
+	    //uc_add_js("var zp_block_toggle_path = '". base_path() . drupal_get_path('module', 'zp_block_toggle') ."';", 'inline');
+
+  		uc_add_js(drupal_get_path('module', 'zp_block_toggle') .'/zp_block_toggle.js');
+     	$started = TRUE;
+	}
+}
+
+
+
+
+
+function zp_block_toggle_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $blocks[0] = array(
+      'info' => t('Search site block'),
+      
+      //'weight' => 0, 
+      //'status' => 1, 
+      //'region' => 'left',
+    );
+    $blocks[1] = array(
+      'info' => t('Ad ZP_Issues_ATF_Right_160x600'), 
+    );
+    $blocks[2] = array(
+      'info' => t('Ad ZP_Issues_ATF_Left_160x600'), 
+    );
+    $blocks[3] = array(
+      'info' => t('Ad ZP_Products_ATF_Right_160x600'), 
+    );
+    $blocks[4] = array(
+      'info' => t('Ad ZP_Products_ATF_Left_160x600'), 
+    );
+
+    $blocks[5] = array(
+      'info' => t('Ad Home and Other pages ATF_Left_160x600'), 
+    );
+    $blocks[6] = array(
+      'info' => t('Ad Home and Other pages ATF_Right_160x600'), 
+    );
+    
+    return $blocks;
+  }
+  else if ($op == 'view') {
+    switch ($delta) {
+      
+      case 0:
+        $block = array(
+          'subject' => t('Search site block'), 
+          'content' => 
+'<div class="search-side-block">
+  <a href="/search">Поиск по сайту</a>
+</div>',
+        );
+        break;
+      
+      
+      
+      case 1:
+        $block = array(
+          'subject' => t('Ad ZP_Issues_ATF_Right_160x600'), 
+          'content' => zp_block_toggle_adBlock('Ad ZP_Issues_ATF_Right_160x600'),
+        );
+        break;
+      case 2:
+        $block = array(
+          'subject' => t('Ad ZP_Issues_ATF_Left_160x600'), 
+          'content' => zp_block_toggle_adBlock('Ad ZP_Issues_ATF_Left_160x600'),
+        );
+        break;
+      case 3:
+        $block = array(
+          'subject' => t('Ad ZP_Products_ATF_Right_160x600'), 
+          'content' => zp_block_toggle_adBlock('Ad ZP_Products_ATF_Right_160x600'),
+        );
+        break;
+      case 4:
+        $block = array(
+          'subject' => t('Ad ZP_Products_ATF_Left_160x600'),
+          'content' => zp_block_toggle_adBlock('Ad ZP_Products_ATF_Left_160x600'),
+        );
+        break;
+      
+      case 5:
+        $block = array(
+          'subject' => t('Ad Home and Other pages ATF_Left_160x600'),
+          'content' => zp_block_toggle_adBlock('Ad Home and Other pages ATF_Left_160x600'),
+        );
+        break;
+      case 6:
+        $block = array(
+          'subject' => t('Ad Home and Other pages ATF_Right_160x600'),
+          'content' => zp_block_toggle_adBlock('Ad Home and Other pages ATF_Right_160x600'),
+        );
+        break;
+       
+      
+    }
+    
+    return $block;
+  }
+}
+
+
+
+function zp_block_toggle_adBlock($adName) {
+  switch ($adName) {
+            
+    case 'Ad Home and Other pages ATF_Right_160x600':
+      
+      
+      // Home right
+//      $out = '';
+//      global $user;
+//      if ($user->uid == 1) {
+//        $out = print_r($_SERVER, TRUE);
+//      }
+        
+      if ($_SERVER['REQUEST_URI'] == '/') {
+      
+        return "
+        
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_Home_ATF_Right_160x600', [160, 600], 'div-gpt-ad-1354654387548-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+
+
+
+
+<!-- ZP_Home_ATF_Right_160x600 -->
+<div id='div-gpt-ad-1354654387548-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354654387548-0'); });
+</script>
+</div>
+
+      ";
+      }
+      else {
+        // Other pages (like default)
+        
+        return "
+          
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_OtherPages_ATF_Right_160x600', [160, 600], 'div-gpt-ad-1354655445399-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+        
+        
+<!-- ZP_OtherPages_ATF_Right_160x600 -->
+<div id='div-gpt-ad-1354655445399-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354655445399-0'); });
+</script>
+</div>
+
+";
+
+      }
+    
+      
+    case 'Ad Home and Other pages ATF_Left_160x600':
+      
+      if ($_SERVER['REQUEST_URI'] == '/') {
+        
+      
+        // Home left
+        return "
+        
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_Home_ATF_Left_160x600', [160, 600], 'div-gpt-ad-1354654535903-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+
+
+<!-- ZP_Home_ATF_Left_160x600 -->
+<div id='div-gpt-ad-1354654535903-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354654535903-0'); });
+</script>
+</div>
+
+      ";    
+      }
+      else {
+        // Other pages (like default)
+        
+        return "
+          
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_OtherPages_ATF_Left_160x600', [160, 600], 'div-gpt-ad-1354655571358-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+
+
+
+<!-- ZP_OtherPages_ATF_Left_160x600 -->
+<div id='div-gpt-ad-1354655571358-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354655571358-0'); });
+</script>
+</div>
+
+
+";
+        
+      }
+            
+            
+    
+    case 'Ad ZP_Products_ATF_Right_160x600':
+      
+      return "
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_Products_ATF_Right_160x600', [160, 600], 'div-gpt-ad-1354504796568-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+
+
+<!-- ZP_Products_ATF_Right_160x600 -->
+<div id='div-gpt-ad-1354504796568-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354504796568-0'); });
+</script>
+</div>
+
+      ";
+    
+      
+      
+   
+      
+    
+    case 'Ad ZP_Products_ATF_Left_160x600':
+      
+      return "
+        
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_Products_ATF_Left_160x600', [160, 600], 'div-gpt-ad-1354505822251-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+
+
+
+<!-- ZP_Products_ATF_Left_160x600 -->
+<div id='div-gpt-ad-1354505822251-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354505822251-0'); });
+</script>
+</div>
+
+      ";
+    
+      
+    
+      
+    case 'Ad ZP_Issues_ATF_Right_160x600':
+      
+      return "
+        
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_Issues_ATF_Right_160x600', [160, 600], 'div-gpt-ad-1354496779876-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+
+
+<!-- ZP_Issues_ATF_Right_160x600 -->
+<div id='div-gpt-ad-1354496779876-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354496779876-0'); });
+</script>
+</div>
+
+      ";
+    
+      
+      
+      
+      
+    case 'Ad ZP_Issues_ATF_Left_160x600':
+      
+      return "
+        
+<script type='text/javascript'>
+var googletag = googletag || {};
+googletag.cmd = googletag.cmd || [];
+(function() {
+var gads = document.createElement('script');
+gads.async = true;
+gads.type = 'text/javascript';
+var useSSL = 'https:' == document.location.protocol;
+gads.src = (useSSL ? 'https:' : 'http:') + 
+'//www.googletagservices.com/tag/js/gpt.js';
+var node = document.getElementsByTagName('script')[0];
+node.parentNode.insertBefore(gads, node);
+})();
+</script>
+
+<script type='text/javascript'>
+googletag.cmd.push(function() {
+googletag.defineSlot('/11992212/ZP_Issues_ATF_Left_160x600', [160, 600], 'div-gpt-ad-1354496927786-0').addService(googletag.pubads());
+googletag.pubads().enableSingleRequest();
+googletag.enableServices();
+});
+</script>
+
+
+<!-- ZP_Issues_ATF_Left_160x600 -->
+<div id='div-gpt-ad-1354496927786-0' style='width:160px; height:600px;'>
+<script type='text/javascript'>
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1354496927786-0'); });
+</script>
+</div>
+
+      ";
+      
+  } // End of switch ()
+  
+}
+
+

@@ -1,0 +1,12 @@
+; $Id: panels_titles.info,v 1.1 2007/07/16 18:35:15 dfletcher Exp $
+name = Panels Titles
+description = A panels add-on that gives precise control over titles in panes.
+version = VERSION
+dependencies = panels
+package = "Panels"
+
+; Information added by drupal.org packaging script on 2007-07-17
+version = "5.x-1.x-dev"
+project = "panels_titles"
+datestamp = "1184630956"
+

@@ -1,0 +1,90 @@
+<?php
+// $Id: wng_profile_action.module,v 1.1 2008/08/27 23:58:30 mrandrey Exp $
+
+/**
+ * This module provides an action to Workflow-NG that can be used to update user profile fields.
+ */
+
+/**
+* Implementation of hook_action_info()
+*/
+function wng_profile_action_action_info() {
+  return array(
+    'wng_profile_action_action_update_profile_field' => array(
+      '#label' => t('Update profile field'),
+      '#arguments' => array(),
+      '#module' => t('User'),
+	)
+  );
+}
+
+function wng_profile_action_action_update_profile_field($settings, &$arguments, &$log) {
+  extract(workflow_ng_token_replace_all(array('uid','fid','operation','default'), $settings, $arguments, $log));
+  $account = user_load(array('uid' => (int)$uid));
+  
+  if ($account->profile_class_card > 0) {
+	db_query("UPDATE {profile_values} SET value = %s WHERE fid = %d AND uid = %d", $operation,$fid,$uid);
+  } else {
+	db_query("DELETE FROM {profile_values} WHERE fid = %d AND uid = %d", $fid,$uid);
+	db_query("INSERT INTO {profile_values} (fid,uid,value) VALUES (%d,%d,%s)", $fid,$uid,$default);
+  }
+}
+
+function wng_profile_action_action_update_profile_field_form($settings = array(), $argument_info) {
+  $form = array();
+
+  // uid to update
+  $form['uid'] = array(
+  	'#type' => 'textfield',
+	'#title' => t('User id to update'),
+	'#default_value' => $settings['uid'],
+	'#size' => '60',
+	'#maxlength' => 128,
+	'#required' => true,
+	'#description' => t('Use the token form below to choose a method for deriving a uid (example: [author:uid], [user:uid].')
+  );
+  // get the profile fields
+  $rows = array();
+  $result = db_query('SELECT fid, name FROM {profile_fields} ORDER BY name');
+  while ($field = db_fetch_object($result)) {
+	$rows[$field->fid] = $field->name;
+  }
+  // select which profile field to update
+  $form['fid'] = array(
+    '#type' => 'select',
+    '#title' => t('Profile field to update'),
+    '#default_value' => $settings['fid'],
+	'#options' => $rows,
+	'#required' => true,
+    '#description' => t('Select which profile field you would like to update.'),
+  );
+  // enter an operation to perform
+  $form['operation'] = array(
+  	'#type' => 'textfield',
+	'#title' => t('Operation'),
+	'#default_value' => $settings['operation'],
+	'#size' => '60',
+	'#maxlength' => 128,
+	'#required' => true,
+	'#description' => t('Enter here the MySQL operation you would like to perform. Please note that "value" stands for the MySQL field name, so "value + 10" will add 10 to the field, and "pepper" will just set the value to "pepper".')
+  );
+  // default value
+  $form['default'] = array(
+  	'#type' => 'textfield',
+	'#title' => t('Default value'),
+	'#default_value' => $settings['default'],
+	'#size' => '60',
+	'#maxlength' => 128,
+	'#required' => true,
+	'#description' => t('What to set the field value to if it\'s not set. (If you set the above to "value + 10" you will probably want this to be "10").')
+  );
+  // token help
+  workflow_ng_token_replacement_help($form, $argument_info);
+  return $form;
+}
+
+function wng_profile_action_action_update_profile_field_submit($form_id, $form_values) {
+  //returns the needed settings
+  $settings = workflow_ng_token_get_settings(array('uid','fid','operation','default'), $form_values);
+  return $settings;
+}

@@ -1,0 +1,11 @@
+<?php
+// $Id: uc_multi_stock.install,v 1.1.2.1 2008/09/07 01:15:55 talbone Exp $
+
+/**
+ * Implementation of hook_uninstall().
+ *
+ * Remove settings variables.
+ */
+function uc_multi_stock_uninstall() {
+  variable_del('uc_multi_stock_use_thershold');
+}

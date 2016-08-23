@@ -1,0 +1,11 @@
+; $Id: zen_panels.info,v 1.1 2008/08/13 00:00:39 grugnog Exp $
+name = Zen Panels
+description = Creates a panel that slips silently into the Zen theme, giving pages that look identical to any other site page but have the magic of panels underneath.
+; Information added by drupal.org packaging script on 2008-08-13
+package = "Panels"
+
+
+version = "5.x-1.x-dev"
+project = "zen_panels"
+datestamp = "1218629591"
+

@@ -1,0 +1,10 @@
+; $Id: gmap_views.info,v 1.1.2.2 2007/06/18 23:06:44 dww Exp $
+name = GMap Views Integration
+description = Allows the use of GMap in Views.
+package = Location
+dependencies = gmap views location_views
+; Information added by drupal.org packaging script on 2009-03-03
+version = "5.x-1.1-rc1"
+project = "gmap"
+datestamp = "1236113458"
+

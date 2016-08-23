@@ -1,0 +1,12 @@
+; $Id$
+name = ZP Phoneorder
+description = ZP version of original module Phoneorder. Adds a cart content pane where people can choose wether order is made by customer via Internet or by operator by phone.
+dependencies = uc_order uc_cart
+package = ZP Modules
+
+
+; Information added by drupal.org packaging script on 2007-07-10
+version = "5.x-1.0-alpha8"
+project = "ubercart"
+datestamp = "2184101863"
+

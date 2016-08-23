@@ -1,0 +1,7 @@
+; $Id $ zp_shops_menus_reset ver 1.0
+name = "ZP Shops Menus Reset"
+description = "Clears saved shops second menus in global variables in variables table. Next site loading will rebuild nesessary shop's menus."
+package = ZP Modules
+;dependencies = 
+
+

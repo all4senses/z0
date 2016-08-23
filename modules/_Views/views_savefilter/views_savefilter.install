@@ -1,0 +1,42 @@
+<?php
+/* $Id: views_savefilter.install,v 1.1.2.4 2007/05/29 20:37:11 avf Exp $ */
+
+/*
+* Create database table
+*/
+function views_savefilter_install() {
+
+  switch($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("CREATE TABLE IF NOT EXISTS {views_savefilter_used_filters}
+        (
+          uid INT(10) UNSIGNED NOT NULL,
+          vid INT(10) UNSIGNED NOT NULL,
+          used_filters TEXT,
+          KEY uid (uid),
+          KEY vid (vid)
+        )");
+      break;
+    case 'pgsql':
+      db_query("CREATE TABLE {views_savefilter_used_filters}
+        (
+          uid INT_UNSIGNED,
+          vid SERIAL,
+          used_filters TEXT
+        )");
+      db_query("CREATE INDEX {views_savefilter_used_filters}_uid_idx ON {views_savefilter_used_filters} (uid)");
+      db_query("CREATE INDEX {views_savefilter_used_filters}_vid_idx ON {views_savefilter_used_filters} (vod)");
+      break;
+  }
+} // function views_savefilter_install
+
+/*
+* Drop database table
+*/
+function views_savefilter_uninstall() {
+
+  db_query("DROP TABLE {views_savefilter_used_filters}");
+} // function views_savefilter_uninstall
+
+?>

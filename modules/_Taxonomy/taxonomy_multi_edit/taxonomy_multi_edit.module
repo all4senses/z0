@@ -1,0 +1,207 @@
+<?php
+// $Id: taxonomy_multi_edit.module,v 1.13.2.1 2007/03/20 09:35:51 dman Exp $
+
+function taxonomy_multi_edit_help($section = "admin/help#taxonomy_multi_edit") {
+  $output = "";
+  switch ($section) {
+    case 'admin/modules#description':
+      $output = t("Apply multiple category assignments at once.");
+      break;
+    case 'admin/content/node/taxonomy_multi_edit':
+      return t('Attach  categories to your posts, and then click the <b>Submit</b> button.');
+  }
+  return $output;
+}
+
+function taxonomy_multi_edit_menu($may_cache) {
+  if ($may_cache) {
+    $items[] = array('path' => 'admin/content/node/taxonomy_multi_edit', 'title' => t('assign categories'),
+    'callback' => 'taxonomy_multi_edit_overview_page',
+    'access' => user_access('administer nodes'),
+    'weight' => 5,
+    'type' => MENU_LOCAL_TASK);
+    return $items;
+  }
+}
+
+function taxonomy_multi_edit_overview_page() {
+  return drupal_get_form('taxonomy_multi_edit_overview');
+}
+
+/**
+ * Forms API form def
+ */
+function taxonomy_multi_edit_overview() {
+  $form = array('nodes' => array('#tree' => TRUE));
+
+  $sql = "SELECT n.nid, title, type FROM {node} n ORDER BY changed DESC";
+  $result = pager_query(db_rewrite_sql($sql), variable_get('default_nodes_main', 10));
+  while ($node = db_fetch_object($result)) {
+
+		// $form_taxonomy = taxonomy_node_form($node);
+  	$fakeform = array('type' => array(
+  	                    '#value' => $node->type), 
+  	                    '#node' => $node,
+  	                  );
+    
+    if (is_array($fakeform['#node']->taxonomy)) {
+      foreach ($fakeform['#node']->taxonomy as $id => $term) {
+        if (is_array($term)) {
+          foreach ($term as $vid => $value) {
+            $fakeform['#node']->taxonomy['tags'][$vid] = $value;
+          }
+          unset($fakeform['#node']->taxonomy[$id]);
+        }
+      }
+    }
+    taxonomy_form_alter($node->type. '_node_form', $fakeform);
+    unset($fakeform['type'], $fakeform['taxonomy']['#type']); // kill the fieldset and type field
+    // kill description fields
+    foreach ((array)$fakeform['taxonomy'] as $key => $arr) {
+      if (is_numeric($key)) {
+        unset($fakeform['taxonomy'][$key]['#description']); 
+      }
+    }
+    // dprint_r($fakeform);
+    // $form['myform'][$node->nid] = $fakeform;
+		// TODO: manipulate $form_taxonomy elements so that many nodes can be manipulated on same page.
+		// $form['title'][$node->nid] = array('#value' => l($node->title, "node/$node->nid", array()));
+		// $form['nid'][$node->nid] = array('#value' => $node->nid);
+		$form['nodes'][$node->nid] = $fakeform;
+    unset($fakeform);
+  }
+  $form['submit'] = array('#type' => 'submit', '#value' => t('Save categories'));
+  $form['pager'] = array('#value' => theme('pager', NULL, variable_get('default_nodes_main', 10), 0));
+
+  return $form;
+}
+
+/**
+ * lay the from out into an admin table
+ */
+function theme_taxonomy_multi_edit_overview(&$form) {
+
+	foreach (element_children($form['nodes']) as $nid) {
+    $row = array();
+    $row[] = l(truncate_utf8($form['nodes'][$nid]['#node']->title, 20), "node/$nid");
+    foreach (element_children($form['nodes'][$nid]['taxonomy']) as $vid) {
+      // disperse into rows. May give odd layout results with mixed node types
+      $row[] = array('data' => drupal_render($form['nodes'][$nid]['taxonomy'][$vid]));
+    }
+    $rows[] = $row;
+  }
+
+  $header = array(
+    array("data" => t('title'), ),
+    array("data" => t('vocabularies'))
+  );
+
+  $output = theme('table', $header, $rows);
+  $output .= drupal_render($form);
+  return $output;
+}
+
+/**
+ * Forms API form callback hook
+ */
+function taxonomy_multi_edit_overview_submit($form_id, $form_values) {
+  drupal_set_message(print_r($form_values,1));
+   foreach ($form_values['nodes'] as $nid => $terms) {
+     if (!$tax = $terms['taxonomy']) {
+       $tax = $terms['tags'];
+     }
+     taxonomy_node_save($nid, $tax);
+   }
+   drupal_set_message(t('categories updated.'));
+}
+
+/**
+ * Below here is the alternate interface
+ * 
+ *  - integrated with the normal Drupal content management page.
+ */
+
+/**
+ * Hook Implimentation
+ */
+function taxonomy_multi_edit_form_alter($form_id, &$form) {
+  // Enhance the node overview page
+  if ($form_id == 'node_admin_nodes') {
+    taxonomy_multi_edit_content_form_alter($form);
+  }
+}
+
+/**
+ * Add a bulk classification function to the content admin
+ */
+function taxonomy_multi_edit_content_form_alter(&$form){
+  // support bulk classifications
+  $form['options']['operation']['#options']['categorize'] = "Assign to a taxonomy term";
+  $form['options']['operation']['#attributes']['onchange'] = 'changedOperation(this)';
+
+  $form['options']['terms-wrapper'] = array(
+    '#type' => 'fieldset',
+    '#attributes' => array('id'=>'edit-terms-wrapper', 'style'=>'display:none;'),
+    'terms' => array(
+      '#type' => 'select',
+      '#title' => t("term"),
+      '#default_value' => array(),
+      '#options' => taxonomy_form_all(),
+      '#multiple' => TRUE,
+      '#size' => 10,
+      '#theme' => 'taxonomy_term_select',
+      '#description' => t("<p>Warning, using this form may override some of the normal vocabulary restrictions.</p>"),
+    ),
+  ); // used the extra fieldset because renderer was failing to honour doing the same via #prefix
+  $form['#submit']['taxonomy_multi_edit_content_form_submit']=array();    
+
+  drupal_add_js(taxonomy_multi_edit_content_form_javascript(),'inline'); 
+
+}  
+
+/**
+ * Capture additional operations on the content managemment page
+ * @see node_admin_nodes_submit()
+ */
+function taxonomy_multi_edit_content_form_submit($form,$edit){
+  if ($edit['operation'] == 'categorize') {
+    $terms = $edit['terms'];
+    foreach ($edit['nodes'] as $nid => $value) {
+      if($value){
+        // I could have done this direct to database, 
+        // but we'll do it safer via the published methods instead.
+        // Means we can safely merge instead of overwrite
+        
+        $existing = taxonomy_node_get_terms($nid);
+        foreach($terms as $t){ // cannot array_merge as it messes the indexes
+          $existing[$t] = $t;
+        }
+        taxonomy_node_save($nid,$existing);
+        drupal_set_message(t('Updated terms on node '.l($node->title?$node->title:$nid, "node/$nid")));
+      }
+    }
+    cache_clear_all();
+    drupal_set_message(t('Terms have been updated for the selected nodes.'));
+  }
+}
+
+function taxonomy_multi_edit_content_form_javascript(){
+  // quoted javascript:
+  return <<<EOT
+  /**
+   * Responds to the 'operation' selectbox on content edit screen by
+   * displaying or hiding extra fields
+   */
+  function changedOperation(elem){
+    var term_div = $('#edit-terms-wrapper');
+    if(!term_div) return;
+    if(elem.options[elem.selectedIndex].value == 'categorize'){
+      term_div.show();
+    }  else {
+      term_div.hide();
+    }
+  }
+EOT;
+}
+
+?>

@@ -1,0 +1,11 @@
+; $Id $
+name = Node Extended Stats Views
+description = "Allows for the integration of content view and comment counts for arbitary time periods in Views"
+version = 1.0
+dependencies = node_extended_stats views
+
+; Information added by drupal.org packaging script on 2008-11-20
+version = "5.x-1.0"
+project = "node_extended_stats"
+datestamp = "1227163817"
+

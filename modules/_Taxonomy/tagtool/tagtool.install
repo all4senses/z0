@@ -1,0 +1,11 @@
+<?php
+function tagtool_install(){
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("UPDATE {system} SET weight = 10 WHERE name = 'tagtool'");
+      break;      
+  }
+  drupal_set_message(t('Module tagtool weight updated.'));
+}
+?>

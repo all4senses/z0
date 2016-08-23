@@ -1,0 +1,11 @@
+; $Id$
+name = Payment Method Adjustments
+description = Associate a fee or discount with a payment method at checkout.
+dependencies = uc_cart uc_payment
+package = Ubercart - payment
+
+; Information added by drupal.org packaging script on 2008-04-30
+version = "5.x-1.0"
+project = "uc_pma"
+datestamp = "1209579313"
+

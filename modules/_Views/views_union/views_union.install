@@ -1,0 +1,58 @@
+<?php
+
+function views_union_install() {
+  drupal_set_message(t("Installing views_union_install."));
+  
+  switch($GLOBALS['db_type']) {
+  case 'mysqli':
+  case 'mysql':
+    db_query("CREATE TABLE IF NOT EXISTS {views_union} (
+      id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+      parent INT UNSIGNED NOT NULL,
+      child  INT UNSIGNED NOT NULL,
+      lim    INT UNSIGNED,
+      ignore_on_filter INT(1),
+      PRIMARY KEY (id),
+      INDEX (parent),
+      INDEX (child)
+      ) /*!40100 DEFAULT CHARACTER SET utf8 */");
+    break;
+    
+  case 'pgsql':
+    db_query("CREATE TABLE {views_union} (
+      id serial primary key,
+      parent integer not null,
+      child  integer not null,
+      lim    integer,
+      ignore_on_filter integer
+      )");
+    db_query("CREATE INDEX {views_union}_parent_idx on {views_union} (parent)");
+    db_query("CREATE INDEX {views_union}_child_idx on {views_union} (child)");
+    break;
+  } // switch db_type
+
+  $result = db_query(
+      "SELECT MIN(weight) AS minweight FROM {system} WHERE type='module'");
+  $row = db_fetch_array($result);
+  $my_weight = min(-9999, -2*(abs($row['minweight'])));
+
+  db_query("UPDATE {system} SET weight='%d' 
+            WHERE type='module' AND name='views_union'",
+           array($my_weight));
+} // function views_union_install
+
+
+/**
+ * Implementation of hook_uninstall.
+ */
+function views_union_uninstall() {
+  db_query('DROP TABLE {views_union}');
+  drupal_set_message(t('Views Union has been successfully uninstalled.'));
+
+  if ($GLOBALS['db_type'] == 'pgsql') {
+    db_query("DROP INDEX {views_union}_parent_idx");
+    db_query("DROP INDEX {views_union}_child_idx");
+    db_query("DROP SEQUENCE {views_union}_id_seq");
+  } // if it's postgres, we have to drop all these things too
+} // function views_union_uninstall
+

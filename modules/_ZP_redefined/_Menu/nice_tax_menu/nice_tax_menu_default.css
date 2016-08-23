@@ -1,0 +1,120 @@
+/* $Id: nice_tax_menu_default.css,v 1.1.2.1 2009/03/01 07:20:55 jenlampton Exp $ */
+
+/******************************
+ Global CSS for ALL menu types
+******************************/
+
+ul.ddmenu,
+ul.ddmenu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid #ccc;
+}
+
+ul.ddmenu li {
+  border: 1px solid #ccc;
+  border-top: 0;
+  float: left;
+  background-color: #eee;
+  /* Additional overrides to deal with Garland theme. */
+  margin: 0;
+  padding-left: 0;
+  background-image: none;
+}
+
+ul.ddmenu a {
+  padding: 0.3em 5px 0.3em 5px;
+}
+
+ul.ddmenu ul {
+  top: 1.8em;
+  left: -1px;
+  border: 0;
+  border-top: 1px solid #ccc;
+  margin-right: 0;
+}
+
+ul.ddmenu ul li {
+  width: 12.5em;
+}
+
+/******************************
+ VERTICAL (left/right) menus
+******************************/
+
+/* This is the default width of all vertical menus. */
+ul.ddmenu-right, ul.ddmenu-left,
+ul.ddmenu-right li, ul.ddmenu-left li {
+  width: 12.5em;
+}
+
+/* VERTICAL menus where submenus pop RIGHT (default). */
+ul.ddmenu-right ul {
+  width: 12.5em;
+  left: 12.5em;
+  top: -1px;
+}
+
+ul.ddmenu-right ul ul {
+  width: 12.5em;
+  left: 12.5em;
+  top: -1px;
+}
+
+
+/* VERTICAL menus where submenus pop LEFT. */
+ul.ddmenu-left li ul {
+  width: 12.5em;
+  left: -12.65em;
+  top: -1px;
+}
+
+ul.ddmenu-left li ul li ul {
+  width: 12.5em;
+  left: -12.65em;
+  top: -1px;
+}
+
+
+
+
+ul.ddmenu-left a, ul.ddmenu-left ul a {
+  padding-left: 14px;
+}
+
+/******************************
+ HORIZONTAL (down) menus
+******************************/
+
+ul.ddmenu-down {
+  float: left;
+  border: 0;
+}
+
+ul.ddmenu-down li {
+  border-top: 1px solid #ccc;
+}
+
+ul.ddmenu-down li li {
+  border-top: 0;
+}
+
+ul.ddmenu-down ul {
+  left: 0;
+}
+
+ul.ddmenu-down ul li {
+  clear: both;
+}
+
+ul.ddmenu-down li ul li ul,
+/* Repeat for Garland header. */
+#header-region ul.ddmenu-down li ul li ul {
+  left: 12.5em;
+  top: -1px;
+}
+
+ul.ddmenu-down .menuparent a {
+  padding-right: 15px;
+}

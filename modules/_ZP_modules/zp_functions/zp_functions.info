@@ -1,0 +1,12 @@
+; $Id: uc_order.info,v 1.5.2.2 2008/07/29 22:22:44 rszrama Exp $
+
+name = ZP Functions
+description = Different zp functions
+package = ZP Modules
+
+
+; Information added by drupal.org packaging script on 2009-01-16
+version = "5.x-1.7"
+project = "zp_functions"
+datestamp = "1232145342"
+

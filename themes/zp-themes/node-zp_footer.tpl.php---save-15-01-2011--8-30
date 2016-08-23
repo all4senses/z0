@@ -1,0 +1,206 @@
+<!-- <div id="test">footer my 1</div> -->
+
+
+	<!-- <div id = "home_link"> -->
+		<a  rel="nofollow" id="home_link" href="http://www.zapokupkami.com">	
+			<div class="text1">Удобная Служба Доставки</div>
+			<div id="test">За Покупками!</div>
+			<div class="text2">в Ваши любимые магазины!</div>
+		</a>
+	<!-- </div> -->
+
+
+
+<?php
+
+if(arg(1) == MY_HOME_PAGE_NODE_NUM) // если домашняя страница, открываем тег с классом home
+	echo '<div class="home">';
+
+
+	
+	//echo '<div id="current_place">' . 'Выбрать город, <br/>район, магазин' . '</div>';
+	echo $cities_menu;
+
+	if($welcome)
+	{
+		
+
+		echo $welcome;
+	}
+	
+	if($current_page_info)
+		print '<div id="current_page_info">' . $current_page_info . '</div>';
+	else
+	{
+		if($explain)
+			print $explain;
+		else 
+			print '<div id="welcome"><div class="caption">' . 'Ваша Персональная Служба Доставки' . '</div>' . 'продуктов и других товаров или услуг 
+из известных Вам магазинов и прочих заведений  к Вам домой или в офис.' . '</div>';
+	}
+
+	
+	
+/*
+if(arg(1) == MY_HOME_PAGE_NODE_NUM) // если домашняя страница, закрываем тег с классом home
+		echo '</div>';
+	else // выводим логотип (вернее, заглавную картинку по магазину, которая может содержать и логотип, и иллюстрацию)
+	{
+		if(file_exists($_SERVER['DOCUMENT_ROOT'] . base_path() . 'files/shops/' . $shop_id . '/' . $shop_id . '-header-pic.jpg')) // если файл существует
+			echo '<div id="shop_logo_upmenu">' . theme('imagecache', 'shop_header_pic', base_path() . 'files/shops/' . $shop_id . '/' . $shop_id . '-header-pic.jpg') . '</div>'; //, $attributes); 
+		else
+			echo '<div id="main_pic_default"></div>';
+	}
+*/
+
+	
+
+	if(arg(1) != MY_HOME_PAGE_NODE_NUM) // если домашняя страница, закрываем тег с классом home
+	// выводим логотип (вернее, заглавную картинку по магазину, которая может содержать и логотип, и иллюстрацию)
+	{
+		if(file_exists($_SERVER['DOCUMENT_ROOT'] . base_path() . 'files/shops/' . $shop_id . '/' . $shop_id . '-header-pic.jpg')) // если файл существует
+			echo '<div id="shop_logo_upmenu">' . theme('imagecache', 'shop_header_pic', base_path() . 'files/shops/' . $shop_id . '/' . $shop_id . '-header-pic.jpg') . '</div>'; //, $attributes); 
+		else
+			echo '<div id="main_pic_default"></div>';
+	}
+
+	echo '<!-- <div class="test">user menu</div> -->';
+	echo $user_menu;
+	
+	echo '<!-- <div class="test">first menu</div> -->';
+	echo $first_menu;
+	
+	
+	
+	// этот блок выносим в саааааамый конец, чтобы большая часть страницы загрузилась, а потом уже и большое меню
+	/*
+	echo '<!-- <div class="test">second menu</div> -->';
+	echo $second_menu;
+
+	
+	if(arg(1) == MY_HOME_PAGE_NODE_NUM)
+		echo '</div>';	
+	
+	*/
+	
+?>
+
+
+
+
+
+<div id = "footer_back1"> 
+
+<div class="footer">
+
+	<?php
+	
+	echo '<div class="copy"><a href="' . $node->field_links[0]['url'] . '">' . $node->field_links[0]['title'] . '</a></div>';
+	
+	echo $node->content['body']['#value'];
+	
+	echo '<div id="block1">';
+		echo '<a href="' . $node->field_links[1]['url'] . '">' . $node->field_links[1]['title'] . '</a><br>';
+		
+	echo '</div>';
+	
+	echo '<div id="block2">';
+		echo '<a href="' . $node->field_links[2]['url'] . '">' . $node->field_links[2]['title'] . '</a><br>';
+		echo '<a href="' . $node->field_links[3]['url'] . '">' . $node->field_links[3]['title'] . '</a><br>';
+		echo '<a href="' . $node->field_links[4]['url'] . '">' . $node->field_links[4]['title'] . '</a><br>';
+		echo '<a href="' . $node->field_links[5]['url'] . '">' . $node->field_links[5]['title'] . '</a><br>';
+	echo '</div>';
+	
+	
+	
+	
+	?>
+
+
+
+</div>
+
+</div>
+
+
+
+
+<?php
+
+	echo '<!-- <div class="test">second menu</div> -->';
+	echo $second_menu;
+
+	
+	if(arg(1) == MY_HOME_PAGE_NODE_NUM)
+		echo '</div>';	
+		
+		
+		
+
+// добавим возможность переключения видимости блоков на страницу
+zp_block_toggle_start(); 
+
+
+// добавим предупреждение о том, что пользователь был выгружен из системы после определённого заданного в системе времени бездействия  
+if($time = $_GET['alo'])
+	{
+  
+  		//drupal_add_js(drupal_get_path('module', 'autologout') .'/autologout.js');
+  		
+   		//drupal_add_js('alert("Drupal Owns You")', 'inline');
+  
+   		drupal_add_js(	'$(document).ready(
+   											function() 
+   											{
+   												alert("В целях безопасности после ' . $time . 'мин бездействия Вы были выгружены из своей учётной записи. Для продолжения полноценного использования сайта, пожалуйста, авторизуйтесь заново (верхний правый угол экрана).");
+  											}
+  									   );', 
+  				'inline');
+  
+	}		
+
+
+
+	// superfish для меню
+	drupal_add_css('sites/all/modules/_Menu/superfish/css/superfish.css');
+    drupal_add_js('sites/all/modules/_Menu/superfish/js/hoverIntent.js'); 
+    drupal_add_js('sites/all/modules/_Menu/superfish/js/superfish.js'); 
+    
+    
+    
+     // блок AddThis
+    drupal_add_js('sites/all/modules/_SEO/addthis/addthis-config.js');
+?>
+	<div class="addthis_toolbox addthis_default_style">
+		<a href="http://addthis.com/bookmark.php?v=250&amp;pub=all4senses" class="addthis_button_compact">В закладки!</a>
+		<a class="addthis_button_email" title="Переслать ссылку на эту страницу по E-mail"></a>
+		<!-- <a class="addthis_button_print" title="Напечатать эту страницу"></a> -->
+	</div>
+	<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pub=all4senses"></script>
+	<!-- AddThis Button END -->
+	
+
+	
+	<script type="text/javascript">
+	
+		// js for superfish menu
+		// initialise plugins
+		jQuery(function(){
+			jQuery('ul.sf-menu').superfish(
+				{
+					delay:       1000,                            // one second delay on mouseout 
+            		//animation:   {opacity:'show',height:'show'},  // fade-in and slide-down animation 
+            		//speed:       'fast',                          // faster animation speed 
+            		speed:       50,                          // faster animation speed 
+            		//autoArrows:  false,                           // disable generation of arrow mark-up 
+            		//disableHI:     true, 
+            		//pathLevels:    3,  
+            		dropShadows: false 
+				
+				
+				}
+		
+			);
+		});
+
+	</script>
